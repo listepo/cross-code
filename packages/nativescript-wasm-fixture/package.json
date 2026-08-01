@@ -11,7 +11,9 @@
       "import": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./types": "./test-types/pkg",
+    "./types.wasm": "./test-types/pkg/test_types_bg.wasm"
   },
   "nx": {
     "name": "nativescript-wasm-fixture"

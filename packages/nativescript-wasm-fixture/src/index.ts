@@ -1,1 +1,1 @@
-export * from './lib/nativescript-wasm-fixture.js';
+export * from './test-types/pkg/test_types.js';
