@@ -1,6 +1,7 @@
 {
   "name": "@org/nativescript-wasm3",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "description": "NativeScript plugin that runs WebAssembly modules with the wasm3 interpreter — Swift Package (C interop) on iOS, Kotlin + JavaCPP-generated JNI bindings on Android.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -16,7 +17,33 @@
   },
   "files": [
     "dist",
+    "nativescript.config.ts",
+    "platforms/ios/NSCWasm3/Package.swift",
+    "platforms/ios/NSCWasm3/Sources",
+    "platforms/android/include.gradle",
+    "platforms/android/nativescript-wasm3.aar",
     "!**/*.tsbuildinfo"
+  ],
+  "nativescript": {
+    "platforms": {
+      "ios": "8.6.0",
+      "android": "8.6.0"
+    }
+  },
+  "scripts": {
+    "fixtures": "node tools/gen-fixtures.mjs && node tools/sync-wasm3.mjs",
+    "sync.vendors": "node tools/sync-wasm3.mjs",
+    "test.ios": "cd platforms/ios/NSCWasm3 && swift test",
+    "test.android": "cd platforms/android/wasm3-android && ./gradlew :hosttest:test",
+    "build.android": "cd platforms/android/wasm3-android && ./gradlew :library:deployAar"
+  },
+  "keywords": [
+    "NativeScript",
+    "WebAssembly",
+    "wasm",
+    "wasm3",
+    "ios",
+    "android"
   ],
   "nx": {
     "name": "nativescript-wasm3"

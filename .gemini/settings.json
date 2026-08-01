@@ -3,8 +3,48 @@
     "nx-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["nx", "mcp"]
+      "args": [
+        "nx",
+        "mcp"
+      ]
+    },
+    "code-review-graph": {
+      "command": "/opt/homebrew/opt/python@3.14/bin/python3.14",
+      "args": [
+        "-m",
+        "code_review_graph",
+        "serve"
+      ],
+      "cwd": "/Users/listepo/GitHub/cross-code"
     }
   },
-  "contextFileName": "AGENTS.md"
+  "contextFileName": "AGENTS.md",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .gemini/hooks/crg-session-start.sh",
+            "name": "code-review-graph status",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "write_file|replace",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .gemini/hooks/crg-update.sh",
+            "name": "code-review-graph update",
+            "timeout": 30000
+          }
+        ]
+      }
+    ]
+  }
 }
