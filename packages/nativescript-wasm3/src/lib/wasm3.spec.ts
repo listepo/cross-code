@@ -98,7 +98,7 @@ function installAndroidFake() {
     memorySize = () => state.memory.length;
     readMemory = (offset: number, length: number) => {
       // Java byte[] surfaces as an indexable object with signed bytes.
-      const view = state.memory.subarray(offset, offset + length);
+      const view: Uint8Array = state.memory.subarray(offset, offset + length);
       return Array.from(view, (v) => (v > 127 ? v - 256 : v));
     };
     writeMemory = (offset: number, bytes: any) => {

@@ -12,8 +12,17 @@
       "default": "./src/index.ts"
     },
     "./package.json": "./package.json",
-    "./types": "./test-types/pkg",
-    "./types.wasm": "./test-types/pkg/test_types_bg.wasm"
+    "./types": {
+      "types": "./src/test-types/pkg/test_types.d.ts",
+      "import": "./src/test-types/pkg/test_types.js",
+      "default": "./src/test-types/pkg/test_types.js"
+    },
+    "./types.wasm": "./src/test-types/pkg/test_types_bg.wasm",
+    "./globals.wasm": "./src/test-types/pkg/globals.wasm"
+  },
+  "scripts": {
+    "build.wasm": "wasm-pack build src/test-types --target bundler --out-dir pkg && rm -f src/test-types/pkg/.gitignore && cargo run --quiet --manifest-path src/test-types/Cargo.toml --bin gen_globals -- src/test-types/pkg",
+    "test.wasm": "cargo test --manifest-path src/test-types/Cargo.toml"
   },
   "nx": {
     "name": "nativescript-wasm-fixture"

@@ -1,78 +1,64 @@
-<div align="center">
+# test-types
 
-  <h1><code>wasm-pack-template</code></h1>
+The Rust crate behind `@org/nativescript-wasm-fixture`. Scaffolded from
+[`wasm-pack-template`](https://rustwasm.github.io/docs/wasm-pack/), then filled
+with fixtures for the wasm3 NativeScript plugin.
 
-  <strong>A template for kick starting a Rust and WebAssembly project using <a href="https://github.com/rustwasm/wasm-pack">wasm-pack</a>.</strong>
-
-  <h3>
-    <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">Tutorial</a>
-    <span> | </span>
-    <a href="https://discordapp.com/channels/442252698964721669/443151097398296587">Chat</a>
-  </h3>
-
-  <sub>Built with Rust and WebAssembly by <a href="https://rustwasm.github.io/">The Rust and WebAssembly Working Group</a></sub>
-</div>
-
-## About
-
-[Read this template tutorial][template-docs].
-
-This template is designed for compiling Rust libraries into WebAssembly and
-publishing the resulting package to NPM.
-
-Be sure to check out [other `wasm-pack` tutorials online][tutorials] for other
-templates and usages of `wasm-pack`.
-
-[tutorials]: https://rustwasm.github.io/docs/wasm-pack/tutorials/index.html
-[template-docs]: https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html
-
-## Usage
-
-### Use `wasm-pack new` to Clone this Template
+## Layout
 
 ```
-wasm-pack new my-project
-cd my-project
+src/lib.rs                 the fixture exports, and `pub mod globals`
+src/bin/gen_globals.rs     writes globals.wasm; the bytes come from `globals`
+tests/web.rs               wasm-bindgen-test placeholder (wasm32 only)
 ```
 
-### Build with `wasm-pack build`
+### `lib.rs` — the fixture module
 
+Every value type (i32, i64, f32, f64) in both export and import position, plus
+void functions, mixed-type arguments, mutable counters/accumulators and linear
+memory helpers. Compiled to `pkg/test_types_bg.wasm` by wasm-pack.
+
+Two details that are easy to undo by accident:
+
+- Exports use `#[wasm_bindgen]`, which keeps the plain Rust name as the raw wasm
+  export for all-numeric signatures — so wasm3 can find them by name.
+- Host imports are declared with a plain `extern "C"` block and
+  `#[link(wasm_import_module = "env")]`, **not** through wasm-bindgen. A
+  `#[wasm_bindgen] extern` block is rewritten into the `wbg` namespace and bound
+  to generated JS glue, which a bare wasm3 embedder cannot supply.
+
+### `globals` — the `globals.wasm` generator
+
+wasm3's `getGlobal` / `setGlobal` need a module that exports *mutable* globals,
+which Rust cannot emit: `static mut` lowers to a linear-memory data symbol, not
+a wasm global. So `pub mod globals` assembles the module by hand — LEB128
+encoding, section framing, one mutable global per value type — and returns the
+bytes. `gen_globals` only writes them to disk, which keeps the encoder
+unit-testable on the host:
+
+```bash
+cargo test
 ```
-wasm-pack build
+
+The tests cover the LEB128 encoders (including the canonical spec examples and
+a round trip), section framing, and the layout of the produced module: magic
+number, section order, four mutable globals with the right types and
+initializers, and an export table that maps each name to its global index.
+
+## Building
+
+From `packages/nativescript-wasm-fixture`:
+
+```bash
+npm run build.wasm
 ```
 
-### Test in Headless Browsers with `wasm-pack test`
-
-```
-wasm-pack test --headless --firefox
-```
-
-### Publish to NPM with `wasm-pack publish`
-
-```
-wasm-pack publish
-```
-
-## Batteries Included
-
-* [`wasm-bindgen`](https://github.com/rustwasm/wasm-bindgen) for communicating
-  between WebAssembly and JavaScript.
-* [`console_error_panic_hook`](https://github.com/rustwasm/console_error_panic_hook)
-  for logging panic messages to the developer console.
-* `LICENSE-APACHE` and `LICENSE-MIT`: most Rust projects are licensed this way, so these are included for you.
+That runs `wasm-pack build` and then `gen_globals` — in that order, because
+wasm-pack clears `pkg/` before it writes. Running `cargo run --bin gen_globals`
+by itself is fine too; it defaults to writing into `pkg/`.
 
 ## License
 
-Licensed under either of
-
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
-
-### Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally
-submitted for inclusion in the work by you, as defined in the Apache-2.0
-license, shall be dual licensed as above, without any additional terms or
-conditions.
+Dual-licensed under Apache-2.0 or MIT, at your option — see the
+[wasm-pack-template](https://github.com/rustwasm/wasm-pack-template) this crate
+was generated from.

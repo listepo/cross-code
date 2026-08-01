@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "types": ["vitest/globals", "node"],
+    "moduleResolution": "bundler",
+    "module": "esnext"
+  },
+  "files": [],
+  "include": ["tests/**/*.ts", "app/wasm/**/*.ts", "vitest.config.mts"],
+  "exclude": ["node_modules", "platforms"]
+}

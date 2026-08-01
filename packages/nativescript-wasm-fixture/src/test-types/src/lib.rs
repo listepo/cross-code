@@ -173,3 +173,324 @@ pub const MEM_SCRATCH_LEN: i32 = 1024;
 #[wasm_bindgen] pub fn mem_read_i32(offset: i32) -> i32 {
     unsafe { *(offset as *const i32) }
 }
+
+// ── globals.wasm generator ────────────────────────────────────────────────────
+
+/// Hand-assembles `globals.wasm` — a minimal module with one mutable exported
+/// global per value type. Used to test `Wasm3Module.getGlobal()` /
+/// `setGlobal()` across all four supported types.
+///
+/// The module is hand-assembled rather than compiled because it needs exported
+/// *mutable* globals, which Rust has no stable way to emit: `static mut` lowers
+/// to a linear-memory data symbol, not a wasm global.
+///
+/// WAT equivalent:
+/// ```wat
+/// (module
+///   (global $g_i32 (export "g_i32") (mut i32) (i32.const 42))
+///   (global $g_i64 (export "g_i64") (mut i64) (i64.const 4294967296))
+///   (global $g_f32 (export "g_f32") (mut f32) (f32.const 1.5))
+///   (global $g_f64 (export "g_f64") (mut f64) (f64.const 3.14))
+/// )
+/// ```
+///
+/// Writing the bytes to disk is the job of the `gen_globals` binary; this
+/// module only builds them, so the encoding can be unit-tested on the host.
+pub mod globals {
+    // Value types.
+    const I32: u8 = 0x7F;
+    const I64: u8 = 0x7E;
+    const F32: u8 = 0x7D;
+    const F64: u8 = 0x7C;
+
+    // Global mutability flag, const opcodes, and end-of-expression.
+    const MUT: u8 = 0x01;
+    const I32_CONST: u8 = 0x41;
+    const I64_CONST: u8 = 0x42;
+    const F32_CONST: u8 = 0x43;
+    const F64_CONST: u8 = 0x44;
+    const END: u8 = 0x0B;
+
+    // Section ids and the "global" export kind.
+    const GLOBAL_SECTION: u8 = 6;
+    const EXPORT_SECTION: u8 = 7;
+    const EXPORT_KIND_GLOBAL: u8 = 0x03;
+
+    /// `\0asm` plus the version word — the eight bytes every module starts with.
+    pub const MAGIC_AND_VERSION: [u8; 8] = [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00];
+
+    /// Initial value of the exported `g_i32` global.
+    pub const G_I32: i32 = 42;
+    /// Initial value of `g_i64` — 2^32, unambiguously larger than any i32.
+    pub const G_I64: i64 = 4_294_967_296;
+    /// Initial value of `g_f32`.
+    pub const G_F32: f32 = 1.5;
+    /// Initial value of `g_f64`.
+    pub const G_F64: f64 = 3.14;
+
+    /// Exported global names, in export (and index) order.
+    pub const NAMES: [&str; 4] = ["g_i32", "g_i64", "g_f32", "g_f64"];
+
+    /// Unsigned LEB128.
+    fn uleb(mut n: u64) -> Vec<u8> {
+        let mut out = Vec::new();
+        loop {
+            let byte = (n as u8) & 0x7F;
+            n >>= 7;
+            if n != 0 {
+                out.push(byte | 0x80);
+            } else {
+                out.push(byte);
+                return out;
+            }
+        }
+    }
+
+    /// Signed LEB128.
+    fn sleb(mut n: i64) -> Vec<u8> {
+        let mut out = Vec::new();
+        loop {
+            let byte = (n as u8) & 0x7F;
+            n >>= 7; // arithmetic shift — sign-extends
+            let done = (n == 0 && byte & 0x40 == 0) || (n == -1 && byte & 0x40 != 0);
+            out.push(if done { byte } else { byte | 0x80 });
+            if done {
+                return out;
+            }
+        }
+    }
+
+    /// A section: id, byte length, payload.
+    fn section(id: u8, payload: &[u8]) -> Vec<u8> {
+        let mut out = vec![id];
+        out.extend_from_slice(&uleb(payload.len() as u64));
+        out.extend_from_slice(payload);
+        out
+    }
+
+    /// A length-prefixed UTF-8 name.
+    fn name_enc(s: &str) -> Vec<u8> {
+        let mut out = uleb(s.len() as u64);
+        out.extend_from_slice(s.as_bytes());
+        out
+    }
+
+    /// `(global (mut <ty>) (<ty>.const <init>))`
+    fn global(ty: u8, const_op: u8, init: &[u8]) -> Vec<u8> {
+        let mut out = vec![ty, MUT, const_op];
+        out.extend_from_slice(init);
+        out.push(END);
+        out
+    }
+
+    /// The complete `globals.wasm` binary.
+    pub fn globals_wasm() -> Vec<u8> {
+        let bodies = [
+            global(I32, I32_CONST, &sleb(G_I32 as i64)),
+            global(I64, I64_CONST, &sleb(G_I64)),
+            global(F32, F32_CONST, &G_F32.to_le_bytes()),
+            global(F64, F64_CONST, &G_F64.to_le_bytes()),
+        ];
+
+        let mut global_payload = uleb(bodies.len() as u64);
+        for body in &bodies {
+            global_payload.extend_from_slice(body);
+        }
+
+        let mut export_payload = uleb(NAMES.len() as u64);
+        for (index, name) in NAMES.iter().enumerate() {
+            export_payload.extend_from_slice(&name_enc(name));
+            export_payload.push(EXPORT_KIND_GLOBAL);
+            export_payload.extend_from_slice(&uleb(index as u64));
+        }
+
+        let mut wasm = MAGIC_AND_VERSION.to_vec();
+        wasm.extend_from_slice(&section(GLOBAL_SECTION, &global_payload));
+        wasm.extend_from_slice(&section(EXPORT_SECTION, &export_payload));
+        wasm
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// Reads a ULEB128 back, returning the value and the bytes consumed.
+        fn read_uleb(bytes: &[u8]) -> (u64, usize) {
+            let mut value = 0u64;
+            let mut shift = 0;
+            for (i, byte) in bytes.iter().enumerate() {
+                value |= u64::from(byte & 0x7F) << shift;
+                if byte & 0x80 == 0 {
+                    return (value, i + 1);
+                }
+                shift += 7;
+            }
+            panic!("truncated ULEB128");
+        }
+
+        #[test]
+        fn uleb_encodes_single_byte_values_verbatim() {
+            assert_eq!(uleb(0), [0x00]);
+            assert_eq!(uleb(1), [0x01]);
+            assert_eq!(uleb(42), [42]);
+            assert_eq!(uleb(127), [0x7F]);
+        }
+
+        #[test]
+        fn uleb_continues_past_seven_bits() {
+            assert_eq!(uleb(128), [0x80, 0x01]);
+            assert_eq!(uleb(300), [0xAC, 0x02]);
+            // The canonical example from the LEB128 spec.
+            assert_eq!(uleb(624_485), [0xE5, 0x8E, 0x26]);
+        }
+
+        #[test]
+        fn uleb_round_trips() {
+            for n in [0u64, 1, 63, 64, 127, 128, 255, 4096, 624_485, u64::from(u32::MAX)] {
+                let encoded = uleb(n);
+                assert_eq!(read_uleb(&encoded), (n, encoded.len()), "n = {n}");
+            }
+        }
+
+        #[test]
+        fn sleb_keeps_the_sign_bit_clear_for_positives() {
+            assert_eq!(sleb(0), [0x00]);
+            assert_eq!(sleb(42), [42]);
+            // 64 sets bit 6, which reads as negative — so a zero byte follows.
+            assert_eq!(sleb(64), [0xC0, 0x00]);
+        }
+
+        #[test]
+        fn sleb_sign_extends_negatives() {
+            assert_eq!(sleb(-1), [0x7F]);
+            assert_eq!(sleb(-64), [0x40]);
+            // The canonical example from the LEB128 spec.
+            assert_eq!(sleb(-123_456), [0xC0, 0xBB, 0x78]);
+        }
+
+        #[test]
+        fn sleb_encodes_values_beyond_i32() {
+            // 2^32 needs five groups of seven bits.
+            assert_eq!(sleb(4_294_967_296), [0x80, 0x80, 0x80, 0x80, 0x10]);
+            assert_eq!(sleb(i64::MIN).len(), 10);
+            assert_eq!(sleb(i64::MAX).len(), 10);
+        }
+
+        #[test]
+        fn section_prefixes_id_and_payload_length() {
+            assert_eq!(section(6, &[0xAA, 0xBB]), [6, 2, 0xAA, 0xBB]);
+            // A payload over 127 bytes takes a multi-byte length.
+            let big = section(7, &vec![0u8; 200]);
+            assert_eq!(&big[..3], [7, 0xC8, 0x01]);
+            assert_eq!(big.len(), 203);
+        }
+
+        #[test]
+        fn name_enc_length_prefixes_utf8() {
+            assert_eq!(name_enc("g_i32"), [5, b'g', b'_', b'i', b'3', b'2']);
+            assert_eq!(name_enc(""), [0]);
+        }
+
+        #[test]
+        fn global_lays_out_type_mutability_and_init_expression() {
+            assert_eq!(
+                global(I32, I32_CONST, &sleb(42)),
+                [I32, MUT, I32_CONST, 42, END]
+            );
+            assert_eq!(
+                global(F32, F32_CONST, &1.5f32.to_le_bytes()),
+                [F32, MUT, F32_CONST, 0x00, 0x00, 0xC0, 0x3F, END]
+            );
+        }
+
+        #[test]
+        fn module_starts_with_the_magic_number_and_version() {
+            let wasm = globals_wasm();
+            assert_eq!(&wasm[..4], b"\0asm");
+            assert_eq!(&wasm[..8], &MAGIC_AND_VERSION);
+        }
+
+        #[test]
+        fn module_contains_only_the_global_and_export_sections() {
+            let wasm = globals_wasm();
+            let mut ids = Vec::new();
+            let mut cursor = MAGIC_AND_VERSION.len();
+            while cursor < wasm.len() {
+                ids.push(wasm[cursor]);
+                let (len, read) = read_uleb(&wasm[cursor + 1..]);
+                cursor += 1 + read + len as usize;
+            }
+            assert_eq!(cursor, wasm.len(), "section lengths must cover the module");
+            assert_eq!(ids, [GLOBAL_SECTION, EXPORT_SECTION]);
+        }
+
+        #[test]
+        fn global_section_declares_four_mutable_globals_with_typed_initializers() {
+            let wasm = globals_wasm();
+            let payload = section_payload(&wasm, GLOBAL_SECTION);
+
+            let (count, mut cursor) = read_uleb(&payload);
+            assert_eq!(count, 4);
+
+            let expected: [(u8, u8, Vec<u8>); 4] = [
+                (I32, I32_CONST, sleb(G_I32 as i64)),
+                (I64, I64_CONST, sleb(G_I64)),
+                (F32, F32_CONST, G_F32.to_le_bytes().to_vec()),
+                (F64, F64_CONST, G_F64.to_le_bytes().to_vec()),
+            ];
+            for (ty, const_op, init) in expected {
+                assert_eq!(payload[cursor], ty, "value type");
+                assert_eq!(payload[cursor + 1], MUT, "globals must be mutable");
+                assert_eq!(payload[cursor + 2], const_op, "const opcode");
+                assert_eq!(&payload[cursor + 3..cursor + 3 + init.len()], &init[..]);
+                cursor += 3 + init.len();
+                assert_eq!(payload[cursor], END, "init expression must be terminated");
+                cursor += 1;
+            }
+            assert_eq!(cursor, payload.len());
+        }
+
+        #[test]
+        fn export_section_maps_each_name_to_its_global_index() {
+            let wasm = globals_wasm();
+            let payload = section_payload(&wasm, EXPORT_SECTION);
+
+            let (count, mut cursor) = read_uleb(&payload);
+            assert_eq!(count as usize, NAMES.len());
+
+            for (index, name) in NAMES.iter().enumerate() {
+                let (len, read) = read_uleb(&payload[cursor..]);
+                cursor += read;
+                assert_eq!(&payload[cursor..cursor + len as usize], name.as_bytes());
+                cursor += len as usize;
+                assert_eq!(payload[cursor], EXPORT_KIND_GLOBAL, "export kind");
+                cursor += 1;
+                let (exported_index, read) = read_uleb(&payload[cursor..]);
+                assert_eq!(exported_index as usize, index);
+                cursor += read;
+            }
+            assert_eq!(cursor, payload.len());
+        }
+
+        #[test]
+        fn globals_wasm_is_deterministic() {
+            assert_eq!(globals_wasm(), globals_wasm());
+        }
+
+        /// Returns the payload of the first section with `id`.
+        fn section_payload(wasm: &[u8], id: u8) -> &[u8] {
+            let mut cursor = MAGIC_AND_VERSION.len();
+            while cursor < wasm.len() {
+                let section_id = wasm[cursor];
+                let (len, read) = read_uleb(&wasm[cursor + 1..]);
+                let start = cursor + 1 + read;
+                let end = start + len as usize;
+                if section_id == id {
+                    return &wasm[start..end];
+                }
+                cursor = end;
+            }
+            panic!("section {} not found", id);
+        }
+    }
+}
