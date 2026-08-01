@@ -4,7 +4,6 @@
   "license": "MIT",
   "scripts": {},
   "private": true,
-  "dependencies": {},
   "devDependencies": {
     "@nx/js": "23.1.0",
     "@nx/vitest": "23.1.0",
@@ -19,7 +18,8 @@
     "typescript": "~6.0.3",
     "verdaccio": "^6.3.2",
     "vite": "^8.0.0",
-    "vitest": "~4.1.0"
+    "vitest": "~4.1.0",
+    "zx": "^8.8.5"
   },
   "workspaces": [
     "packages/*"

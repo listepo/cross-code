@@ -8,7 +8,7 @@ import org.bytedeco.javacpp.tools.InfoMapper;
 
 /**
  * JavaCPP configuration used to auto-generate the JNI bindings for the wasm3
- * C API (see the plugin's build-native.sh). The generated classes land in
+ * C API (see the plugin's build-native.mjs). The generated classes land in
  * {@code org.wasm3} with the C functions on {@code org.wasm3.global.wasm3}.
  */
 @Properties(

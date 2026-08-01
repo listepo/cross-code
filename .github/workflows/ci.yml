@@ -167,6 +167,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Gradle shells out to build-native.mjs (zx) to generate the bindings and
+      # compile wasm3, so the native build needs Node and the root node_modules.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - run: npm ci
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
