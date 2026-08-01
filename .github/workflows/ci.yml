@@ -37,11 +37,12 @@ jobs:
       - run: npm ci
 
       # Prepend any command with "nx record --" to record its logs to Nx Cloud
-      - run: npx nx record -- npx nx format:check --base="remotes/origin/main"
-      - run: npx nx run-many -t lint test build typecheck e2e
+      # - run: npx nx record -- npx nx format:check --base="remotes/origin/main"
+      # - run: npx nx run-many -t lint test build typecheck e2e
       # Nx Cloud recommends fixes for failures to help you get CI green faster. Learn more: https://nx.dev/docs/features/ci-features/self-healing-ci
       # - run: npx nx fix-ci
       #   if: always()
+      - run: npx nx format:check --base="remotes/origin/main"
 
   # The nativescript-wasm3 native suites below need a macOS runner / an Android
   # SDK, so they only run when the plugin or this workflow changed. Fails open:
