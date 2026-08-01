@@ -2,6 +2,13 @@
   "extends": "./tsconfig.base.json",
   "compileOnSave": false,
   "files": [],
-  "references": [],
+  "references": [
+    {
+      "path": "./packages/nativescript-wasm3"
+    },
+    {
+      "path": "./packages/nativescript-wasm-fixture"
+    }
+  ],
   "compilerOptions": {}
 }

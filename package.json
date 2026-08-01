@@ -7,16 +7,34 @@
   "dependencies": {},
   "devDependencies": {
     "@nx/js": "23.1.0",
+    "@nx/vitest": "23.1.0",
     "@swc-node/register": "1.11.1",
     "@swc/core": "1.15.8",
     "@swc/helpers": "0.5.18",
     "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "~4.1.0",
     "nx": "23.1.0",
     "prettier": "^3.8.1",
     "tslib": "^2.3.0",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "verdaccio": "^6.3.2",
+    "vite": "^8.0.0",
+    "vitest": "~4.1.0"
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "nx": {
+    "includedScripts": [],
+    "targets": {
+      "local-registry": {
+        "executor": "@nx/js:verdaccio",
+        "options": {
+          "port": 4873,
+          "config": ".verdaccio/config.yml",
+          "storage": "tmp/local-registry/storage"
+        }
+      }
+    }
+  }
 }
