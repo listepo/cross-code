@@ -1,7 +1,7 @@
 /target
 **/*.rs.bk
 Cargo.lock
-bin/
+/bin/
 wasm-pack.log
 
 # pkg/ is deliberately NOT ignored: the wasm-pack output is committed so the
