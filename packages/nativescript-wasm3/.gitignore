@@ -1,0 +1,10 @@
+# native build outputs
+platforms/ios/NSCWasm3/.build
+platforms/android/wasm3-android/.gradle
+platforms/android/wasm3-android/build
+platforms/android/wasm3-android/library/build
+platforms/android/wasm3-android/hosttest/build
+
+# vitest
+test-output
+platforms/android/wasm3-android/local.properties

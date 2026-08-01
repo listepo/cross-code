@@ -21,3 +21,11 @@
 - The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
 
 <!-- nx configuration end-->
+
+## NativeScript
+
+- Docs: https://docs.nativescript.org (append .md to any URL for markdown)
+- Docs index: https://docs.nativescript.org/llms.txt
+- MCP server: https://docs.nativescript.org/mcp
+- Verify current API signatures via the API reference before writing code:
+  https://docs.nativescript.org/api/
