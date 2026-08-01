@@ -1,10 +1,9 @@
 /**
- * The WebAssembly exercise shared by the on-device demo page and the vitest
- * specs in `tests/`.
+ * The WebAssembly exercise shared by the on-device demo page and the mocha
+ * specs in `app/tests/`.
  *
- * Nothing here imports `@nativescript/core`, so the same checks that run
- * against wasm3 on a device run against Node's own WebAssembly engine under
- * vitest — see `tests/support/native-fake.ts`.
+ * Both run on the device's own wasm3 interpreter: the demo page renders the
+ * checks, `ns test` asserts on them.
  *
  * The module under test is `@org/nativescript-wasm-fixture` (Rust, built with
  * wasm-pack); its generated `.d.ts` is what types `callFixture` below.

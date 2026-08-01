@@ -18,7 +18,10 @@
   },
   "include": ["app/**/*"],
   "files": ["./references.d.ts"],
-  "exclude": ["node_modules", "platforms"],
+  // The mocha specs and their entry point are the app's *test* build — they need
+  // the mocha/chai globals, so tsconfig.spec.json owns them. Webpack does the
+  // same split: @nativescript/unit-test-runner ignores them unless env.unitTesting.
+  "exclude": ["node_modules", "platforms", "app/test.ts", "app/**/*.spec.ts"],
   "references": [
     {
       "path": "../../packages/nativescript-wasm-fixture"

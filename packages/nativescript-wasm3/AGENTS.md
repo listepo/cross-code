@@ -50,12 +50,25 @@ The NativeScript CLI 8.6+ merges a plugin's own `nativescript.config.ts` into
 the consuming app. The plugin declares:
 
 ```ts
-ios: { SPMPackages: [{ name: 'NSCWasm3', libs: ['NSCWasm3'], path: './platforms/ios/NSCWasm3' }] }
+ios: { SPMPackages: [{ name: 'NSCWasm3', libs: ['NSCWasm3'], path: `${__dirname}/platforms/ios/NSCWasm3` }] }
 ```
 
-Path resolution: app-first, then plugin-relative (same as NativeScript CLI
-`lib/services/ios-project-service.ts`). Don't use paths that might collide with
-names in the app (e.g. a bare `platforms/ios`).
+**The path must be absolute.** There is no plugin-relative resolution:
+`ios-project-service.js` collects a plugin's `SPMPackages` entries verbatim, and
+`spm-service.js` then resolves each one against the *app*:
+
+```js
+pkg.path = path.resolve(projectData.projectDir, pkg.path);
+```
+
+A relative `./platforms/ios/NSCWasm3` therefore points at
+`<app>/platforms/ios/NSCWasm3` — which is the CLI's own generated build folder,
+so the failure is the confusing `the package at … cannot be accessed`. The CLI
+loads this config with `Module.prototype._compile`, so `__dirname` is the
+plugin's install directory, and `path.resolve` leaves an absolute path alone.
+
+After changing this, delete the app's generated `platforms/ios` — the bad path
+is already written into `.pbxproj` and a rebuild alone will not correct it.
 
 ### 3. i64 losslessness
 
@@ -83,13 +96,51 @@ Don't let callers think it's safe to free or overwrite the bytes after loading.
 
 ### 5. Host import lifetime
 
-Host import callbacks must also outlive the runtime:
+Host import callbacks must also outlive the runtime — on **all three** levels:
 
 - iOS: `[HostContext]` array on `NSCWasm3Runtime`. `HostContext` holds the
   closure; the C trampoline receives an `Unmanaged` unretained pointer. The
   array keeps the context alive. 
 - Android: `val hostFunctions = mutableListOf<M3RawCall>()` on
   `NSCWasm3Runtime`. The list prevents GC.
+### OPEN BUG: host imports crash on iOS under NativeScript
+
+Calling into any linked host import from a NativeScript app segfaults on the
+first call:
+
+```
+EXC_BAD_ACCESS  KERN_INVALID_ADDRESS at 0x4
+  objc_retain
+  closure #1 in variable initialization expression of hostTrampoline
+  op_CallRawFunction  ←  m3_Call  ←  NSCWasm3Function.call(_:)
+```
+
+`objc_retain` is being handed a pointer of `0x4`, so the `HostContext` reached
+through `ctx.userdata` does not contain a valid block.
+
+Ruled out so far:
+
+- **wasm3's plumbing.** `op_CallRawFunction` (m3_exec.h) reads its immediates in
+  the same order `CompileRawFunction` (m3_compile.c:2254) emits them, and
+  `M3ImportContext` is `{ userdata, function }` as the trampoline expects.
+- **`HostContext` being deallocated.** Switching `Unmanaged.passUnretained` to
+  `passRetained` (released in `deinit`) does not change the crash.
+- **The block not being owned by ARC.** Storing the callback as
+  `@convention(block) (NSArray) -> Any?` instead of a bridged
+  `([Any]) -> Any?` closure moves the fault from `0x20` to `0x4` and drops the
+  `@callee_unowned` bridging thunk from the stack, but still crashes.
+- **The JS function being collected.** Retaining the wire callback on the JS
+  side for the runtime's lifetime does not change the crash.
+
+All four experiments kept the XCTest suite green, which is the point: **XCTest
+cannot reproduce this at all.** It passes a real Swift closure, so no block
+bridging happens. Only `apps/nativescript-wasm-test` on a simulator hits the
+NativeScript path — which is why that app exists.
+
+Next step is an lldb session against the simulator: break in `hostTrampoline`
+and inspect `ctx.userdata` and the `HostContext` fields at the first host call.
+Suspect the NativeScript iOS metadata for `linkHostFunction:name:signature:callback:error:`
+and how the runtime materialises the block for that parameter.
 
 ### 6. wasm3 missing imports detected at `findFunction`, not at call time
 
@@ -246,6 +297,55 @@ assertions, with `useJUnitPlatform()` on the test task. Gotchas:
   `hosttest/build/test-results/test/*.xml` for `tests="12"`, and sanity-check by
   breaking one assertion to prove failures are reported.
 
+### Kotlin metadata version gates JS visibility (currently broken)
+
+NativeScript exposes Java/Kotlin classes to JavaScript through generated
+*metadata*, not through the APK contents. Its generator bundles
+`kotlin-metadata-jvm` supporting Kotlin metadata **up to 2.3.0**. The `.aar` is
+compiled with Kotlin 2.4.x — AGP 9's built-in Kotlin, since `:library` declares
+no Kotlin plugin — so the generator skips every class:
+
+```
+Skip org.nativescript.wasm3.NSCWasm3Runtime
+    Error: java.lang.IllegalArgumentException: Provided Metadata instance has
+    version 2.4.0, while maximum supported version is 2.3.0.
+```
+
+The symptom is misleading: the classes and all four ABIs of `libjniwasm3.so`
+*are* in the APK, but `globalThis.org.nativescript.wasm3` is `undefined`, so the
+plugin reports **"native runtime not found — is the plugin installed and the app
+rebuilt?"**. Rebuilding never helps.
+
+When an Android app cannot see the plugin, read
+`<app>/platforms/android/build-tools/buildMetadata.log` first — it names every
+skipped class and why. `@nativescript/android` 9.0.5 is the latest release and
+does not lift the limit, so the fix is to build `:library` with Kotlin ≤ 2.3.x,
+which interacts with the Gradle/AGP constraints below.
+
+### The Gradle project lives inside `platforms/android/` — clean it before building an app
+
+The NativeScript CLI scans a plugin's `platforms/android/` **recursively** for
+`.aar`/`.jar` files and adds each as a Gradle dependency of the consuming app.
+`wasm3-android/` sits in that directory, so after `npm run build.android` its
+intermediates (`*/build/**`) are picked up too and the app fails to configure:
+
+```
+A problem occurred configuring project ':app'.
+Could not find :library-release:.
+```
+
+`package.json#files` keeps those out of the *published* package, but apps that
+consume the plugin through a `file:` dependency — like
+`apps/nativescript-wasm-test` — see the whole working tree. Before building an
+app against a locally built plugin:
+
+```bash
+rm -rf platforms/android/wasm3-android/{,*/}build
+```
+
+Then delete the app's own `platforms/android`, since the bad dependency is
+already written into its generated `build.gradle`.
+
 ### Rebuilding the .aar
 
 ```bash
@@ -307,11 +407,15 @@ The fixtures are committed. Don't regenerate unless you changed what they test.
 ## Test app
 
 `apps/nativescript-wasm-test` drives this plugin's public API against the Rust
-fixture in `@org/nativescript-wasm-fixture` — on wasm3 from the demo page, and
-on Node's own `WebAssembly` engine under vitest, using the same shared list of
-checks (`app/wasm/fixture-suite.ts`). Its specs cover the marshalling paths this
-package's own specs stub out: real module bytes, real host-import round trips,
-real exported globals. Run them when you touch `wire.ts` or `wasm3.ts`.
+fixture in `@org/nativescript-wasm-fixture`, on the device's own wasm3 build —
+from a demo page, and as a mocha suite under `ns test ios` / `ns test android`.
+Both run the same list of checks (`app/wasm/fixture-suite.ts`).
+
+It is the only place the **adapters** in `wasm3.ts` meet the real native layer:
+`NSData`/`NSArray` unwrapping on iOS, signed `byte[]` conversion on Android,
+i64-as-decimal-string on both. The specs in this package stub the native globals
+out, so they cannot catch a marshalling bug in either adapter. Run the app's
+suite on both platforms when you touch `wire.ts` or `wasm3.ts`.
 
 ---
 
@@ -321,8 +425,11 @@ real exported globals. Run them when you touch `wire.ts` or `wasm3.ts`.
 # TypeScript + unit tests (no native required)
 npm exec nx run-many -t build test -p nativescript-wasm3
 
-# The fixture module through the public API (no native required)
-npm exec nx run-many -t test typecheck -p nativescript-wasm-test
+# The test app: type-check off-device, then the mocha suite on a simulator and
+# an emulator (macOS needs LANG set to a UTF-8 locale — see the app's README).
+npm exec nx run nativescript-wasm-test:typecheck
+npm exec nx run nativescript-wasm-test:test.ios
+npm exec nx run nativescript-wasm-test:test.android
 
 # iOS (macOS only)
 npm run sync.vendors

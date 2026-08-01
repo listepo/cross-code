@@ -13,12 +13,27 @@
       "cache": true,
       "inputs": [
         "{projectRoot}/app/**/*",
-        "{projectRoot}/tests/**/*",
         "{projectRoot}/references.d.ts",
         "{projectRoot}/tsconfig.json",
         "{projectRoot}/tsconfig.spec.json",
         "^production"
       ]
+    },
+    "test.ios": {
+      "command": "ns test ios --emulator",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test.android": {
+      "command": "ns test android --emulator",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": ["^build"],
+      "cache": false
     }
   }
 }

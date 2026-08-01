@@ -48,6 +48,9 @@ jobs:
   # plain Linux runner: the .wasm fixtures are committed build outputs, so no
   # wasm-pack, Android SDK or Xcode is needed. Rust comes preinstalled on the
   # GitHub-hosted ubuntu image.
+  #
+  # The test app's own suite is not here — it runs on a simulator/emulator, in
+  # the wasm-test-ios and wasm-test-android jobs below.
   unit-tests:
     runs-on: ubuntu-latest
     steps:
@@ -64,15 +67,15 @@ jobs:
       - run: npm ci
 
       # The NativeScript app is not an npm workspace member — the CLI needs its
-      # own node_modules — and its typecheck resolves @nativescript/types and
-      # TypeScript from there. The vitest specs do not need it.
+      # own node_modules — and its typecheck resolves @nativescript/types,
+      # @types/mocha and TypeScript from there.
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
         run: npm ci
 
-      # nativescript-wasm3: 26 specs. nativescript-wasm-test: 22 specs that run
-      # the fixture module through the plugin's public API on Node's own
-      # WebAssembly engine. Plus the typecheck of all three projects.
+      # nativescript-wasm3: 26 vitest specs, plus the typecheck of all three
+      # projects — including the test app's mocha specs, which are type-checked
+      # here even though they can only run on a device.
       - name: Vitest + typecheck
         run: npx nx run-many -t test typecheck
 
@@ -102,6 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       wasm3: ${{ steps.filter.outputs.wasm3 }}
+      app: ${{ steps.filter.outputs.app }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -110,7 +114,13 @@ jobs:
       - id: filter
         shell: bash
         run: |
-          run_all() { echo "wasm3=true" >> "$GITHUB_OUTPUT"; exit 0; }
+          run_all() {
+            {
+              echo "wasm3=true"
+              echo "app=true"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          }
           [ "${{ github.event_name }}" = "pull_request" ] || run_all
 
           base="refs/remotes/origin/${{ github.base_ref }}"
@@ -123,6 +133,14 @@ jobs:
             echo "wasm3=true" >> "$GITHUB_OUTPUT"
           else
             echo "wasm3=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # The app's suite runs the plugin end to end, so a plugin or fixture
+          # change is as relevant to it as a change to the app itself.
+          if grep -qE '^(apps/nativescript-wasm-test/|packages/nativescript-wasm3/|packages/nativescript-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+            echo "app=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "app=false" >> "$GITHUB_OUTPUT"
           fi
 
   # iOS: compiles the vendored wasm3 C sources through SwiftPM and runs the
@@ -192,3 +210,93 @@ jobs:
         with:
           name: wasm3-android-test-report
           path: packages/nativescript-wasm3/platforms/android/wasm3-android/hosttest/build/reports/tests/test
+
+  # The test app's mocha suite, on a simulator and an emulator. This is the only
+  # place the plugin's TypeScript adapters run against the real native layer —
+  # the NSData/NSArray marshalling on iOS, the signed byte[] handling on Android
+  # — so it covers what neither the Swift/Kotlin suites nor a Node runner can.
+  wasm-test-ios:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            apps/nativescript-wasm-test/package-lock.json
+
+      - run: npm ci
+
+      # The app resolves the plugin through a file: dependency and imports its
+      # built dist/, so the TypeScript has to exist before the app is bundled.
+      - name: Build the plugin
+        run: npx nx run nativescript-wasm3:build
+
+      - name: Install the test app's dependencies
+        working-directory: apps/nativescript-wasm-test
+        run: npm ci
+
+      - run: npm install -g nativescript
+
+      # `ns doctor` shells out to `pod --version`, which prints a locale warning
+      # the CLI treats as a failed CocoaPods check unless LANG is a UTF-8 one.
+      # The plugin itself needs no pods — it ships a Swift package.
+      - name: Mocha specs on the iOS Simulator
+        working-directory: apps/nativescript-wasm-test
+        env:
+          LANG: en_US.UTF-8
+        run: ns test ios --emulator
+
+  wasm-test-android:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            apps/nativescript-wasm-test/package-lock.json
+
+      - run: npm ci
+
+      - name: Build the plugin
+        run: npx nx run nativescript-wasm3:build
+
+      - name: Install the test app's dependencies
+        working-directory: apps/nativescript-wasm-test
+        run: npm ci
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - run: npm install -g nativescript
+
+      # Lets the emulator use hardware acceleration on the GitHub runner.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # The plugin ships a prebuilt .aar with the wasm3 .so files for every ABI,
+      # so this needs no NDK — just the SDK the emulator action installs.
+      - name: Mocha specs on the Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          working-directory: apps/nativescript-wasm-test
+          script: ns test android --emulator
