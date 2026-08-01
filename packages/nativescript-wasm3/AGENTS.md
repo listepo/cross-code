@@ -219,13 +219,32 @@ regenerate before running tests.
 ### Running tests without a device
 
 ```bash
-npm run test.android        # 12 JUnit4 tests on JVM via hosttest module
+npm run test.android        # 12 JUnit 6 tests on JVM via hosttest module
 ```
 
-The `:hosttest` subproject links wasm3 as a native macOS dylib (not .so),
-loads it via JavaCPP's `Loader`, and tests the full Kotlin wrapper stack.
-`java.library.path` is set in `build.gradle.kts` so the Loader finds
+The `:hosttest` subproject links wasm3 as a native host dylib/`.so` (not an
+Android ABI), loads it via JavaCPP's `Loader`, and tests the full Kotlin wrapper
+stack. `java.library.path` is set in `build.gradle.kts` so the Loader finds
 `libjniwasm3.dylib`.
+
+Tests use **JUnit 6 (Jupiter)**: `org.junit.jupiter.api.Test` plus `kotlin.test`
+assertions, with `useJUnitPlatform()` on the test task. Gotchas:
+
+- **`kotlin("test")` still pulls Jupiter 5.** `kotlin-test-junit5:2.4.10`
+  declares `junit-jupiter-engine:5.10.1` and `junit-platform-launcher:1.10.1`;
+  the `org.junit:junit-bom` upgrades both to 6.x. Keep the BOM — without it the
+  classpath silently mixes JUnit 5 and 6. Verify alignment with:
+  `./gradlew :hosttest:dependencies --configuration testRuntimeClasspath | grep junit`
+  Every `org.junit.*` line should resolve to the same 6.x version.
+- **`junit-platform-launcher` must be an explicit `testRuntimeOnly`.** Gradle no
+  longer injects it.
+- `@Test` methods must return `Unit`. The `withSuite` helper is declared
+  `private fun withSuite(block: ...)` returning Unit for exactly this reason —
+  an expression body returning a value makes Jupiter reject the method.
+- After any JUnit change, confirm tests actually *ran* — a misconfigured
+  platform reports `BUILD SUCCESSFUL` while discovering zero tests. Check
+  `hosttest/build/test-results/test/*.xml` for `tests="12"`, and sanity-check by
+  breaking one assertion to prove failures are reported.
 
 ### Rebuilding the .aar
 

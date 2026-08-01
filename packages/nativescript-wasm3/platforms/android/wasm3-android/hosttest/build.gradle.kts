@@ -18,7 +18,13 @@ sourceSets {
 
 dependencies {
     implementation("org.bytedeco:javacpp:1.5.13")
-    testImplementation("junit:junit:4.13.2")
+
+    // JUnit 6 (Jupiter). kotlin("test") resolves to its junit5 variant, whose
+    // Jupiter dependency the BOM aligns up to 6.x — the org.junit.jupiter.api
+    // surface it uses is unchanged in 6.
+    testImplementation(platform("org.junit:junit-bom:6.1.2"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation(kotlin("test"))
 }
 
@@ -40,7 +46,7 @@ tasks.compileJava { dependsOn(buildNativeHost) }
 tasks.compileKotlin { dependsOn(buildNativeHost) }
 
 tasks.test {
-    useJUnit()
+    useJUnitPlatform()
     // JavaCPP's Loader falls back to System.loadLibrary for libjniwasm3.
     systemProperty(
         "java.library.path",

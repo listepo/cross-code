@@ -4,8 +4,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import org.junit.Assert.assertArrayEquals
-import org.junit.Test
+import org.junit.jupiter.api.Test
 
 class NSCWasm3Test {
     private fun fixture(name: String): ByteArray =
@@ -27,8 +26,8 @@ class NSCWasm3Test {
         NSCWasm3Runtime().use { runtime ->
             runtime.loadModule(fixture("add"))
             val add = runtime.findFunction("add")
-            assertArrayEquals(arrayOf("i32", "i32"), add.paramTypes)
-            assertArrayEquals(arrayOf("i32"), add.returnTypes)
+            assertContentEquals(arrayOf("i32", "i32"), add.paramTypes)
+            assertContentEquals(arrayOf("i32"), add.returnTypes)
             assertContentEquals(arrayOf<Any>(42), add.call(arrayOf(19, 23)))
         }
     }
@@ -62,7 +61,7 @@ class NSCWasm3Test {
     @Test
     fun multiValueReturn() = withSuite { runtime, _ ->
         val swap = runtime.findFunction("swap")
-        assertArrayEquals(arrayOf("i32", "i32"), swap.returnTypes)
+        assertContentEquals(arrayOf("i32", "i32"), swap.returnTypes)
         assertContentEquals(arrayOf<Any>(2, 1), swap.call(arrayOf(1, 2)))
     }
 
