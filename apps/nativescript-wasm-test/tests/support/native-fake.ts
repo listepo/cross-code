@@ -101,7 +101,9 @@ class FakeModule {
   private readonly hostFunctions = new Map<string, HostFunction>();
 
   constructor(
-    bytes: Uint8Array,
+    // Backed by a plain ArrayBuffer, which is what WebAssembly.Module takes —
+    // the caller normalizes with Uint8Array.from().
+    bytes: Uint8Array<ArrayBuffer>,
     private readonly moduleName: string,
   ) {
     this.info = inspectWasm(bytes);
