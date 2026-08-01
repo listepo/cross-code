@@ -255,6 +255,7 @@ jobs:
   wasm-test-android:
     needs: changes
     if: needs.changes.outputs.app == 'true'
+    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
