@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .gemini/hooks/crg-session-start.sh",
+            "command": "node .gemini/hooks/crg-session-start.mjs",
             "name": "code-review-graph status",
             "timeout": 10000
           }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .gemini/hooks/crg-update.sh",
+            "command": "node .gemini/hooks/crg-update.mjs",
             "name": "code-review-graph update",
             "timeout": 30000
           }

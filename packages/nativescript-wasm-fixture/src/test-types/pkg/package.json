@@ -1,0 +1,20 @@
+{
+  "name": "test-types",
+  "type": "module",
+  "collaborators": [
+    "Ivan Tugay <listepo@gmail.com>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "test_types_bg.wasm",
+    "test_types.js",
+    "test_types_bg.js",
+    "test_types.d.ts"
+  ],
+  "main": "test_types.js",
+  "types": "test_types.d.ts",
+  "sideEffects": [
+    "./test_types.js",
+    "./snippets/*"
+  ]
+}

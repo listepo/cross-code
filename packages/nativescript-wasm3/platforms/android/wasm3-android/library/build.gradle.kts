@@ -29,7 +29,7 @@ android {
         getByName("main") {
             // JavaCPP presets + the bindings generated from wasm3.h
             java.directories.addAll(listOf("src/javacpp", "build/generated/javacpp/java"))
-            // JNI libraries produced by build-native.sh
+            // JNI libraries produced by build-native.mjs
             jniLibs.directories.add("build/generated/javacpp/jniLibs")
         }
     }
@@ -47,7 +47,7 @@ dependencies {
 
 // ---------------------------------------------------------------------------
 // Native pipeline: fetch the JavaCPP tool jar, then generate bindings and
-// cross-compile wasm3 + JNI glue for every Android ABI (see build-native.sh).
+// cross-compile wasm3 + JNI glue for every Android ABI (see build-native.mjs).
 // ---------------------------------------------------------------------------
 
 val javacppTool: Configuration = configurations.create("javacppTool") {
@@ -70,12 +70,12 @@ val pluginRoot: File = projectDir.parentFile.parentFile.parentFile.parentFile
 val javacppParse = tasks.register<Exec>("javacppParse") {
     dependsOn(fetchJavacpp)
     workingDir = projectDir.parentFile
-    commandLine("./build-native.sh", "parse")
+    commandLine("node", "build-native.mjs", "parse")
 
     inputs.dir(pluginRoot.resolve("src/vendors/wasm3"))
     inputs.dir(pluginRoot.resolve("src/native/shim"))
     inputs.file(file("src/javacpp/org/wasm3/presets/wasm3.java"))
-    inputs.file(projectDir.parentFile.resolve("build-native.sh"))
+    inputs.file(projectDir.parentFile.resolve("build-native.mjs"))
     outputs.dir(layout.buildDirectory.dir("generated/javacpp/java"))
     outputs.dir(layout.buildDirectory.dir("generated/javacpp/classes"))
 }
@@ -84,12 +84,12 @@ val javacppParse = tasks.register<Exec>("javacppParse") {
 val buildNative = tasks.register<Exec>("buildNative") {
     dependsOn(javacppParse)
     workingDir = projectDir.parentFile
-    commandLine("./build-native.sh", "android")
+    commandLine("node", "build-native.mjs", "android")
 
     inputs.dir(pluginRoot.resolve("src/vendors/wasm3"))
     inputs.dir(pluginRoot.resolve("src/native/shim"))
     inputs.dir(layout.buildDirectory.dir("generated/javacpp/java"))
-    inputs.file(projectDir.parentFile.resolve("build-native.sh"))
+    inputs.file(projectDir.parentFile.resolve("build-native.mjs"))
     outputs.dir(layout.buildDirectory.dir("generated/javacpp/jniLibs"))
 }
 

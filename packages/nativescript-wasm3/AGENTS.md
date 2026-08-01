@@ -304,11 +304,25 @@ The fixtures are committed. Don't regenerate unless you changed what they test.
 
 ---
 
+## Test app
+
+`apps/nativescript-wasm-test` drives this plugin's public API against the Rust
+fixture in `@org/nativescript-wasm-fixture` — on wasm3 from the demo page, and
+on Node's own `WebAssembly` engine under vitest, using the same shared list of
+checks (`app/wasm/fixture-suite.ts`). Its specs cover the marshalling paths this
+package's own specs stub out: real module bytes, real host-import round trips,
+real exported globals. Run them when you touch `wire.ts` or `wasm3.ts`.
+
+---
+
 ## Full build / test sequence
 
 ```bash
 # TypeScript + unit tests (no native required)
 npm exec nx run-many -t build test -p nativescript-wasm3
+
+# The fixture module through the public API (no native required)
+npm exec nx run-many -t test typecheck -p nativescript-wasm-test
 
 # iOS (macOS only)
 npm run sync.vendors

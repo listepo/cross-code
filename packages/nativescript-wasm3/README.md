@@ -228,8 +228,9 @@ npm run fixtures
 ```
 
 The Android build auto-generates `org.wasm3.*` from `wasm3.h` on every build
-(`platforms/android/wasm3-android/build-native.sh`); the generated Java API and
-JNI `.so` files are never checked in. Requires JDK 17+ and the Android NDK
+(`platforms/android/wasm3-android/build-native.mjs`, a zx script Gradle shells
+out to); the generated Java API and JNI `.so` files are never checked in.
+Requires Node 18+ on `PATH`, JDK 17+ and the Android NDK
 (`ANDROID_HOME` set, NDK 29 installed via SDK Manager). The Gradle project uses
 Gradle 9.6.1 with AGP 9.3.1 — the wrapper downloads Gradle itself, so no global
 install is needed.

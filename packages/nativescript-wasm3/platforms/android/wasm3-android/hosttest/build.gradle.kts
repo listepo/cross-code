@@ -1,6 +1,6 @@
 // JVM test module: exercises the Kotlin wrapper and the JavaCPP-generated
 // bindings against a host (macOS/Linux) build of wasm3, so the full stack is
-// verified without an emulator. Run `../build-native.sh host` first (the test
+// verified without an emulator. Run `node ../build-native.mjs host` first (the test
 // task does it automatically via the dependency below).
 plugins {
     id("org.jetbrains.kotlin.jvm")
@@ -33,7 +33,7 @@ val buildNativeHost = tasks.register<Exec>("buildNativeHost") {
     // the native library for the host platform.
     dependsOn(":library:javacppParse")
     workingDir = projectDir.parentFile
-    commandLine("./build-native.sh", "host")
+    commandLine("node", "build-native.mjs", "host")
 
     val pluginRoot = projectDir.parentFile.parentFile.parentFile.parentFile
     inputs.dir(pluginRoot.resolve("src/vendors/wasm3"))

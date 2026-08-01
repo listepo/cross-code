@@ -44,6 +44,57 @@ jobs:
       #   if: always()
       # - run: npx nx format:check --base="remotes/origin/main"
 
+  # Vitest, TypeScript and the Rust fixture crate. Everything here runs on a
+  # plain Linux runner: the .wasm fixtures are committed build outputs, so no
+  # wasm-pack, Android SDK or Xcode is needed. Rust comes preinstalled on the
+  # GitHub-hosted ubuntu image.
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            apps/nativescript-wasm-test/package-lock.json
+
+      - run: npm ci
+
+      # The NativeScript app is not an npm workspace member — the CLI needs its
+      # own node_modules — and its typecheck resolves @nativescript/types and
+      # TypeScript from there. The vitest specs do not need it.
+      - name: Install the test app's dependencies
+        working-directory: apps/nativescript-wasm-test
+        run: npm ci
+
+      # nativescript-wasm3: 26 specs. nativescript-wasm-test: 22 specs that run
+      # the fixture module through the plugin's public API on Node's own
+      # WebAssembly engine. Plus the typecheck of all three projects.
+      - name: Vitest + typecheck
+        run: npx nx run-many -t test typecheck
+
+      # The fixture crate: wasm exports plus the globals.wasm byte encoder.
+      - name: Rust unit tests
+        run: npx nx run nativescript-wasm-fixture:test.wasm
+
+      # globals.wasm is committed but generated, and the generator is
+      # deterministic — so a stale copy is a hard error rather than a surprise
+      # on someone's device. (test_types_bg.wasm needs wasm-pack to rebuild and
+      # is not byte-reproducible, so it is not checked here.)
+      - name: Verify the committed globals.wasm matches its generator
+        run: |
+          cargo run --quiet \
+            --manifest-path packages/nativescript-wasm-fixture/src/test-types/Cargo.toml \
+            --bin gen_globals -- "$RUNNER_TEMP/globals"
+          cmp "$RUNNER_TEMP/globals/globals.wasm" \
+            packages/nativescript-wasm-fixture/src/test-types/pkg/globals.wasm || {
+            echo "::error::globals.wasm is stale — run 'npm run build.wasm' in packages/nativescript-wasm-fixture and commit the result."
+            exit 1
+          }
+
   # The nativescript-wasm3 native suites below need a macOS runner / an Android
   # SDK, so they only run when the plugin or this workflow changed. Fails open:
   # any detection problem runs them anyway.
@@ -115,6 +166,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      # Gradle shells out to build-native.mjs (zx) to generate the bindings and
+      # compile wasm3, so the native build needs Node and the root node_modules.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - run: npm ci
 
       - uses: actions/setup-java@v4
         with:

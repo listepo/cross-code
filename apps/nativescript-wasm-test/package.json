@@ -1,0 +1,18 @@
+{
+  "name": "nativescript-wasm-test",
+  "main": "app/app.ts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NativeScript test app for @org/nativescript-wasm3 — runs the @org/nativescript-wasm-fixture WebAssembly module on device and in vitest.",
+  "dependencies": {
+    "@nativescript/core": "~9.0.0",
+    "@nativescript/theme": "^3.1.0",
+    "@org/nativescript-wasm-fixture": "file:../../packages/nativescript-wasm-fixture",
+    "@org/nativescript-wasm3": "file:../../packages/nativescript-wasm3"
+  },
+  "devDependencies": {
+    "@nativescript/types": "~9.0.0",
+    "@nativescript/webpack": "~5.0.25",
+    "typescript": "~6.0.0"
+  }
+}
