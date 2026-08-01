@@ -90,10 +90,25 @@ build_jni() { # <javacpp platform> <libdir> [-D... overrides]
         -d "$GEN/jni/$platform"
 }
 
+# JavaCPP platform name for the machine running this script: macosx-arm64,
+# macosx-x86_64, linux-x86_64, linux-arm64 (see javacpp.jar .../properties/).
+host_platform() {
+    local arch
+    arch="$(uname -m)"
+    case "$(uname -s)" in
+        Darwin) echo "macosx-$(echo "$arch" | sed 's/aarch64/arm64/')" ;;
+        Linux) echo "linux-$(echo "$arch" | sed 's/aarch64/arm64/;s/amd64/x86_64/')" ;;
+        *)
+            echo "error: unsupported host OS $(uname -s) for JVM tests" >&2
+            return 1
+            ;;
+    esac
+}
+
 if [ "$MODE" = "host" ] || [ "$MODE" = "all" ]; then
     echo "==> Host build (JVM tests)"
-    build_m3 clang ar "$NATIVE/host"
-    HOST_PLATFORM="macosx-$(uname -m | sed 's/aarch64/arm64/')"
+    build_m3 "${CC:-cc}" "${AR:-ar}" "$NATIVE/host"
+    HOST_PLATFORM="$(host_platform)"
     build_jni "$HOST_PLATFORM" "$NATIVE/host"
     mkdir -p "$GEN/host"
     find "$GEN/jni/$HOST_PLATFORM" -name 'libjniwasm3.*' -exec cp {} "$GEN/host/" \;

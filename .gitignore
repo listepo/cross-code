@@ -49,3 +49,5 @@ Thumbs.db
 .nx/self-healing
 .nx/migrate-runs
 vitest.config.*.timestamp*
+# Added by code-review-graph
+.code-review-graph/

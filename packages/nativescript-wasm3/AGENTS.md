@@ -315,8 +315,31 @@ JDK 17+ is required; JDK 21 is tested.
 | Node | 20+ | LTS |
 | Swift | 5.9+ | macOS; for iOS build/test |
 | Xcode | 15+ | iOS device build |
-| JDK | 17–21 | Android build |
+| JDK | 17–21 | Android build; 21 is tested |
 | Android NDK | 29.0.14206865 | set via `ANDROID_HOME` |
-| Gradle wrapper | 8.14.3 | auto-downloaded by wrapper |
+| Gradle wrapper | 9.6.1 | auto-downloaded by wrapper |
+| Android Gradle Plugin | 9.3.1 | required by Gradle 9.6 (see below) |
+| Kotlin | 2.4.10 | `:hosttest` only — AGP 9 has built-in Kotlin |
 
 No globally installed gradle, cocoapods, or wasm toolchain is required.
+
+### Gradle 9 / AGP 9 constraints
+
+These are coupled — don't bump one without checking the other:
+
+- **Gradle 9.6+ requires AGP 9.** Gradle 9.6.0 removed the internal
+  `org.gradle.api.problems.internal.InternalProblems` API that AGP 8.x used.
+  AGP 8.x builds fail at plugin-apply time. (AGP 8.x works up to Gradle 9.5.)
+- **AGP 9 rejects `org.jetbrains.kotlin.android`.** Kotlin support is built in;
+  applying the plugin is a hard error. `:library` declares no Kotlin plugin —
+  only the pure-JVM `:hosttest` module does (`org.jetbrains.kotlin.jvm`).
+- **`aarMetadata.minCompileSdk` is pinned to 1** in `library/build.gradle.kts`.
+  AGP 9 changed the default to the library's own `compileSdk` (35), which would
+  force every consuming NativeScript app to compileSdk 35. Nothing in this
+  library exposes API-35 surface, so the pre-AGP-9 contract is kept explicitly.
+  Verify with:
+  `unzip -p platforms/android/nativescript-wasm3.aar META-INF/com/android/build/gradle/aar-metadata.properties`
+- **`sourceSets { ... srcDirs(...) }` is deprecated in AGP 9** — use
+  `java.directories.addAll(...)` / `jniLibs.directories.add(...)`.
+- **Avoid `val x by tasks.registering(T::class)`** — the Kotlin DSL delegate is
+  deprecated and breaks in Gradle 10. Use `tasks.register<T>("name") { }`.

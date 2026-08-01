@@ -1,26 +1,8 @@
 {
-  "extraKnownMarketplaces": {
-    "nx-claude-plugins": {
-      "source": {
-        "source": "github",
-        "repo": "nrwl/nx-ai-agents-config"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "nx@nx-claude-plugins": true
-  },
-  "sandbox": {
-    "network": {
-      "allowedDomains": [
-        "www.google-analytics.com"
-      ]
-    }
-  },
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|Bash",
         "hooks": [
           {
             "type": "command",

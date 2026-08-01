@@ -1,6 +1,6 @@
 plugins {
+    // Kotlin support is built into AGP 9 — no separate Kotlin plugin here.
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -10,6 +10,14 @@ android {
     defaultConfig {
         minSdk = 21
         consumerProguardFiles("consumer-rules.pro")
+
+        // AGP 9 defaults minCompileSdk to this library's compileSdk (35), which
+        // would force every consuming app up to compileSdk 35. Nothing here
+        // exposes API level 35 surface, so keep the pre-AGP-9 contract and let
+        // NativeScript apps on an older compileSdk keep working.
+        aarMetadata {
+            minCompileSdk = 1
+        }
     }
 
     compileOptions {
@@ -20,9 +28,9 @@ android {
     sourceSets {
         getByName("main") {
             // JavaCPP presets + the bindings generated from wasm3.h
-            java.srcDirs("src/javacpp", "build/generated/javacpp/java")
+            java.directories.addAll(listOf("src/javacpp", "build/generated/javacpp/java"))
             // JNI libraries produced by build-native.sh
-            jniLibs.srcDirs("build/generated/javacpp/jniLibs")
+            jniLibs.directories.add("build/generated/javacpp/jniLibs")
         }
     }
 }
@@ -42,13 +50,15 @@ dependencies {
 // cross-compile wasm3 + JNI glue for every Android ABI (see build-native.sh).
 // ---------------------------------------------------------------------------
 
-val javacppTool: Configuration by configurations.creating { isTransitive = false }
+val javacppTool: Configuration = configurations.create("javacppTool") {
+    isTransitive = false
+}
 
 dependencies {
     javacppTool("org.bytedeco:javacpp:1.5.13")
 }
 
-val fetchJavacpp by tasks.registering(Copy::class) {
+val fetchJavacpp = tasks.register<Copy>("fetchJavacpp") {
     from(javacppTool)
     into(layout.buildDirectory.dir("tools"))
     rename { "javacpp.jar" }
@@ -57,7 +67,7 @@ val fetchJavacpp by tasks.registering(Copy::class) {
 val pluginRoot: File = projectDir.parentFile.parentFile.parentFile.parentFile
 
 // Generates + compiles the org.wasm3 Java bindings from wasm3.h.
-val javacppParse by tasks.registering(Exec::class) {
+val javacppParse = tasks.register<Exec>("javacppParse") {
     dependsOn(fetchJavacpp)
     workingDir = projectDir.parentFile
     commandLine("./build-native.sh", "parse")
@@ -71,7 +81,7 @@ val javacppParse by tasks.registering(Exec::class) {
 }
 
 // Cross-compiles wasm3 + the generated JNI glue for every Android ABI.
-val buildNative by tasks.registering(Exec::class) {
+val buildNative = tasks.register<Exec>("buildNative") {
     dependsOn(javacppParse)
     workingDir = projectDir.parentFile
     commandLine("./build-native.sh", "android")
@@ -89,7 +99,7 @@ tasks.named("preBuild") {
 
 // Copies the release AAR to where the NativeScript CLI picks it up
 // (plugin platforms/android/*.aar).
-val deployAar by tasks.registering(Copy::class) {
+tasks.register<Copy>("deployAar") {
     dependsOn("assembleRelease")
     from(layout.buildDirectory.file("outputs/aar/library-release.aar"))
     into(rootProject.projectDir.parentFile)

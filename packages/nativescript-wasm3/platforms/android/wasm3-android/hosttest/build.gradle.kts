@@ -22,7 +22,7 @@ dependencies {
     testImplementation(kotlin("test"))
 }
 
-val buildNativeHost by tasks.registering(Exec::class) {
+val buildNativeHost = tasks.register<Exec>("buildNativeHost") {
     // The parse step owns the shared bindings dir; host mode only compiles
     // the native library for the host platform.
     dependsOn(":library:javacppParse")
