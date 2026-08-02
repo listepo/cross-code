@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# DeepSeek CR launcher for local code review.
+#
+# Runs tools/deepseek-cr.mjs (google/zx, Node-based) — no nushell or awk
+# needed. Requires Node 20+ and zx (already a workspace devDependency).
+#
+# Usage (run from the workspace root):
+#   tools/deepseek-cr                     # review current `git diff`
+#   tools/deepseek-cr --diff-from HEAD~1  # review last commit
+#   tools/deepseek-cr --pr-number 42      # review remote PR #42
+#   tools/deepseek-cr -o review.md        # write the review to a file
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ZX="$DIR/../node_modules/.bin/zx"
+
+if [[ ! -x "$ZX" ]]; then
+  echo "error: zx not found — run 'npm install' at the workspace root first." >&2
+  exit 1
+fi
+
+exec "$ZX" "$DIR/deepseek-cr.mjs" "$@"
