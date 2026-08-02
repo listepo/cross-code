@@ -210,6 +210,13 @@ jobs:
           java-version: '21'
 
       - uses: gradle/actions/setup-gradle@v4.4.4
+        with:
+          # The built-in wrapper validation scans the entire workspace and
+          # flags every gradle-wrapper.jar it finds — including the one
+          # bundled inside node_modules/nativescript. That jar is an npm
+          # package dependency, not ours to validate. Our own wrapper is
+          # committed in the repo at platforms/android/wasm3-android/.
+          validate-wrappers: false
 
       # GitHub's ubuntu-latest runner ships clang; the slim act image does not.
       - name: Install build tools (if missing)
