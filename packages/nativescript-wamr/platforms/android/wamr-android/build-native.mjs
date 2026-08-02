@@ -257,11 +257,14 @@ async function main() {
   if (!MODES.includes(mode)) {
     throw new Error(`unknown mode '${mode}' (expected ${MODES.join(' | ')})`);
   }
+
+  // Check sources first: without them nothing can build, and the skip
+  // path must not depend on javacpp.jar being fetched already.
+  await skipIfMissing();
+
   if (!fs.existsSync(javacppJar)) {
     throw new Error(`${javacppJar} not found — run ./gradlew :library:fetchJavacpp first`);
   }
-
-  await skipIfMissing();
 
   // host/android builds reuse an existing parse if present
   if (mode === 'parse' || mode === 'all' || !fs.existsSync(path.join(gen, 'classes'))) {
