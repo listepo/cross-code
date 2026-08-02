@@ -2,6 +2,8 @@
 
 An Nx monorepo for running WebAssembly on [NativeScript](https://nativescript.org) via the [wasm3](https://github.com/wasm3/wasm3) interpreter.
 
+> **Project status: Active development.** APIs and project layout may change without notice; expect breaking changes between releases.
+
 ## Packages
 
 | Package | Description |
