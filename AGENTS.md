@@ -29,6 +29,11 @@
 - MCP server: https://docs.nativescript.org/mcp
 - Verify current API signatures via the API reference before writing code:
   https://docs.nativescript.org/api/
+- The `ns` CLI is installed locally as a devDependency. Always run it with
+  `npx ns` (not a bare `ns`), e.g. `npx ns test ios --emulator`.
+  `npx ns` automatically resolves to the project-local `node_modules/.bin/ns`
+  and never hits a broken global install or macOS permission walls on
+  `~/.local/share/.nativescript-cli`.
 
 <!-- code-review-graph MCP tools -->
 ## MCP Tools: code-review-graph

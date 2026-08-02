@@ -152,22 +152,29 @@ must have run before the app is bundled. Both `ns test` targets declare
 
 ## Running the tests
 
+The `ns` CLI is a local devDependency — always invoke it with `npx ns` so it
+resolves to `node_modules/.bin/ns` and never hits macOS permission issues on
+`~/.local/share/.nativescript-cli`.
+
 From the workspace root:
 
 ```bash
+# Via Nx (preferred — auto-builds dependencies)
 npm exec nx run nativescript-wasm-test:test.ios
 npm exec nx run nativescript-wasm-test:test.android
 npm exec nx run nativescript-wasm-test:typecheck
-```
 
-or from this directory, `npm run test.ios` / `npm run test.android`.
+# Or with the CLI directly (from this directory)
+npx ns test ios --emulator
+npx ns test android --emulator
+```
 
 Both target a simulator/emulator via `--emulator`. To pin a specific one, run the
 CLI directly with `--device <id>` — `--device` and `--emulator` are mutually
 exclusive:
 
 ```bash
-ns test ios --device 73F3C71E-982C-4C2A-9AE3-CE75BC8FA2A2
+npx ns test ios --device 73F3C71E-982C-4C2A-9AE3-CE75BC8FA2A2
 ```
 
 ### Gotchas
