@@ -1,0 +1,7 @@
+.build
+.gradle
+build/
+bin/
+test-output
+dist
+node_modules
