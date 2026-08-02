@@ -8,6 +8,9 @@
     },
     {
       "path": "./packages/nativescript-wasm-fixture"
+    },
+    {
+      "path": "./packages/nativescript-wamr"
     }
   ],
   "compilerOptions": {}

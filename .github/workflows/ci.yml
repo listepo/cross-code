@@ -115,6 +115,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       wasm3: ${{ steps.filter.outputs.wasm3 }}
+      wamr: ${{ steps.filter.outputs.wamr }}
       app: ${{ steps.filter.outputs.app }}
     steps:
       - uses: actions/checkout@v5
@@ -127,6 +128,7 @@ jobs:
           run_all() {
             {
               echo "wasm3=true"
+              echo "wamr=true"
               echo "app=true"
             } >> "$GITHUB_OUTPUT"
             exit 0
@@ -145,9 +147,15 @@ jobs:
             echo "wasm3=false" >> "$GITHUB_OUTPUT"
           fi
 
+          if grep -qE '^(packages/nativescript-wamr/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+            echo "wamr=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "wamr=false" >> "$GITHUB_OUTPUT"
+          fi
+
           # The app's suite runs the plugin end to end, so a plugin or fixture
           # change is as relevant to it as a change to the app itself.
-          if grep -qE '^(apps/nativescript-wasm-test/|packages/nativescript-wasm3/|packages/nativescript-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+          if grep -qE '^(apps/nativescript-wasm-test/|packages/nativescript-wasm3/|packages/nativescript-wamr/|packages/nativescript-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
             echo "app=true" >> "$GITHUB_OUTPUT"
           else
             echo "app=false" >> "$GITHUB_OUTPUT"
@@ -234,6 +242,84 @@ jobs:
         with:
           name: wasm3-android-test-report
           path: packages/nativescript-wasm3/platforms/android/wasm3-android/hosttest/build/reports/tests/test
+
+  # The test app's mocha suite, on a simulator and an emulator. This is the only
+  # place the plugin's TypeScript adapters run against the real native layer —
+  # the NSData/NSArray marshalling on iOS, the signed byte[] handling on Android
+  # — so it covers what neither the Swift/Kotlin suites nor a Node runner can.
+  # iOS: compiles the vendored WAMR C sources through SwiftPM and runs the
+  # XCTest suite, which exercises the runtime natively on macOS.
+  wamr-ios:
+    needs: changes
+    if: needs.changes.outputs.wamr == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Verify the synced Swift package copy is current
+        working-directory: packages/nativescript-wamr
+        run: |
+          node tools/sync-wamr.mjs
+          git diff --exit-code -- . || {
+            echo "::error::platforms/ios/NSCWamr/Sources/CWamr is stale — run 'npm run sync.vendors' and commit the result."
+            exit 1
+          }
+
+      - name: Swift tests
+        working-directory: packages/nativescript-wamr/platforms/ios/NSCWamr
+        run: swift test --disable-sandbox
+
+      - name: Build for iOS device
+        working-directory: packages/nativescript-wamr/platforms/ios/NSCWamr
+        run: |
+          xcodebuild build \
+            -scheme NSCWamr \
+            -destination 'generic/platform=iOS'
+
+  # Android: regenerates the JavaCPP bindings from WAMR headers and runs the
+  # Kotlin wrapper's JUnit suite against a host build of WAMR — no emulator.
+  wamr-android:
+    needs: changes
+    if: needs.changes.outputs.wamr == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - run: npm ci
+
+      - uses: actions/setup-java@v4.9.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4.4.4
+        with:
+          validate-wrappers: false
+
+      - name: Install build tools (if missing)
+        run: |
+          if ! command -v clang++ >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq clang
+          fi
+
+      - name: JVM host tests (JavaCPP bindings + Kotlin wrapper)
+        working-directory: packages/nativescript-wamr/platforms/android/wamr-android
+        run: ./gradlew :hosttest:test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: wamr-android-test-report
+          path: packages/nativescript-wamr/platforms/android/wamr-android/hosttest/build/reports/tests/test
 
   # The test app's mocha suite, on a simulator and an emulator. This is the only
   # place the plugin's TypeScript adapters run against the real native layer —
