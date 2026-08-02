@@ -177,7 +177,7 @@ jobs:
 
       - name: Swift tests
         working-directory: packages/nativescript-wasm3/platforms/ios/NSCWasm3
-        run: swift test
+        run: swift test --disable-sandbox
 
       - name: Build for iOS device
         working-directory: packages/nativescript-wasm3/platforms/ios/NSCWasm3

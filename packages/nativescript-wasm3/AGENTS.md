@@ -208,7 +208,7 @@ directly — no shim needed.
 npm run sync.vendors          # must run first if vendor sources changed
 cd platforms/ios/NSCWasm3
 swift build                   # compile check
-swift test                    # 11 XCTests, runs wasm3 natively on macOS
+swift test --disable-sandbox   # 11 XCTests, runs wasm3 natively on macOS (needs --disable-sandbox on macOS 15+)
 ```
 
 ---
