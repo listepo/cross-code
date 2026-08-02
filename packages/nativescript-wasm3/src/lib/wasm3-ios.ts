@@ -78,11 +78,12 @@ function makeIosHostCallback(cb: WireHostCallback): any {
   if (!Base) throw new Wasm3Error('NSCWasm3HostCallback not available');
 
   const Subclass = Base.extend({
-    invoke(nativeArgs: any): any {
-      // Always return the raw wire array — the native trampoline handles
-      // nil / single / array uniformly (Swift: case nil→[], array→as‑is,
-      // single→[single]), but NSNumber marshalling is fragile, and the
-      // trampoline expects the array path to be the most reliable.
+    // NativeScript maps the ObjC selector invoke: (single unnamed argument)
+    // to the JS method name "invokeWithArg", not "invoke". The base class
+    // NSCWasm3HostCallback declares `@objc open func invoke(_ args: NSArray)`
+    // — the underscore means the argument label is empty, so NativeScript
+    // appends "WithArg" to the base name when building the JS method.
+    invokeWithArg(nativeArgs: any): any {
       return cb(nsArrayToJs(nativeArgs) as WireValue[]);
     },
   });
@@ -90,13 +91,17 @@ function makeIosHostCallback(cb: WireHostCallback): any {
 }
 
 class IosModule implements NativeModuleAdapter {
-  constructor(private readonly module: any) {}
+  constructor(
+    private readonly module: any,
+    private readonly hostCallbacks: any[],
+  ) {}
   name(): string {
     return String(this.module.name);
   }
   linkHostFunction(module: string, name: string, signature: string, cb: WireHostCallback): void {
     try {
       const callback = makeIosHostCallback(cb);
+      this.hostCallbacks.push(callback);
       const errorRef = newErrorRef();
       if (errorRef) {
         this.module.linkHostFunctionNameSignatureCallbackError(
@@ -138,6 +143,11 @@ class IosModule implements NativeModuleAdapter {
 
 export class IosRuntime implements NativeRuntimeAdapter {
   private readonly runtime: any;
+  // ObjC callback objects must be retained on the JS side for the lifetime
+  // of the runtime. If the JS GC collects them, the NativeScript bridge may
+  // deallocate the ObjC object even though Swift holds a strong ref, causing
+  // the host trampoline to reach a zombie callback whose invoke returns nil.
+  private hostCallbacks: any[] = [];
   constructor(stackSizeInBytes: number) {
     const RuntimeClass = (globalThis as any).NSCWasm3Runtime;
     this.runtime = RuntimeClass.alloc().initWithStackSize(stackSizeInBytes);
@@ -146,7 +156,7 @@ export class IosRuntime implements NativeRuntimeAdapter {
     try {
       const module = this.runtime.loadModuleError(bytes);
       if (!module) throw new Wasm3Error('loadModule: returned null');
-      return new IosModule(module);
+      return new IosModule(module, this.hostCallbacks);
     } catch (error) {
       rethrow(error, 'loadModule');
     }
@@ -155,7 +165,7 @@ export class IosRuntime implements NativeRuntimeAdapter {
     try {
       const module = this.runtime.loadModuleFromFileError(path);
       if (!module) throw new Wasm3Error(`loadModule ${path}: returned null`);
-      return new IosModule(module);
+      return new IosModule(module, this.hostCallbacks);
     } catch (error) {
       rethrow(error, `loadModule ${path}`);
     }

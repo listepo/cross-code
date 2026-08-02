@@ -260,7 +260,10 @@ function installIosFake() {
       return class {
         _fn: any = null;
         invoke(args: any): any {
-          return impl.invoke.call(this, args);
+          // NativeScript maps invoke: to invokeWithArg (single unnamed arg);
+          // the closure-based variant used invoke. Support both.
+          const fn = impl.invokeWithArg ?? impl.invoke;
+          return fn.call(this, args);
         }
       };
     },
