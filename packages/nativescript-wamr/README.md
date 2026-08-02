@@ -33,10 +33,16 @@ bundled `.aar` and `include.gradle` are picked up automatically.
 
 ```ts
 import { knownFolders, path } from '@nativescript/core';
-import { WamrRuntime } from '@org/nativescript-wamr';
+import { WamrRuntime, WamrExecutionTier } from '@org/nativescript-wamr';
 
 const runtime = new WamrRuntime();              // default configuration
 // const runtime = new WamrRuntime({ stackSizeInBytes: 128 * 1024 });
+
+// Pick an execution tier (default is Interpreter)
+const jit = new WamrRuntime({ executionTier: WamrExecutionTier.FastJIT });
+
+// WASI can be disabled for modules that don't need it
+const noWasi = new WamrRuntime({ wasiEnabled: false });
 
 // Load from a file path
 const wasmPath = path.join(knownFolders.currentApp().path, 'assets/module.wasm');
@@ -122,7 +128,29 @@ not when the module is loaded.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `stackSizeInBytes` | `number` | `65536` | WAMR interpreter stack size |
-| `heapSizeInBytes` | `number` | `16777216` | WAMR heap size (16 MiB) |
+| `wasiEnabled` | `boolean` | `true` | Enable WASI support for the module |
+| `executionTier` | `WamrExecutionTier` | `Interpreter` | Execution engine (see below) |
+
+### Execution tiers (`WamrExecutionTier` enum)
+
+| Member | Value | WAMR mode | Description |
+|--------|-------|-----------|-------------|
+| `Interpreter` | `0` | `Mode_Interp` | Portable interpreter; works everywhere (default) |
+| `FastJIT` | `1` | `Mode_Fast_JIT` | WAMR Fast JIT compiler; good speed/portability balance |
+| `LLVMJIT` | `2` | `Mode_LLVM_JIT` | LLVM JIT compiler; highest peak performance |
+| `AOT` | `3` | `Mode_AOT` | Ahead-of-time compiled module (loads `.aot` files) |
+
+```ts
+import { WamrRuntime, WamrExecutionTier } from '@org/nativescript-wamr';
+
+new WamrRuntime();                                           // interpreter (default)
+new WamrRuntime({ executionTier: WamrExecutionTier.FastJIT });
+new WamrRuntime({ executionTier: WamrExecutionTier.LLVMJIT });
+new WamrRuntime({ executionTier: WamrExecutionTier.AOT });
+```
+
+> `FastJIT`, `LLVMJIT`, and `AOT` require those modes to be compiled into the
+> WAMR build. The default interpreter mode is always available.
 
 **Static**
 
@@ -197,6 +225,7 @@ with `name === 'WamrError'`). Common messages:
 src/
   index.ts, lib/           TypeScript API (wire protocol + platform adapters)
   vendors/wamr/            canonical WAMR C sources
+                           (empty until the WAMR source tree is populated)
   native/shim/             flat C helpers for binding generators (globals)
 platforms/
   ios/NSCWamr/             Swift package: CWamr (C) + NSCWamr (Swift, @objc)
@@ -240,6 +269,13 @@ install is needed.
 The published `.aar` keeps `aarMetadata.minCompileSdk = 1`, so it stays usable
 from apps building against an older `compileSdk` (AGP 9 would otherwise raise it
 to this library's `compileSdk` of 35).
+
+> **Note on native builds**: `src/vendors/wamr/` is currently **empty** until
+> the WAMR C source tree is vendored (see the README there). Until then
+> `npm run test.ios` / `npm run test.android` / `npm run build.android` skip
+> the native steps: `build-native.mjs` exits 0 with a `SKIP:` message and the
+> Gradle `hosttest` task self-skips via its `onlyIf` guard. CI's `wamr-ios`
+> and `wamr-android` jobs also detect the absence and pass with a warning.
 
 ## Troubleshooting
 

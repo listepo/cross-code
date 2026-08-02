@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { WamrError } from './wire.js';
-import { WamrRuntime } from './wamr.js';
+import { WamrExecutionTier, WamrRuntime } from './wamr.js';
 
 // These specs exercise the platform adapters against fakes that mimic the
 // JS-visible shape of the native APIs (the NativeScript runtimes marshal the
@@ -115,7 +115,7 @@ function installAndroidFake() {
   }
 
   class FakeRuntime {
-    constructor(public stackSize: number, public wasiEnabled: boolean, public executionTier: string) {
+    constructor(public stackSize: number, public wasiEnabled: boolean, public executionTier: number) {
       state.stackSize = stackSize;
       state.wasiEnabled = wasiEnabled;
       state.executionTier = executionTier;
@@ -318,18 +318,29 @@ describe('WamrRuntime on Android', () => {
     new WamrRuntime({
       stackSizeInBytes: 256 * 1024,
       wasiEnabled: false,
-      executionTier: 'fast-jit',
+      executionTier: WamrExecutionTier.FastJIT,
     });
     expect(state.stackSize).toBe(256 * 1024);
     expect(state.wasiEnabled).toBe(false);
-    expect(state.executionTier).toBe('fast-jit');
+    expect(state.executionTier).toBe(WamrExecutionTier.FastJIT);
   });
 
   it('defaults WASI to enabled and execution tier to interpreter', () => {
     const state = installAndroidFake();
     new WamrRuntime();
     expect(state.wasiEnabled).toBe(true);
-    expect(state.executionTier).toBe('interpreter');
+    expect(state.executionTier).toBe(WamrExecutionTier.Interpreter);
+  });
+
+  it.each([
+    ['Interpreter', WamrExecutionTier.Interpreter],
+    ['FastJIT', WamrExecutionTier.FastJIT],
+    ['LLVMJIT', WamrExecutionTier.LLVMJIT],
+    ['AOT', WamrExecutionTier.AOT],
+  ])('passes the %s execution tier to the native runtime', (_name, tier) => {
+    const state = installAndroidFake();
+    new WamrRuntime({ executionTier: tier });
+    expect(state.executionTier).toBe(tier);
   });
 
   it('converts i64 args/results between bigint and wire strings', () => {
@@ -452,12 +463,12 @@ describe('WamrRuntime on iOS', () => {
     new WamrRuntime({
       stackSizeInBytes: 32 * 1024,
       wasiEnabled: false,
-      executionTier: 'llvm-jit',
+      executionTier: WamrExecutionTier.LLVMJIT,
     });
 
     expect(state.stackSize).toBe(32 * 1024);
     expect(state.wasiEnabled).toBe(false);
-    expect(state.executionTier).toBe('llvm-jit');
+    expect(state.executionTier).toBe(WamrExecutionTier.LLVMJIT);
   });
 
   it('unwraps NSArray results and converts i64', () => {

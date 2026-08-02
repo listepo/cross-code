@@ -51,7 +51,7 @@ export interface NativeRuntimeAdapter {
 function createAdapter(options: {
   stackSizeInBytes: number;
   wasiEnabled: boolean;
-  executionTier: string;
+  executionTier: number;
 }): NativeRuntimeAdapter {
   const g = globalThis as any;
   if (typeof g.NSCWamrRuntime !== 'undefined' && g.NSCWamrRuntime !== null) {
@@ -80,21 +80,29 @@ function wamrVersionNative(): string {
 // Public API
 // ---------------------------------------------------------------------------
 
-/** WAMR execution tiers. */
-export type WamrExecutionTier = 'interpreter' | 'fast-jit' | 'llvm-jit' | 'aot';
+/**
+ * WAMR execution tiers — numeric codes that cross the native bridge.
+ *
+ * Note: a regular `enum` (not `const enum`) because the workspace builds
+ * with `isolatedModules: true`.
+ */
+export enum WamrExecutionTier {
+  /** Portable interpreter (default). Works everywhere. */
+  Interpreter = 0,
+  /** WAMR Fast JIT compiler. Good balance of speed and portability. */
+  FastJIT = 1,
+  /** WAMR LLVM JIT compiler. Highest peak performance; needs LLVM built in. */
+  LLVMJIT = 2,
+  /** Ahead-of-time compiled module. Loads pre-compiled .aot files. */
+  AOT = 3,
+}
 
 export interface WamrRuntimeOptions {
   /** WAMR interpreter stack size, in bytes. Default 64 KiB. */
   stackSizeInBytes?: number;
   /** Enable WASI support. Default true. */
   wasiEnabled?: boolean;
-  /**
-   * Execution tier. Defaults to 'interpreter'.
-   * - 'interpreter': portable, low memory
-   * - 'fast-jit': WAMR Fast JIT compiler
-   * - 'llvm-jit': WAMR LLVM JIT compiler
-   * - 'aot': ahead-of-time compiled module
-   */
+  /** Execution tier. Defaults to WamrExecutionTier.Interpreter. */
   executionTier?: WamrExecutionTier;
 }
 
@@ -120,7 +128,7 @@ function toBytes(source: Exclude<WamrModuleSource, string>): Uint8Array {
 const DEFAULT_OPTIONS = {
   stackSizeInBytes: 64 * 1024,
   wasiEnabled: true,
-  executionTier: 'interpreter',
+  executionTier: WamrExecutionTier.Interpreter,
 } as const;
 
 export class WamrRuntime {

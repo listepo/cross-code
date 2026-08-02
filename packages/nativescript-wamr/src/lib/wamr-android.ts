@@ -136,7 +136,7 @@ export class AndroidRuntime implements NativeRuntimeAdapter {
   private readonly runtime: any;
   private disposed = false;
 
-  constructor(options: { stackSizeInBytes: number; wasiEnabled: boolean; executionTier: string }) {
+  constructor(options: { stackSizeInBytes: number; wasiEnabled: boolean; executionTier: number }) {
     const wamrns = (globalThis as any).org.nativescript.wamr;
     this.runtime = new wamrns.NSCWamrRuntime(
       options.stackSizeInBytes,
