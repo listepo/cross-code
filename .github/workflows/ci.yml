@@ -79,6 +79,16 @@ jobs:
       - name: Vitest + typecheck
         run: npx nx run-many -t test typecheck
 
+      # Rust is pre-installed on GitHub's ubuntu-latest runner. When debugging
+      # locally with `act` the slim image may not have it — install on the fly
+      # so the same workflow is self-contained.
+      - name: Install Rust (if missing)
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+
       # The fixture crate: wasm exports plus the globals.wasm byte encoder.
       - name: Rust unit tests
         run: npx nx run nativescript-wasm-fixture:test.wasm
@@ -194,12 +204,19 @@ jobs:
 
       - run: npm ci
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.9.0
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4.4.4
+
+      # GitHub's ubuntu-latest runner ships clang; the slim act image does not.
+      - name: Install build tools (if missing)
+        run: |
+          if ! command -v clang++ >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq clang
+          fi
 
       - name: JVM host tests (JavaCPP bindings + Kotlin wrapper)
         working-directory: packages/nativescript-wasm3/platforms/android/wasm3-android
@@ -277,7 +294,7 @@ jobs:
         working-directory: apps/nativescript-wasm-test
         run: npm ci
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.9.0
         with:
           distribution: temurin
           java-version: '17'
