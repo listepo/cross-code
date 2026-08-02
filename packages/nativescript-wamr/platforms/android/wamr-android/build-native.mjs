@@ -26,18 +26,30 @@ const vendor = path.join(pluginRoot, 'src/vendors/wamr');
 
 // Check that WAMR C sources are present — the repo ships an empty
 // directory with a README; populate it before building.
-async function requireSources() {
+// Returns true if sources are available, false if they are missing.
+async function sourcesAvailable() {
   const headers = await glob(`${vendor}/**/*.h`, { nodir: true });
   const sources = await glob(`${vendor}/**/*.c`, { nodir: true });
-  if (headers.length === 0 && sources.length === 0) {
-    console.error(
-      'Error: No WAMR C sources found in %s.\n' +
-      '  Populate this directory with the WAMR source tree, then re-run.\n' +
-      '  See %s for instructions.',
+  return headers.length > 0 || sources.length > 0;
+}
+
+async function skipIfMissing() {
+  if (!(await sourcesAvailable())) {
+    console.warn(
+      'SKIP: No WAMR C sources found in %s. Native build skipped.\n' +
+      '  See %s for setup instructions.',
       vendor,
       path.join(vendor, 'README.md'),
     );
-    process.exit(1);
+    // Touch a marker so Gradle's outputs.dir() is satisfied and
+    // downstream tasks can check it to decide whether to run.
+    await fs.mkdirp(path.join(gen, 'java'));
+    await fs.mkdirp(path.join(gen, 'classes'));
+    await fs.writeFile(
+      path.join(gen, 'sources-missing'),
+      `WAMR sources not found at ${vendor}\n`,
+    );
+    process.exit(0);
   }
 }
 
@@ -249,7 +261,7 @@ async function main() {
     throw new Error(`${javacppJar} not found — run ./gradlew :library:fetchJavacpp first`);
   }
 
-  await requireSources();
+  await skipIfMissing();
 
   // host/android builds reuse an existing parse if present
   if (mode === 'parse' || mode === 'all' || !fs.existsSync(path.join(gen, 'classes'))) {

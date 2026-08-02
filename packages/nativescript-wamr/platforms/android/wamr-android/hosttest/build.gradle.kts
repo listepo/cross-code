@@ -47,6 +47,12 @@ tasks.compileKotlin { dependsOn(buildNativeHost) }
 
 tasks.test {
     useJUnitPlatform()
+
+    // Skip when WAMR sources are not available — the javacppParse task
+    // exits early with a marker file; no native libs to test against.
+    val sourcesMissing = file("../library/build/generated/javacpp/sources-missing")
+    onlyIf("WAMR C sources are available") { !sourcesMissing.exists() }
+
     // JavaCPP's Loader falls back to System.loadLibrary for libjniwamr.
     systemProperty(
         "java.library.path",
