@@ -77,16 +77,13 @@ function makeIosHostCallback(cb: WireHostCallback): any {
   const Base = (globalThis as any).NSCWasm3HostCallback;
   if (!Base) throw new Wasm3Error('NSCWasm3HostCallback not available');
 
-  const fn = (nativeArgs: any): any => {
-    const results = cb(nsArrayToJs(nativeArgs) as WireValue[]);
-    if (results.length === 0) return null;
-    if (results.length === 1) return results[0];
-    return results;
-  };
-
   const Subclass = Base.extend({
     invoke(nativeArgs: any): any {
-      return fn(nativeArgs);
+      // Always return the raw wire array — the native trampoline handles
+      // nil / single / array uniformly (Swift: case nil→[], array→as‑is,
+      // single→[single]), but NSNumber marshalling is fragile, and the
+      // trampoline expects the array path to be the most reliable.
+      return cb(nsArrayToJs(nativeArgs) as WireValue[]);
     },
   });
   return new Subclass();
