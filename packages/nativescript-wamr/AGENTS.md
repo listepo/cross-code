@@ -75,14 +75,24 @@ is skipped entirely — saving memory for modules that don't need it.
 
 WAMR supports four execution modes set via `wasm_runtime_set_running_mode`:
 
-| Tier | WAMR constant | Description |
-|------|---------------|-------------|
-| `interpreter` | `Mode_Interp` | portable, low memory (default) |
-| `fast-jit` | `Mode_Fast_JIT` | WAMR Fast JIT compiler |
-| `llvm-jit` | `Mode_LLVM_JIT` | WAMR LLVM JIT compiler |
-| `aot` | `Mode_AOT` | ahead-of-time compiled module |
+| Tier | `WamrExecutionTier` enum | WAMR constant | Description |
+|------|--------------------------|---------------|-------------|
+| `Interpreter` | `Interpreter = 0` | `Mode_Interp` | portable, low memory (default) |
+| `Fast JIT` | `FastJIT = 1` | `Mode_Fast_JIT` | WAMR Fast JIT compiler |
+| `LLVM JIT` | `LLVMJIT = 2` | `Mode_LLVM_JIT` | WAMR LLVM JIT compiler |
+| `AOT` | `AOT = 3` | `Mode_AOT` | ahead-of-time compiled module |
 
-The tier is configured per-runtime at construction time. Note that `fast-jit`
+The tier is configured per-runtime at construction time. The public API takes
+the numeric `WamrExecutionTier` const enum (exported from `src/lib/wamr.ts` and
+`src/index.ts`):
+
+```ts
+import { WamrRuntime, WamrExecutionTier } from '@org/nativescript-wamr';
+
+const runtime = new WamrRuntime({ executionTier: WamrExecutionTier.FastJIT });
+```
+
+The enum value crosses the native bridge as a plain `int`. Note that `fast-jit`
 and `llvm-jit` must be compiled into the WAMR build; the standard iOS/Android
 builds include only the interpreter and Fast JIT.
 
@@ -595,6 +605,27 @@ These are coupled — don't bump one without checking the other:
 - **Kotlin metadata version**: AGP 9's built-in Kotlin writes 2.4.0 metadata;
   the compiler flag `-Xmetadata-version=2.3.0` ensures NativeScript's generator
   can read the classes.
+
+---
+
+## Current state: WAMR sources not vendored yet
+
+`src/vendors/wamr/` is intentionally **empty** (only a README with setup
+instructions). Until the WAMR C source tree is populated, native builds
+cannot run:
+
+- **`build-native.mjs`** calls `skipIfMissing()` first — if no `.c`/`.h`
+  files exist it prints `SKIP: No WAMR C sources found...`, touches a
+  `library/build/generated/javacpp/sources-missing` marker, and exits 0.
+- **`hosttest:test`** has `onlyIf("WAMR C sources are available")` — it
+  skips when the `sources-missing` marker exists.
+- **CI** (`wamr-ios`, `wamr-android` jobs) runs a "Check for WAMR C
+  sources" step and skips all native-build steps when sources are absent,
+  so the jobs pass with a warning annotation instead of failing.
+
+To populate: clone `https://github.com/bytecodealliance/wasm-micro-runtime`
+and place the `core/` tree into `src/vendors/wamr/`, then run
+`npm run sync.vendors` and `npm run build.android`.
 
 ---
 
