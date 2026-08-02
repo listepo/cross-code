@@ -35,6 +35,29 @@
   and never hits a broken global install or macOS permission walls on
   `~/.local/share/.nativescript-cli`.
 
+## NativeScript plugins in this repo
+
+Two sibling plugins live under `packages/`:
+
+- **`nativescript-wasm3`** (`@org/nativescript-wasm3`) — mature plugin binding
+  the wasm3 interpreter (Swift Package on iOS, Kotlin + JavaCPP on Android).
+  See `packages/nativescript-wasm3/AGENTS.md`.
+- **`nativescript-wamr`** (`@org/nativescript-wamr`) — newer plugin binding
+  WAMR (WebAssembly Micro Runtime) with four execution tiers (Interpreter,
+  Fast JIT, LLVM JIT, AOT), WASI support, and the same wire protocol as wasm3.
+  See `packages/nativescript-wamr/AGENTS.md`.
+
+Both plugins share the same architecture and conventions: a platform-agnostic
+wire protocol (`wire.ts`), per-platform adapter files, Swift @objc classes on
+iOS, Kotlin + JavaCPP on Android, and Nx targets declared via `package.json`.
+
+**Important (wamr)**: `packages/nativescript-wamr/src/vendors/wamr/` is
+intentionally **empty** (only a README) until the WAMR C source tree is
+populated. CI jobs for the native suites detect the absence and **skip
+gracefully** (see `.github/workflows/ci.yml`, "Check for WAMR C sources"
+steps) rather than fail. When working on wamr, do not rely on CI native
+steps passing until sources are added.
+
 <!-- code-review-graph MCP tools -->
 ## MCP Tools: code-review-graph
 
