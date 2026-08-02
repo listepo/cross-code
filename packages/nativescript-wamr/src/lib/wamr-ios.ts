@@ -162,7 +162,7 @@ export class IosRuntime implements NativeRuntimeAdapter {
   private hostCallbacks: any[] = [];
   private disposed = false;
 
-  constructor(options: { stackSizeInBytes: number; wasiEnabled: boolean; executionTier: string }) {
+  constructor(options: { stackSizeInBytes: number; wasiEnabled: boolean; executionTier: number }) {
     const RuntimeClass = (globalThis as any).NSCWamrRuntime;
     this.runtime = RuntimeClass.alloc().initWithStackSizeWasiEnabledExecutionTier(
       options.stackSizeInBytes,

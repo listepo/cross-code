@@ -7,10 +7,10 @@ export {
   type WasmValueType,
 } from './lib/wire.js';
 export {
+  WamrExecutionTier,
   WamrFunction,
   WamrModule,
   WamrRuntime,
-  type WamrExecutionTier,
   type WamrHostFunction,
   type WamrImports,
   type WamrModuleSource,
