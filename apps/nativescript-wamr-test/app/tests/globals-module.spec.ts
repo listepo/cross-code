@@ -69,4 +69,115 @@ describe('globals.wasm through @org/nativescript-wamr', () => {
     expect(() => module.getGlobal('nope')).to.throw(/global not found: nope/);
     expect(() => module.setGlobal('nope', 1)).to.throw(WamrError);
   });
+
+  // ── Execution tier coverage for globals ────────────────────────────────
+
+  describe('execution tiers', () => {
+    const ALL_TIERS: WamrExecutionTier[] = [
+      WamrExecutionTier.Interpreter,
+      WamrExecutionTier.FastJIT,
+      WamrExecutionTier.LLVMJIT,
+      WamrExecutionTier.AOT,
+    ];
+
+    it('reads and writes globals under every available tier', () => {
+      const failures: string[] = [];
+
+      for (const tier of ALL_TIERS) {
+        const tierName = WamrExecutionTier[tier];
+        let rt: WamrRuntime;
+        try {
+          rt = new WamrRuntime({
+            stackSizeInBytes: 128 * 1024,
+            wasiEnabled: false,
+            executionTier: tier,
+          });
+        } catch (err) {
+          failures.push(`${tierName}: skipped (${(err as Error).message})`);
+          continue;
+        }
+
+        try {
+          const m = rt.loadModule(appWasmPath(GLOBALS_WASM));
+
+          // Initial values
+          if (m.getGlobal('g_i32') !== 42) {
+            failures.push(`${tierName}: g_i32 initial expected 42, got ${m.getGlobal('g_i32')}`);
+          }
+          if (m.getGlobal('g_i64') !== 4294967296n) {
+            failures.push(`${tierName}: g_i64 initial mismatch`);
+          }
+
+          // Round-trip a write
+          m.setGlobal('g_i32', -999);
+          if (m.getGlobal('g_i32') !== -999) {
+            failures.push(`${tierName}: g_i32 round-trip failed`);
+          }
+
+          m.setGlobal('g_f64', 2.71828);
+          if (m.getGlobal('g_f64') !== 2.71828) {
+            failures.push(`${tierName}: g_f64 round-trip failed`);
+          }
+        } finally {
+          rt.dispose();
+        }
+      }
+
+      expect(failures, `tier failures:\n${failures.join('\n')}`).to.eql([]);
+    });
+  });
+
+  // ── WASI combinations ──────────────────────────────────────────────────
+
+  describe('WASI mode', () => {
+    it('reads and writes globals with WASI enabled (Interpreter)', () => {
+      const rt = new WamrRuntime({
+        stackSizeInBytes: 128 * 1024,
+        wasiEnabled: true,
+        executionTier: WamrExecutionTier.Interpreter,
+      });
+      try {
+        const m = rt.loadModule(appWasmPath(GLOBALS_WASM));
+
+        expect(m.getGlobal('g_i32')).to.equal(42);
+        expect(m.getGlobal('g_i64')).to.equal(4294967296n);
+        expect(m.getGlobal('g_f32')).to.equal(1.5);
+        expect(m.getGlobal('g_f64')).to.equal(3.14);
+
+        m.setGlobal('g_i32', -7);
+        expect(m.getGlobal('g_i32')).to.equal(-7);
+
+        m.setGlobal('g_i64', 9007199254740993n);
+        expect(m.getGlobal('g_i64')).to.equal(9007199254740993n);
+      } finally {
+        rt.dispose();
+      }
+    });
+
+    it('reads and writes globals with WASI + FastJIT when available', () => {
+      let rt: WamrRuntime;
+      try {
+        rt = new WamrRuntime({
+          stackSizeInBytes: 128 * 1024,
+          wasiEnabled: true,
+          executionTier: WamrExecutionTier.FastJIT,
+        });
+      } catch (err) {
+        expect((err as Error).message).to.match(/not compiled|unsupported|tier/i);
+        return;
+      }
+
+      try {
+        const m = rt.loadModule(appWasmPath(GLOBALS_WASM));
+
+        expect(m.getGlobal('g_i32')).to.equal(42);
+        expect(m.getGlobal('g_i64')).to.equal(4294967296n);
+
+        m.setGlobal('g_i64', -1n);
+        expect(m.getGlobal('g_i64')).to.equal(-1n);
+      } finally {
+        rt.dispose();
+      }
+    });
+  });
 });

@@ -25,7 +25,7 @@ import {
   summarize,
   type HostCall,
 } from '../wasm/fixture-suite';
-import { appWasmPath, FIXTURE_WASM, readAppFile } from '../wasm/wasm-assets';
+import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM, readAppFile } from '../wasm/wasm-assets';
 
 describe('the fixture module through @org/nativescript-wamr', () => {
   let runtime: WamrRuntime;
@@ -215,5 +215,271 @@ describe('the fixture module through @org/nativescript-wamr', () => {
     extra.dispose();
 
     expect(() => extra.dispose()).to.not.throw();
+  });
+
+  // ── Execution tiers ───────────────────────────────────────────────────
+
+  describe('execution tiers', () => {
+    /** All numeric tier values known to the enum. */
+    const ALL_TIERS: WamrExecutionTier[] = [
+      WamrExecutionTier.Interpreter,
+      WamrExecutionTier.FastJIT,
+      WamrExecutionTier.LLVMJIT,
+      WamrExecutionTier.AOT,
+    ];
+
+    /**
+     * Creates a runtime with the given tier and runs the full shared fixture
+     * suite against it. Returns the summary or throws.
+     *
+     * When a tier is not compiled into the native WAMR build the runtime
+     * construction itself may fail — callers must handle that.
+     */
+    function runSuiteUnderTier(tier: WamrExecutionTier) {
+      const rt = new WamrRuntime({
+        stackSizeInBytes: 128 * 1024,
+        wasiEnabled: false,
+        executionTier: tier,
+      });
+      try {
+        const hostLog: HostCall[] = [];
+        const m = rt.loadModule(appWasmPath(FIXTURE_WASM), createHostImports(hostLog));
+        return summarize(runFixtureChecks(m, hostLog));
+      } finally {
+        rt.dispose();
+      }
+    }
+
+    it('passes the full fixture suite under every available tier', () => {
+      const results: string[] = [];
+
+      for (const tier of ALL_TIERS) {
+        const tierName = WamrExecutionTier[tier];
+        try {
+          const summary = runSuiteUnderTier(tier);
+          if (summary.failed > 0) {
+            results.push(
+              `${tierName}: ${summary.failed} of ${summary.total} checks FAILED`,
+            );
+          }
+        } catch (err) {
+          // A tier may not be compiled in — e.g. LLVM JIT needs
+          // WAMR_BUILD_JIT=1 with LLVM, AOT needs pre-compiled .aot files.
+          // Record the skip but don't fail the suite.
+          results.push(`${tierName}: skipped (${(err as Error).message})`);
+        }
+      }
+
+      expect(
+        results,
+        `tier failures / skips:\n${results.join('\n')}`,
+      ).to.eql([]);
+    });
+
+    it('Interpreter tier passes the full fixture suite', () => {
+      const summary = runSuiteUnderTier(WamrExecutionTier.Interpreter);
+
+      expect(summary.failed).to.equal(0);
+      expect(summary.total).to.be.greaterThan(30);
+    });
+
+    it('FastJIT tier passes the full fixture suite when available', () => {
+      let summary;
+      try {
+        summary = runSuiteUnderTier(WamrExecutionTier.FastJIT);
+      } catch (err) {
+        // FastJIT may not be compiled in. Skip gracefully.
+        expect((err as Error).message).to.match(/not compiled|unsupported|tier/i);
+        return;
+      }
+
+      expect(summary.failed).to.equal(0);
+      expect(summary.total).to.be.greaterThan(30);
+    });
+
+    it('LLVM JIT tier loads and calls the fixture when available', () => {
+      let rt: WamrRuntime;
+      try {
+        rt = new WamrRuntime({
+          stackSizeInBytes: 128 * 1024,
+          wasiEnabled: false,
+          executionTier: WamrExecutionTier.LLVMJIT,
+        });
+      } catch (err) {
+        expect((err as Error).message).to.match(/not compiled|unsupported|tier/i);
+        return;
+      }
+
+      try {
+        const m = rt.loadModule(appWasmPath(FIXTURE_WASM), createHostImports([]));
+        expect(callFixture(m, 'add_i32', 3, 4)).to.equal(7);
+        expect(callFixture(m, 'add_i64', 1n, 2n)).to.equal(3n);
+        expect(callFixture(m, 'add_f64', 0.1, 0.2)).to.equal(0.1 + 0.2);
+      } finally {
+        rt.dispose();
+      }
+    });
+
+    it('AOT tier loads and calls the fixture when available', () => {
+      let rt: WamrRuntime;
+      try {
+        rt = new WamrRuntime({
+          stackSizeInBytes: 128 * 1024,
+          wasiEnabled: false,
+          executionTier: WamrExecutionTier.AOT,
+        });
+      } catch (err) {
+        expect((err as Error).message).to.match(/not compiled|unsupported|tier/i);
+        return;
+      }
+
+      try {
+        const m = rt.loadModule(appWasmPath(FIXTURE_WASM), createHostImports([]));
+        expect(callFixture(m, 'add_i32', 3, 4)).to.equal(7);
+        expect(callFixture(m, 'add_i64', 1n, 2n)).to.equal(3n);
+        expect(callFixture(m, 'add_f64', 0.1, 0.2)).to.equal(0.1 + 0.2);
+      } finally {
+        rt.dispose();
+      }
+    });
+  });
+
+  // ── WASI mode ──────────────────────────────────────────────────────────
+
+  describe('WASI mode', () => {
+    it('runs the full fixture suite with WASI enabled in Interpreter tier', () => {
+      const rt = new WamrRuntime({
+        stackSizeInBytes: 128 * 1024,
+        wasiEnabled: true,
+        executionTier: WamrExecutionTier.Interpreter,
+      });
+      try {
+        const hostLog: HostCall[] = [];
+        const m = rt.loadModule(appWasmPath(FIXTURE_WASM), createHostImports(hostLog));
+        const summary = summarize(runFixtureChecks(m, hostLog));
+
+        expect(summary.failed).to.equal(0);
+        expect(summary.total).to.be.greaterThan(30);
+      } finally {
+        rt.dispose();
+      }
+    });
+
+    it('runs the full fixture suite with WASI + FastJIT when available', () => {
+      let rt: WamrRuntime;
+      try {
+        rt = new WamrRuntime({
+          stackSizeInBytes: 128 * 1024,
+          wasiEnabled: true,
+          executionTier: WamrExecutionTier.FastJIT,
+        });
+      } catch (err) {
+        expect((err as Error).message).to.match(/not compiled|unsupported|tier/i);
+        return;
+      }
+
+      try {
+        const hostLog: HostCall[] = [];
+        const m = rt.loadModule(appWasmPath(FIXTURE_WASM), createHostImports(hostLog));
+        const summary = summarize(runFixtureChecks(m, hostLog));
+
+        expect(summary.failed).to.equal(0);
+        expect(summary.total).to.be.greaterThan(30);
+      } finally {
+        rt.dispose();
+      }
+    });
+
+    it('WASI-disabled runtime still loads non-WASI modules', () => {
+      const rt = new WamrRuntime({
+        stackSizeInBytes: 128 * 1024,
+        wasiEnabled: false,
+        executionTier: WamrExecutionTier.Interpreter,
+      });
+      try {
+        const m = rt.loadModule(appWasmPath(FIXTURE_WASM), createHostImports([]));
+        expect(callFixture(m, 'add_i32', 1, 2)).to.equal(3);
+        expect(callFixture(m, 'identity_i64', 42n)).to.equal(42n);
+      } finally {
+        rt.dispose();
+      }
+    });
+
+    it('WASI-enabled runtime loads the globals module', () => {
+      const rt = new WamrRuntime({
+        stackSizeInBytes: 128 * 1024,
+        wasiEnabled: true,
+        executionTier: WamrExecutionTier.Interpreter,
+      });
+      try {
+        const m = rt.loadModule(appWasmPath(GLOBALS_WASM));
+
+        expect(m.getGlobal('g_i32')).to.equal(42);
+        expect(m.getGlobal('g_i64')).to.equal(4294967296n);
+        expect(m.getGlobal('g_f64')).to.equal(3.14);
+      } finally {
+        rt.dispose();
+      }
+    });
+  });
+
+  // ── Runtime option combinations ────────────────────────────────────────
+
+  it('accepts default options (no explicit config)', () => {
+    const rt = new WamrRuntime();
+    try {
+      const m = rt.loadModule(appWasmPath(FIXTURE_WASM), createHostImports([]));
+      expect(callFixture(m, 'add_i32', 7, 8)).to.equal(15);
+      expect(WamrRuntime.version()).to.match(/^\d+\.\d+\.\d+/);
+    } finally {
+      rt.dispose();
+    }
+  });
+
+  it('loads a module from a Uint8Array', () => {
+    const bytes = readAppFile(FIXTURE_WASM);
+    const rt = new WamrRuntime({
+      stackSizeInBytes: 128 * 1024,
+      wasiEnabled: false,
+      executionTier: WamrExecutionTier.Interpreter,
+    });
+    try {
+      const m = rt.loadModule(bytes, createHostImports([]));
+      expect(callFixture(m, 'add_i32', 1, 2)).to.equal(3);
+      expect(callFixture(m, 'i64_max')).to.equal(9223372036854775807n);
+    } finally {
+      rt.dispose();
+    }
+  });
+
+  it('loads a module from a plain number array', () => {
+    const bytes = readAppFile(FIXTURE_WASM);
+    const plain: number[] = [];
+    for (let i = 0; i < bytes.length; i++) plain.push(bytes[i]);
+
+    const rt = new WamrRuntime({
+      stackSizeInBytes: 128 * 1024,
+      wasiEnabled: false,
+      executionTier: WamrExecutionTier.Interpreter,
+    });
+    try {
+      const m = rt.loadModule(plain, createHostImports([]));
+      expect(callFixture(m, 'add_i32', 1, 2)).to.equal(3);
+    } finally {
+      rt.dispose();
+    }
+  });
+
+  it('reports the execution tier from WamrExecutionTier enum', () => {
+    expect(WamrExecutionTier.Interpreter).to.equal(0);
+    expect(WamrExecutionTier.FastJIT).to.equal(1);
+    expect(WamrExecutionTier.LLVMJIT).to.equal(2);
+    expect(WamrExecutionTier.AOT).to.equal(3);
+
+    // The reverse mapping should work (numeric enum).
+    expect(WamrExecutionTier[0]).to.equal('Interpreter');
+    expect(WamrExecutionTier[1]).to.equal('FastJIT');
+    expect(WamrExecutionTier[2]).to.equal('LLVMJIT');
+    expect(WamrExecutionTier[3]).to.equal('AOT');
   });
 });
