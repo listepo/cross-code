@@ -11,14 +11,17 @@ name: DeepSeek CR
 # or lock the PR conversation.
 
 on:
-  pull_request_target:
-    types:
-      - opened # Triggers when a PR is opened
-      - reopened # Triggers when a PR is reopened
-      - synchronize # Triggers when a commit is pushed to the PR
-  issue_comment:
-    types:
-      - created # Triggers when a comment is created on a PR (watch-mention)
+  # Disabled — change to workflow_dispatch to run manually.
+  # Previously: pull_request_target + issue_comment triggers.
+  workflow_dispatch:
+  # pull_request_target:
+  #   types:
+  #     - opened # Triggers when a PR is opened
+  #     - reopened # Triggers when a PR is reopened
+  #     - synchronize # Triggers when a commit is pushed to the PR
+  # issue_comment:
+  #   types:
+  #     - created # Triggers when a comment is created on a PR (watch-mention)
 
 permissions:
   pull-requests: write

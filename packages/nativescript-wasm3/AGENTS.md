@@ -208,7 +208,7 @@ directly — no shim needed.
 npm run sync.vendors          # must run first if vendor sources changed
 cd platforms/ios/NSCWasm3
 swift build                   # compile check
-swift test                    # 11 XCTests, runs wasm3 natively on macOS
+swift test --disable-sandbox   # 11 XCTests, runs wasm3 natively on macOS (needs --disable-sandbox on macOS 15+)
 ```
 
 ---
@@ -421,6 +421,10 @@ suite on both platforms when you touch `wire.ts` or `wasm3.ts`.
 
 ## Full build / test sequence
 
+The `ns` CLI is a local devDependency — always invoke it with `npx ns` so it
+resolves to `node_modules/.bin/ns` and never hits macOS permission issues on
+`~/.local/share/.nativescript-cli`.
+
 ```bash
 # TypeScript + unit tests (no native required)
 npm exec nx run-many -t build test -p nativescript-wasm3
@@ -430,6 +434,11 @@ npm exec nx run-many -t build test -p nativescript-wasm3
 npm exec nx run nativescript-wasm-test:typecheck
 npm exec nx run nativescript-wasm-test:test.ios
 npm exec nx run nativescript-wasm-test:test.android
+
+# Or run the CLI directly from the test-app directory:
+cd apps/nativescript-wasm-test
+npx ns test ios --emulator
+npx ns test android --emulator
 
 # iOS (macOS only)
 npm run sync.vendors

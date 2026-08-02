@@ -15,16 +15,18 @@ private final class LogBox {
 
 /// Host import that sums two i32 wire values.
 private final class HostAddCallback: NSCWasm3HostCallback {
-    override func invoke(_ args: NSArray) -> Any? {
-        NSNumber(value: (args[0] as! NSNumber).intValue + (args[1] as! NSNumber).intValue)
+    override func invoke(_ args: NSArray) -> NSArray? {
+        [NSNumber(value: (args[0] as! NSNumber).intValue + (args[1] as! NSNumber).intValue)]
     }
 }
 
 /// Host import that multiplies two f64 wire values.
 private final class HostMulF64Callback: NSCWasm3HostCallback {
-    override func invoke(_ args: NSArray) -> Any? {
-        NSNumber(
-            value: (args[0] as! NSNumber).doubleValue * (args[1] as! NSNumber).doubleValue)
+    override func invoke(_ args: NSArray) -> NSArray? {
+        [
+            NSNumber(
+                value: (args[0] as! NSNumber).doubleValue * (args[1] as! NSNumber).doubleValue)
+        ]
     }
 }
 
@@ -35,7 +37,7 @@ private final class HostLogI64Callback: NSCWasm3HostCallback {
         self.box = box
         super.init()
     }
-    override func invoke(_ args: NSArray) -> Any? {
+    override func invoke(_ args: NSArray) -> NSArray? {
         box.value = args[0] as? String
         return nil
     }
@@ -43,7 +45,7 @@ private final class HostLogI64Callback: NSCWasm3HostCallback {
 
 /// Host import that returns an invalid wire value to force a wasm3 trap.
 private final class HostBadReturnCallback: NSCWasm3HostCallback {
-    override func invoke(_ args: NSArray) -> Any? { "not a number" }
+    override func invoke(_ args: NSArray) -> NSArray? { ["not a number"] }
 }
 
 final class NSCWasm3Tests: XCTestCase {
@@ -122,6 +124,34 @@ final class NSCWasm3Tests: XCTestCase {
             try runtime.findFunction("call_host_mul_f64").call([2.5, 4.0]) as? [NSNumber], [10.0])
         _ = try runtime.findFunction("call_host_log_i64").call(["-1099511627776"])
         XCTAssertEqual(logBox.value, "-1099511627776")
+    }
+
+    /// NativeScript does not subclass in Swift — `.extend(...)` builds a
+    /// subclass with the ObjC runtime and installs `invoke:` there, so the
+    /// override is reachable only through objc_msgSend. A Swift `override`
+    /// keeps working via the vtable even when `invoke` loses its `dynamic`,
+    /// which is why the other host-import tests cannot guard this.
+    func testHostImportOverriddenThroughTheObjCRuntime() throws {
+        let (runtime, module) = try loadSuite()
+
+        let subclass: AnyClass = objc_allocateClassPair(
+            NSCWasm3HostCallback.self, "ObjCOverrideHostCallback", 0)!
+        let block: @convention(block) (AnyObject, NSArray) -> NSArray? = { _, args in
+            [NSNumber(value: (args[0] as! NSNumber).intValue + (args[1] as! NSNumber).intValue)]
+        }
+        XCTAssertTrue(
+            class_addMethod(
+                subclass,
+                #selector(NSCWasm3HostCallback.invoke(_:)),
+                imp_implementationWithBlock(block),
+                "@@:@"))
+        objc_registerClassPair(subclass)
+        let callback = (subclass as! NSObject.Type).init() as! NSCWasm3HostCallback
+
+        try module.linkHostFunction(
+            "env", name: "host_add", signature: "i(ii)", callback: callback)
+
+        XCTAssertEqual(try runtime.findFunction("call_host_add").call([3, 4]) as? [NSNumber], [7])
     }
 
     func testUnlinkedImportFails() throws {

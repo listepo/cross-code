@@ -33,7 +33,7 @@
   "scripts": {
     "fixtures": "node tools/gen-fixtures.mjs && node tools/sync-wasm3.mjs",
     "sync.vendors": "node tools/sync-wasm3.mjs",
-    "test.ios": "cd platforms/ios/NSCWasm3 && swift test",
+    "test.ios": "cd platforms/ios/NSCWasm3 && swift test --disable-sandbox",
     "test.android": "cd platforms/android/wasm3-android && ./gradlew :hosttest:test",
     "build.android": "cd platforms/android/wasm3-android && ./gradlew :library:deployAar"
   },

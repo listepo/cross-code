@@ -13,6 +13,7 @@ const g = globalThis as any;
 afterEach(() => {
   delete g.NSCWasm3Runtime;
   delete g.NSCWasm3HostCallback;
+  delete g.NSMutableArray;
   delete g.interop;
   delete g.org;
 });
@@ -180,6 +181,16 @@ function nsArray(items: any[]) {
   return { count: items.length, objectAtIndex: (i: number) => items[i] };
 }
 
+/**
+ * How a throwing Swift method fails on iOS: the bridge does not raise, it
+ * returns null and fills in the NSError reference the caller appended to the
+ * arguments. A caller that passes no reference sees only the null.
+ */
+function iosFailure(errorRef: any, message: string): null {
+  if (errorRef) errorRef.value = { localizedDescription: message };
+  return null;
+}
+
 /** Fake of the Swift NSCWasm3* classes as seen from JS on iOS. */
 function installIosFake() {
   const state: any = { hostFns: new Map<string, any>() };
@@ -198,10 +209,15 @@ function installIosFake() {
     name: 'call_host_add',
     paramTypes: nsArray(['i32', 'i32']),
     returnTypes: nsArray(['i32']),
-    callWithArgumentsError: (args: any[]) => {
+    callWithArgumentsError: (args: any[], errorRef?: any) => {
       const hostFn = state.hostFns.get('env.host_add');
-      if (!hostFn) throw new Error('missing imported function: env.host_add');
-      return nsArray([hostFn.invoke(nsArray([args[0], args[1]]))]);
+      if (!hostFn) return iosFailure(errorRef, "missing imported function: 'env.host_add'");
+      const results = hostFn.invoke(nsArray([args[0], args[1]]));
+      // A JS array returned from a JS-implemented override never reaches the
+      // native side: the bridge drops the call it was serving, and the caller
+      // is left with an undefined result and no error.
+      if (typeof results?.objectAtIndex !== 'function') return undefined;
+      return nsArray([results.objectAtIndex(0)]);
     },
   };
 
@@ -215,9 +231,9 @@ function installIosFake() {
     ) => {
       state.hostFns.set(`${mod}.${name}`, cb);
     },
-    getGlobalError: (name: string) => {
+    getGlobalError: (name: string, errorRef?: any) => {
       if (name === 'g_big') return '72623859790382856';
-      throw new Error(`global not found: ${name}`);
+      return iosFailure(errorRef, `global not found: ${name}`);
     },
     setGlobalValueError: (name: string, value: any) => {
       state.lastSetGlobal = { name, value };
@@ -234,10 +250,10 @@ function installIosFake() {
       state.loadedPath = path;
       return module;
     },
-    findFunctionError: (name: string) => {
+    findFunctionError: (name: string, errorRef?: any) => {
       if (name === 'add_i64') return addI64;
       if (name === 'call_host_add') return callHostAdd;
-      throw new Error(`function lookup failed: ${name}`);
+      return iosFailure(errorRef, `function lookup failed: '${name}'`);
     },
     readMemoryAtOffsetLengthError: (offset: number, length: number) => ({
       kind: 'NSData',
@@ -253,19 +269,37 @@ function installIosFake() {
     alloc: () => ({ initWithStackSize: (n: number) => ((state.stackSize = n), runtime) }),
     wasm3Version: () => '0.5.2',
   };
-  // Fake NSCWasm3HostCallback that mirrors the NativeScript .extend() mechanism:
-  // the produced subclass stores the JS callback in `_fn` and calls it via invoke().
+  // Fake NSCWasm3HostCallback mirroring NativeScript's .extend(): the ObjC
+  // selector `invoke:` surfaces in JS as `invoke`, and only that key overrides
+  // the native method. Any other key becomes an ordinary JS method the native
+  // trampoline never reaches, leaving the base implementation's nil in place.
   g.NSCWasm3HostCallback = {
     extend(impl: any) {
       return class {
-        _fn: any = null;
         invoke(args: any): any {
-          return impl.invoke.call(this, args);
+          return typeof impl.invoke === 'function' ? impl.invoke.call(this, args) : null;
         }
       };
     },
   };
+  g.NSMutableArray = {
+    alloc: () => ({
+      init: () => {
+        const items: any[] = [];
+        return {
+          get count() {
+            return items.length;
+          },
+          addObject: (value: any) => items.push(value),
+          objectAtIndex: (i: number) => items[i],
+        };
+      },
+    }),
+  };
   g.interop = {
+    Reference: class {
+      value: any = null;
+    },
     bufferFromData: (data: any) => new Uint8Array([data.offset, data.length]).buffer,
   };
   return state;
@@ -449,5 +483,20 @@ describe('Wasm3Runtime on iOS', () => {
     const runtime = new Wasm3Runtime();
     expect(() => runtime.findFunction('nope')).toThrow(Wasm3Error);
     expect(() => runtime.findFunction('nope')).toThrow(/function lookup failed/);
+  });
+
+  // The bridge reports failure by filling an NSError reference rather than
+  // raising, so the wasm3 message reaches JS only if the adapter passes one.
+  it('reads the wasm3 message out of the NSError reference', () => {
+    installIosFake();
+    const runtime = new Wasm3Runtime();
+    const module = runtime.loadModule('/tmp/fake.wasm');
+
+    expect(() => runtime.findFunction('nope')).toThrow(/function lookup failed: 'nope'/);
+    expect(() => module.getGlobal('nope')).toThrow(/global not found: nope/);
+    // An import that was never linked traps on call, not on load.
+    expect(() => runtime.call('call_host_add', 1, 2)).toThrow(
+      /missing imported function: 'env\.host_add'/,
+    );
   });
 });

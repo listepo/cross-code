@@ -102,14 +102,25 @@ private enum WireCoding {
 open class NSCWasm3HostCallback: NSObject {
     /// Called by the wasm3 host trampoline when a linked import is invoked.
     /// `args` contains the marshalled wasm argument values (i32→NSNumber,
-    /// i64→String decimal, f32/f64→NSNumber). Return nil / a single wire value
-    /// / an NSArray of wire values for the return slot(s).
-    @objc open func invoke(_ args: NSArray) -> Any? { nil }
+    /// i64→String decimal, f32/f64→NSNumber). Return one wire value per return
+    /// slot the import declares — nil or an empty array for a void import.
+    ///
+    /// The return type is `NSArray?` rather than `Any?` on purpose: NativeScript
+    /// converts a JS return value using the declared ObjC type, and an untyped
+    /// `id` makes it wrap a JS array as an NSDictionary keyed by index, which no
+    /// longer looks like a list of results.
+    ///
+    /// `dynamic` is load-bearing too: NativeScript's `.extend(...)` installs its
+    /// override on a subclass built with the ObjC runtime, which only the ObjC
+    /// method table knows about. Without `dynamic`, Swift call sites go through
+    /// the vtable and reach this base implementation instead — the nil it
+    /// returns then traps every import that declares a result.
+    @objc open dynamic func invoke(_ args: NSArray) -> NSArray? { nil }
 }
 
 private final class HostContext {
-    let callback: ([Any]) -> Any?
-    init(_ callback: @escaping ([Any]) -> Any?) {
+    let callback: ([Any]) -> [Any]
+    init(_ callback: @escaping ([Any]) -> [Any]) {
         self.callback = callback
     }
 }
@@ -148,17 +159,7 @@ private let hostTrampoline: M3RawCall = { _, ctxPtr, sp, _ in
         args.append(WireCoding.value(for: type, slot: sp[nRets + i]))
     }
 
-    let result = context.callback(args)
-
-    let returned: [Any]
-    switch result {
-    case nil, is NSNull:
-        returned = []
-    case let array as [Any]:
-        returned = array
-    case let single?:
-        returned = [single]
-    }
+    let returned = context.callback(args)
     guard returned.count == nRets else { return hostTrapInvalidReturn }
     for i in 0..<nRets {
         let type = m3_GetRetType(function, UInt32(i))
@@ -311,7 +312,9 @@ public final class NSCWasm3Module: NSObject {
         signature: String,
         callback: NSCWasm3HostCallback
     ) throws {
-        let context = HostContext({ [callback] args in callback.invoke(args as NSArray) })
+        let context = HostContext({ [callback] args in
+            callback.invoke(args as NSArray) as? [Any] ?? []
+        })
         let userdata = Unmanaged.passUnretained(context).toOpaque()
         if let result = m3_LinkRawFunctionEx(module, moduleName, name, signature, hostTrampoline, userdata) {
             throw makeError(result, runtime: runtime.runtime)
