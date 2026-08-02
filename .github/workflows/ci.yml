@@ -63,14 +63,19 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             apps/nativescript-wasm-test/package-lock.json
+            apps/nativescript-wamr-test/package-lock.json
 
       - run: npm ci
 
-      # The NativeScript app is not an npm workspace member — the CLI needs its
+      # The NativeScript apps are not npm workspace members — the CLI needs its
       # own node_modules — and its typecheck resolves @nativescript/types,
       # @types/mocha and TypeScript from there.
-      - name: Install the test app's dependencies
+      - name: Install the wasm3 test app's dependencies
         working-directory: apps/nativescript-wasm-test
+        run: npm ci
+
+      - name: Install the wamr test app's dependencies
+        working-directory: apps/nativescript-wamr-test
         run: npm ci
 
       # nativescript-wasm3: 26 vitest specs, plus the typecheck of all three
@@ -117,6 +122,7 @@ jobs:
       wasm3: ${{ steps.filter.outputs.wasm3 }}
       wamr: ${{ steps.filter.outputs.wamr }}
       app: ${{ steps.filter.outputs.app }}
+      wamr_app: ${{ steps.filter.outputs.wamr_app }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -130,6 +136,7 @@ jobs:
               echo "wasm3=true"
               echo "wamr=true"
               echo "app=true"
+              echo "wamr_app=true"
             } >> "$GITHUB_OUTPUT"
             exit 0
           }
@@ -159,6 +166,13 @@ jobs:
             echo "app=true" >> "$GITHUB_OUTPUT"
           else
             echo "app=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # The wamr test app depends on the wamr plugin and the fixture.
+          if grep -qE '^(apps/nativescript-wamr-test/|packages/nativescript-wamr/|packages/nativescript-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+            echo "wamr_app=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "wamr_app=false" >> "$GITHUB_OUTPUT"
           fi
 
   # iOS: compiles the vendored wasm3 C sources through SwiftPM and runs the
@@ -437,4 +451,94 @@ jobs:
           api-level: 34
           arch: x86_64
           working-directory: apps/nativescript-wasm-test
+          script: ns test android --emulator
+
+  # ── WAMR test app ──────────────────────────────────────────────────────
+  # The WAMR test app's mocha suite, on a simulator and an emulator. Mirrors
+  # the wasm3 test app jobs above but uses @org/nativescript-wamr instead.
+  wamr-test-ios:
+    needs: changes
+    if: needs.changes.outputs.wamr_app == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            apps/nativescript-wamr-test/package-lock.json
+
+      - run: npm ci
+
+      # The app resolves the plugin through a file: dependency and imports its
+      # built dist/, so the TypeScript has to exist before the app is bundled.
+      - name: Build the plugin
+        run: npx nx run nativescript-wamr:build
+
+      - name: Install the test app's dependencies
+        working-directory: apps/nativescript-wamr-test
+        run: npm ci
+
+      - run: npm install -g nativescript
+
+      # `ns doctor` shells out to `pod --version`, which prints a locale warning
+      # the CLI treats as a failed CocoaPods check unless LANG is a UTF-8 one.
+      # The plugin itself needs no pods — it ships a Swift package.
+      - name: Mocha specs on the iOS Simulator
+        working-directory: apps/nativescript-wamr-test
+        env:
+          LANG: en_US.UTF-8
+        run: ns test ios --emulator
+
+  wamr-test-android:
+    needs: changes
+    if: needs.changes.outputs.wamr_app == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            apps/nativescript-wamr-test/package-lock.json
+
+      - run: npm ci
+
+      - name: Build the plugin
+        run: npx nx run nativescript-wamr:build
+
+      - name: Install the test app's dependencies
+        working-directory: apps/nativescript-wamr-test
+        run: npm ci
+
+      - uses: actions/setup-java@v4.9.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - run: npm install -g nativescript
+
+      # Lets the emulator use hardware acceleration on the GitHub runner.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # The plugin ships a prebuilt .aar with the WAMR .so files for every ABI,
+      # so this needs no NDK — just the SDK the emulator action installs.
+      - name: Mocha specs on the Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          working-directory: apps/nativescript-wamr-test
           script: ns test android --emulator
