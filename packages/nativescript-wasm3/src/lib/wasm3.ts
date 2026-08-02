@@ -10,8 +10,8 @@ import {
   type WasmValueType,
   type WireValue,
 } from './wire.js';
-import { IosRuntime } from './wasm3.ios.js';
-import { AndroidRuntime } from './wasm3.android.js';
+import { IosRuntime } from './wasm3-ios.js';
+import { AndroidRuntime } from './wasm3-android.js';
 
 // ---------------------------------------------------------------------------
 // Native adapters. Both platforms expose the same wire protocol:
