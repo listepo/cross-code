@@ -23,6 +23,24 @@ const mode = process.argv[2] ?? 'all';
 const root = path.dirname(fileURLToPath(import.meta.url));
 const pluginRoot = path.resolve(root, '../../..');
 const vendor = path.join(pluginRoot, 'src/vendors/wamr');
+
+// Check that WAMR C sources are present — the repo ships an empty
+// directory with a README; populate it before building.
+async function requireSources() {
+  const headers = await glob(`${vendor}/**/*.h`, { nodir: true });
+  const sources = await glob(`${vendor}/**/*.c`, { nodir: true });
+  if (headers.length === 0 && sources.length === 0) {
+    console.error(
+      'Error: No WAMR C sources found in %s.\n' +
+      '  Populate this directory with the WAMR source tree, then re-run.\n' +
+      '  See %s for instructions.',
+      vendor,
+      path.join(vendor, 'README.md'),
+    );
+    process.exit(1);
+  }
+}
+
 const shim = path.join(pluginRoot, 'src/native/shim');
 const lib = path.join(root, 'library');
 const gen = path.join(lib, 'build/generated/javacpp');
@@ -230,6 +248,8 @@ async function main() {
   if (!fs.existsSync(javacppJar)) {
     throw new Error(`${javacppJar} not found — run ./gradlew :library:fetchJavacpp first`);
   }
+
+  await requireSources();
 
   // host/android builds reuse an existing parse if present
   if (mode === 'parse' || mode === 'all' || !fs.existsSync(path.join(gen, 'classes'))) {
