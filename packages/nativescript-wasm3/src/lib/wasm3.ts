@@ -61,6 +61,26 @@ function nsArrayToJs(value: any): any[] {
   return result;
 }
 
+// --- iOS error-propagation helpers ---
+// On recent NativeScript runtimes the auto-throw-when-omitting-errorRef
+// behaviour is unreliable; methods silently return nil instead of throwing.
+// The helpers below use interop.Reference to capture the NSError explicitly.
+
+function iosInterop(): any {
+  return (globalThis as any).interop;
+}
+
+function newErrorRef(): any {
+  const interop = iosInterop();
+  return interop?.Reference ? new interop.Reference() : null;
+}
+
+function checkErrorRef(errorRef: any, context: string): void {
+  if (!errorRef?.value) return;
+  const msg = errorRef.value.localizedDescription ?? String(errorRef.value);
+  throw new Wasm3Error(`${context}: ${String(msg).replace(/^[\w.]*NSCWasm3Exception:\s*/, '')}`);
+}
+
 class IosFunction implements NativeFunctionAdapter {
   constructor(private readonly fn: any) {}
   name(): string {
@@ -74,7 +94,10 @@ class IosFunction implements NativeFunctionAdapter {
   }
   call(args: WireValue[]): WireValue[] {
     try {
-      return nsArrayToJs(this.fn.callWithArgumentsError(args)) as WireValue[];
+      const result = this.fn.callWithArgumentsError(args);
+      // NSError ** auto-throw may not work — check for nil return explicitly.
+      if (result == null) throw new Wasm3Error(`call ${this.name()}: returned null`);
+      return nsArrayToJs(result) as WireValue[];
     } catch (error) {
       rethrow(error, `call ${this.name()}`);
     }
@@ -82,32 +105,30 @@ class IosFunction implements NativeFunctionAdapter {
 }
 
 /**
- * Lazily-created NSCWasm3HostCallback subclass shared across all host imports.
+ * Creates an NSCWasm3HostCallback subclass whose overridden invoke() captures
+ * the JS callback directly in its closure — avoid relying on `this._fn` which
+ * may not be reachable from the native dispatch on every runtime version.
+ *
  * Using a subclassable ObjC object avoids the NativeScript ObjC block-bridging
  * bug that causes EXC_BAD_ACCESS when a JS lambda is passed as a block parameter.
  */
-let _iosHostCallbackClass: any = null;
-function iosHostCallbackClass(): any {
-  if (_iosHostCallbackClass !== null) return _iosHostCallbackClass;
+function makeIosHostCallback(cb: WireHostCallback): any {
   const Base = (globalThis as any).NSCWasm3HostCallback;
   if (!Base) throw new Wasm3Error('NSCWasm3HostCallback not available');
-  _iosHostCallbackClass = Base.extend({
-    invoke(nativeArgs: any): any {
-      return (this as any)._fn(nativeArgs);
-    },
-  });
-  return _iosHostCallbackClass;
-}
 
-function makeIosHostCallback(cb: WireHostCallback): any {
-  const obj = new (iosHostCallbackClass())();
-  (obj as any)._fn = (nativeArgs: any): any => {
+  const fn = (nativeArgs: any): any => {
     const results = cb(nsArrayToJs(nativeArgs) as WireValue[]);
     if (results.length === 0) return null;
     if (results.length === 1) return results[0];
     return results;
   };
-  return obj;
+
+  const Subclass = Base.extend({
+    invoke(nativeArgs: any): any {
+      return fn(nativeArgs);
+    },
+  });
+  return new Subclass();
 }
 
 class IosModule implements NativeModuleAdapter {
@@ -117,26 +138,40 @@ class IosModule implements NativeModuleAdapter {
   }
   linkHostFunction(module: string, name: string, signature: string, cb: WireHostCallback): void {
     try {
-      this.module.linkHostFunctionNameSignatureCallbackError(
-        module,
-        name,
-        signature,
-        makeIosHostCallback(cb),
-      );
+      const callback = makeIosHostCallback(cb);
+      const errorRef = newErrorRef();
+      if (errorRef) {
+        this.module.linkHostFunctionNameSignatureCallbackError(
+          module, name, signature, callback, errorRef,
+        );
+        checkErrorRef(errorRef, `linkHostFunction ${module}.${name}`);
+      } else {
+        this.module.linkHostFunctionNameSignatureCallbackError(
+          module, name, signature, callback,
+        );
+      }
     } catch (error) {
       rethrow(error, `linkHostFunction ${module}.${name}`);
     }
   }
   getGlobal(name: string): WireValue {
     try {
-      return this.module.getGlobalError(name) as WireValue;
+      const value = this.module.getGlobalError(name);
+      if (value == null) throw new Wasm3Error(`getGlobal ${name}: global not found`);
+      return value as WireValue;
     } catch (error) {
       rethrow(error, `getGlobal ${name}`);
     }
   }
   setGlobal(name: string, value: WireValue): void {
     try {
-      this.module.setGlobalValueError(name, value);
+      const errorRef = newErrorRef();
+      if (errorRef) {
+        this.module.setGlobalValueError(name, value, errorRef);
+        checkErrorRef(errorRef, `setGlobal ${name}`);
+      } else {
+        this.module.setGlobalValueError(name, value);
+      }
     } catch (error) {
       rethrow(error, `setGlobal ${name}`);
     }
@@ -152,21 +187,27 @@ class IosRuntime implements NativeRuntimeAdapter {
   loadModuleFromBytes(bytes: Uint8Array): NativeModuleAdapter {
     try {
       // The NativeScript iOS runtime marshals ArrayBuffer/TypedArray to NSData.
-      return new IosModule(this.runtime.loadModuleError(bytes));
+      const module = this.runtime.loadModuleError(bytes);
+      if (!module) throw new Wasm3Error('loadModule: returned null');
+      return new IosModule(module);
     } catch (error) {
       rethrow(error, 'loadModule');
     }
   }
   loadModuleFromFile(path: string): NativeModuleAdapter {
     try {
-      return new IosModule(this.runtime.loadModuleFromFileError(path));
+      const module = this.runtime.loadModuleFromFileError(path);
+      if (!module) throw new Wasm3Error(`loadModule ${path}: returned null`);
+      return new IosModule(module);
     } catch (error) {
       rethrow(error, `loadModule ${path}`);
     }
   }
   findFunction(name: string): NativeFunctionAdapter {
     try {
-      return new IosFunction(this.runtime.findFunctionError(name));
+      const fn = this.runtime.findFunctionError(name);
+      if (!fn) throw new Wasm3Error(`findFunction ${name}: function not found`);
+      return new IosFunction(fn);
     } catch (error) {
       rethrow(error, `findFunction ${name}`);
     }
@@ -177,7 +218,8 @@ class IosRuntime implements NativeRuntimeAdapter {
   readMemory(offset: number, length: number): Uint8Array {
     try {
       const data = this.runtime.readMemoryAtOffsetLengthError(offset, length);
-      const buffer = (globalThis as any).interop.bufferFromData(data);
+      if (!data) throw new Wasm3Error('readMemory: returned null');
+      const buffer = iosInterop()?.bufferFromData(data);
       return new Uint8Array(buffer);
     } catch (error) {
       rethrow(error, 'readMemory');
@@ -185,7 +227,13 @@ class IosRuntime implements NativeRuntimeAdapter {
   }
   writeMemory(offset: number, bytes: Uint8Array): void {
     try {
-      this.runtime.writeMemoryAtOffsetDataError(offset, bytes);
+      const errorRef = newErrorRef();
+      if (errorRef) {
+        this.runtime.writeMemoryAtOffsetDataError(offset, bytes, errorRef);
+        checkErrorRef(errorRef, 'writeMemory');
+      } else {
+        this.runtime.writeMemoryAtOffsetDataError(offset, bytes);
+      }
     } catch (error) {
       rethrow(error, 'writeMemory');
     }
