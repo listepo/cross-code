@@ -81,6 +81,35 @@ class IosFunction implements NativeFunctionAdapter {
   }
 }
 
+/**
+ * Lazily-created NSCWasm3HostCallback subclass shared across all host imports.
+ * Using a subclassable ObjC object avoids the NativeScript ObjC block-bridging
+ * bug that causes EXC_BAD_ACCESS when a JS lambda is passed as a block parameter.
+ */
+let _iosHostCallbackClass: any = null;
+function iosHostCallbackClass(): any {
+  if (_iosHostCallbackClass !== null) return _iosHostCallbackClass;
+  const Base = (globalThis as any).NSCWasm3HostCallback;
+  if (!Base) throw new Wasm3Error('NSCWasm3HostCallback not available');
+  _iosHostCallbackClass = Base.extend({
+    invoke(nativeArgs: any): any {
+      return (this as any)._fn(nativeArgs);
+    },
+  });
+  return _iosHostCallbackClass;
+}
+
+function makeIosHostCallback(cb: WireHostCallback): any {
+  const obj = new (iosHostCallbackClass())();
+  (obj as any)._fn = (nativeArgs: any): any => {
+    const results = cb(nsArrayToJs(nativeArgs) as WireValue[]);
+    if (results.length === 0) return null;
+    if (results.length === 1) return results[0];
+    return results;
+  };
+  return obj;
+}
+
 class IosModule implements NativeModuleAdapter {
   constructor(private readonly module: any) {}
   name(): string {
@@ -92,12 +121,7 @@ class IosModule implements NativeModuleAdapter {
         module,
         name,
         signature,
-        (nativeArgs: any) => {
-          const results = cb(nsArrayToJs(nativeArgs) as WireValue[]);
-          if (results.length === 0) return null;
-          if (results.length === 1) return results[0];
-          return results;
-        },
+        makeIosHostCallback(cb),
       );
     } catch (error) {
       rethrow(error, `linkHostFunction ${module}.${name}`);

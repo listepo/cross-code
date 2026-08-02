@@ -12,6 +12,7 @@ const g = globalThis as any;
 
 afterEach(() => {
   delete g.NSCWasm3Runtime;
+  delete g.NSCWasm3HostCallback;
   delete g.interop;
   delete g.org;
 });
@@ -200,7 +201,7 @@ function installIosFake() {
     callWithArgumentsError: (args: any[]) => {
       const hostFn = state.hostFns.get('env.host_add');
       if (!hostFn) throw new Error('missing imported function: env.host_add');
-      return nsArray([hostFn(nsArray([args[0], args[1]]))]);
+      return nsArray([hostFn.invoke(nsArray([args[0], args[1]]))]);
     },
   };
 
@@ -251,6 +252,18 @@ function installIosFake() {
   g.NSCWasm3Runtime = {
     alloc: () => ({ initWithStackSize: (n: number) => ((state.stackSize = n), runtime) }),
     wasm3Version: () => '0.5.2',
+  };
+  // Fake NSCWasm3HostCallback that mirrors the NativeScript .extend() mechanism:
+  // the produced subclass stores the JS callback in `_fn` and calls it via invoke().
+  g.NSCWasm3HostCallback = {
+    extend(impl: any) {
+      return class {
+        _fn: any = null;
+        invoke(args: any): any {
+          return impl.invoke.call(this, args);
+        }
+      };
+    },
   };
   g.interop = {
     bufferFromData: (data: any) => new Uint8Array([data.offset, data.length]).buffer,
