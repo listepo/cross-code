@@ -1,0 +1,11 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="navigatingTo">
+    <ActionBar title="WAMR fixture suite" icon="" />
+
+    <GridLayout rows="auto, auto, *" class="p-20">
+        <Button row="0" text="RUN" tap="{{ onRun }}" class="-primary" />
+        <Label row="1" text="{{ status }}" class="h3 text-center" textWrap="true" />
+        <ScrollView row="2">
+            <Label text="{{ report }}" textWrap="true" class="report" />
+        </ScrollView>
+    </GridLayout>
+</Page>
