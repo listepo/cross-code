@@ -1,0 +1,15 @@
+{
+  "//": "DeepSeek CR local config (JSON). Copy to .deepseek-cr.config.json (gitignored) and fill in your token. All fields optional; CLI flags and env vars take precedence.",
+  "token": "YOUR_DEEPSEEK_TOKEN",
+  "model": "deepseek-v4-flash",
+  "base-url": "https://api.deepseek.com",
+  "chat-url": "",
+  "temperature": 0.3,
+  "max-length": 0,
+  "github-token": "YOUR_GITHUB_TOKEN",
+  "default-github-repo": "listepo/cross-code",
+  "include-patterns": "",
+  "exclude-patterns": "pnpm-lock.yaml,package-lock.json,*.lock",
+  "user-prompt": "Please review the following code changes:",
+  "sys-prompt": "You are a professional code review assistant responsible for analyzing code changes in GitHub Pull Requests. Identify potential issues such as code style violations, logical errors, security vulnerabilities, and provide improvement suggestions. Clearly list the problems and recommendations in a concise manner."
+}

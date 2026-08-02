@@ -2,6 +2,50 @@ import XCTest
 
 @testable import NSCWasm3
 
+// MARK: - Host callback fixtures
+//
+// linkHostFunction takes an NSCWasm3HostCallback (an open ObjC class that
+// NativeScript subclasses via .extend), not a closure — so the tests supply
+// small subclasses per import.
+
+/// Captures a value written by a host callback for later assertion.
+private final class LogBox {
+    var value: String?
+}
+
+/// Host import that sums two i32 wire values.
+private final class HostAddCallback: NSCWasm3HostCallback {
+    override func invoke(_ args: NSArray) -> Any? {
+        NSNumber(value: (args[0] as! NSNumber).intValue + (args[1] as! NSNumber).intValue)
+    }
+}
+
+/// Host import that multiplies two f64 wire values.
+private final class HostMulF64Callback: NSCWasm3HostCallback {
+    override func invoke(_ args: NSArray) -> Any? {
+        NSNumber(
+            value: (args[0] as! NSNumber).doubleValue * (args[1] as! NSNumber).doubleValue)
+    }
+}
+
+/// Host import that logs an i64 (decimal string) and returns nothing.
+private final class HostLogI64Callback: NSCWasm3HostCallback {
+    private let box: LogBox
+    init(box: LogBox) {
+        self.box = box
+        super.init()
+    }
+    override func invoke(_ args: NSArray) -> Any? {
+        box.value = args[0] as? String
+        return nil
+    }
+}
+
+/// Host import that returns an invalid wire value to force a wasm3 trap.
+private final class HostBadReturnCallback: NSCWasm3HostCallback {
+    override func invoke(_ args: NSArray) -> Any? { "not a number" }
+}
+
 final class NSCWasm3Tests: XCTestCase {
     private func fixture(_ name: String) throws -> Data {
         let url = Bundle.module.url(
@@ -65,23 +109,19 @@ final class NSCWasm3Tests: XCTestCase {
     func testHostImports() throws {
         let (runtime, module) = try loadSuite()
 
-        var loggedI64: String?
-        try module.linkHostFunction("env", name: "host_add", signature: "i(ii)") { args in
-            ((args[0] as! NSNumber).intValue + (args[1] as! NSNumber).intValue) as NSNumber
-        }
-        try module.linkHostFunction("env", name: "host_mul_f64", signature: "F(FF)") { args in
-            ((args[0] as! NSNumber).doubleValue * (args[1] as! NSNumber).doubleValue) as NSNumber
-        }
-        try module.linkHostFunction("env", name: "host_log_i64", signature: "v(I)") { args in
-            loggedI64 = args[0] as? String
-            return nil
-        }
+        let logBox = LogBox()
+        try module.linkHostFunction(
+            "env", name: "host_add", signature: "i(ii)", callback: HostAddCallback())
+        try module.linkHostFunction(
+            "env", name: "host_mul_f64", signature: "F(FF)", callback: HostMulF64Callback())
+        try module.linkHostFunction(
+            "env", name: "host_log_i64", signature: "v(I)", callback: HostLogI64Callback(box: logBox))
 
         XCTAssertEqual(try runtime.findFunction("call_host_add").call([3, 4]) as? [NSNumber], [7])
         XCTAssertEqual(
             try runtime.findFunction("call_host_mul_f64").call([2.5, 4.0]) as? [NSNumber], [10.0])
         _ = try runtime.findFunction("call_host_log_i64").call(["-1099511627776"])
-        XCTAssertEqual(loggedI64, "-1099511627776")
+        XCTAssertEqual(logBox.value, "-1099511627776")
     }
 
     func testUnlinkedImportFails() throws {
@@ -95,9 +135,8 @@ final class NSCWasm3Tests: XCTestCase {
 
     func testHostFunctionBadReturnTraps() throws {
         let (runtime, module) = try loadSuite()
-        try module.linkHostFunction("env", name: "host_add", signature: "i(ii)") { _ in
-            "not a number"
-        }
+        try module.linkHostFunction(
+            "env", name: "host_add", signature: "i(ii)", callback: HostBadReturnCallback())
         XCTAssertThrowsError(try runtime.findFunction("call_host_add").call([1, 2])) { error in
             XCTAssertTrue("\(error)".contains("host function"))
         }

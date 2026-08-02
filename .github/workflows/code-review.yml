@@ -1,0 +1,61 @@
+name: DeepSeek CR
+
+# AI code review on pull requests via hustcer/deepseek-review.
+#
+# Setup: add a repository secret named CHAT_TOKEN with your DeepSeek API key
+# (Settings → Secrets and variables → Actions). Optionally override the model
+# or base-url with the `with:` inputs below (e.g. a SiliconFlow / GitHub Models
+# endpoint — see https://github.com/hustcer/deepseek-review for options).
+#
+# Skip a review by adding "skip cr" / "skip review" to the PR title or body,
+# or lock the PR conversation.
+
+on:
+  pull_request_target:
+    types:
+      - opened # Triggers when a PR is opened
+      - reopened # Triggers when a PR is reopened
+      - synchronize # Triggers when a commit is pushed to the PR
+  issue_comment:
+    types:
+      - created # Triggers when a comment is created on a PR (watch-mention)
+
+permissions:
+  pull-requests: write
+
+jobs:
+  setup-deepseek-review:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    name: DeepSeek Code Review
+    steps:
+      - name: DeepSeek Code Review
+        uses: hustcer/deepseek-review@v1
+        with:
+          chat-token: ${{ secrets.CHAT_TOKEN }}
+          # A prompt tuned to this monorepo: NativeScript plugin (TypeScript +
+          # Kotlin/Swift), a Rust wasm fixture, and an Nx workspace.
+          sys-prompt: |
+            You are a senior code reviewer for a NativeScript monorepo built
+            with Nx. The codebase spans: a TypeScript NativeScript plugin
+            (packages/nativescript-wasm3) that bridges WebAssembly (wasm3) to
+            iOS (Swift) and Android (Kotlin + JavaCPP JNI); a Rust wasm-pack
+            fixture crate (packages/nativescript-wasm-fixture); and a
+            NativeScript test app (apps/nativescript-wasm-test) running mocha
+            on device/emulator.
+
+            Review the diff for: correctness across the JS↔native wire
+            protocol (i64 must stay lossless as decimal strings, signed Java
+            byte[] handling, NSArray/NSData marshalling), memory safety in
+            wasm3 C interop, resource leaks (native runtimes must be
+            disposed/closed), TypeScript strictness, Rust unsafe usage, CI
+            workflow correctness, and test coverage. Flag security issues
+            (injection, secrets, unsafe FFI) first. Be concise; list concrete
+            problems with file:line references and actionable fixes.
+          # DeepSeek's own API is the default; uncomment to switch provider:
+          # model: deepseek-v4-flash
+          # base-url: https://api.deepseek.com
+          # exclude-patterns: pnpm-lock.yaml,package-lock.json,*.lock
+          # Trigger a review by commenting "@github-actions" on the PR
+          # (requires the issue_comment event above):
+          # watch-mention: "@github-actions"

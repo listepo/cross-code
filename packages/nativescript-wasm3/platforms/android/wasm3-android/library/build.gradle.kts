@@ -38,6 +38,13 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        // NativeScript's metadata generator bundles kotlin-metadata-jvm with a
+        // 2.3.0 ceiling, while AGP 9's built-in Kotlin compiler is 2.4.x and
+        // writes 2.4.0 metadata — the generator then skips every class and JS
+        // sees no org.nativescript.wasm3.* (see AGENTS.md, "Kotlin metadata
+        // version gates JS visibility"). Write 2.3.0 metadata so the classes
+        // stay visible to NativeScript.
+        freeCompilerArgs.add("-Xmetadata-version=2.3.0")
     }
 }
 

@@ -95,6 +95,18 @@ private enum WireCoding {
 
 // MARK: - Host imports
 
+/// Open ObjC class that NativeScript subclasses from JavaScript to supply a
+/// host-function implementation without requiring ObjC block bridging.
+/// NativeScript overrides `invoke(_:)` in a JS subclass created with `.extend(...)`.
+@objc(NSCWasm3HostCallback)
+open class NSCWasm3HostCallback: NSObject {
+    /// Called by the wasm3 host trampoline when a linked import is invoked.
+    /// `args` contains the marshalled wasm argument values (i32→NSNumber,
+    /// i64→String decimal, f32/f64→NSNumber). Return nil / a single wire value
+    /// / an NSArray of wire values for the return slot(s).
+    @objc open func invoke(_ args: NSArray) -> Any? { nil }
+}
+
 private final class HostContext {
     let callback: ([Any]) -> Any?
     init(_ callback: @escaping ([Any]) -> Any?) {
@@ -297,9 +309,9 @@ public final class NSCWasm3Module: NSObject {
         _ moduleName: String,
         name: String,
         signature: String,
-        callback: @escaping ([Any]) -> Any?
+        callback: NSCWasm3HostCallback
     ) throws {
-        let context = HostContext(callback)
+        let context = HostContext({ [callback] args in callback.invoke(args as NSArray) })
         let userdata = Unmanaged.passUnretained(context).toOpaque()
         if let result = m3_LinkRawFunctionEx(module, moduleName, name, signature, hostTrampoline, userdata) {
             throw makeError(result, runtime: runtime.runtime)

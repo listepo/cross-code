@@ -13,8 +13,8 @@ import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM } from './wasm/wasm-assets'
 
 /**
  * Runs the fixture suite on the device's wasm3 runtime. The checks themselves
- * live in `wasm/fixture-suite.ts`, which the vitest specs run against Node's
- * WebAssembly engine — same expectations, two engines.
+ * live in `wasm/fixture-suite.ts`; the mocha specs in `app/tests/` assert on the
+ * same list under `ns test`.
  */
 export class WasmDemoModel extends Observable {
   private _status: string

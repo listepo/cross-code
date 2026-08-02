@@ -51,3 +51,15 @@ Thumbs.db
 vitest.config.*.timestamp*
 # Added by code-review-graph
 .code-review-graph/
+
+# Kotlin
+**/.kotlin/errors/*.log
+
+# Reasonix
+.reasonix/desktop-topic-auto-title-meta.json
+.reasonix/desktop-topic-created-at.json
+.reasonix/desktop-topic-title-sources.json
+.reasonix/desktop-topic-titles.json
+
+# DeepSeek CR local config (contains API token)
+.deepseek-cr.config.json
