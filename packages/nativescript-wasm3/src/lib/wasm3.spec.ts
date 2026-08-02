@@ -27,6 +27,54 @@ function installAndroidFake() {
     closed: false,
   };
 
+  // --- java.lang fakes (exercises toJavaWireValue / normalizeAndroidValue) ---
+  // On a real device the NativeScript runtime marshals java.lang.Number
+  // subclasses as JS object proxies; instanceof works against the prototype
+  // chain. The fakes below replicate the surface the adapter code relies on.
+
+  class JavaNumber {
+    constructor(protected readonly val: number) {}
+    doubleValue(): number {
+      return this.val;
+    }
+  }
+
+  class JavaDouble extends JavaNumber {
+    // noImplicitOverride (TypeScript 6) requires `override` on any member
+    // whose name also exists on a base class, even a static one shadowing
+    // Object.prototype.valueOf. The override keyword does not apply to
+    // static members, so suppress the false positive.
+    // @ts-ignore TS4114
+    static valueOf(n: number): JavaDouble {
+      return new JavaDouble(n);
+    }
+  }
+
+  // JavaLong boxes a 64-bit integer. On a real device toString() returns the
+  // decimal representation the wire protocol relies on; normalizeAndroidValue
+  // calls it to recover the lossless string.
+  class JavaLong extends JavaNumber {
+    constructor(val: number | bigint) {
+      super(Number(val));
+    }
+    override toString(): string {
+      return String(BigInt(this.val));
+    }
+  }
+
+  class JavaInteger extends JavaNumber {}
+
+  g.java = {
+    lang: {
+      Number: JavaNumber,
+      Double: JavaDouble,
+      Long: JavaLong,
+      Integer: JavaInteger,
+    },
+  };
+
+  // --- wasm3 fakes ---
+
   class FakeFunction {
     constructor(
       private name: string,
@@ -303,6 +351,47 @@ describe('Wasm3Runtime on Android', () => {
     const runtime = new Wasm3Runtime();
     runtime.dispose();
     expect(state.closed).toBe(true);
+  });
+
+  it('boxes f64 args as java.lang.Double across the wire', () => {
+    // setGlobal is the simplest path: toJavaWireValue boxes the value,
+    // the fake records what it received without normalizing.
+    const state = installAndroidFake();
+    const runtime = new Wasm3Runtime();
+    const module = runtime.loadModule([1]);
+
+    module.setGlobal('g_pi', Math.PI);
+
+    expect(state.lastSetGlobal.value).toBeInstanceOf(g.java.lang.Double);
+    expect(state.lastSetGlobal.value.doubleValue()).toBe(Math.PI);
+  });
+
+  it('unboxes java.lang.Number return values from host imports', () => {
+    installAndroidFake();
+    const runtime = new Wasm3Runtime();
+    const module = runtime.loadModule([1]);
+
+    // The fake call_host_add passes its args straight to the host callback.
+    // toJavaWireValue wraps them as Double; normalizeAndroidValue must unbox
+    // them before the JS host function sees them.
+    const received: unknown[] = [];
+    module.linkHostFunction('env', 'host_add', 'i(ii)', (a, b) => {
+      received.push(a, b);
+      return (a as number) + (b as number);
+    });
+
+    expect(runtime.call('call_host_add', 3, 4)).toBe(7);
+    expect(received).toEqual([3, 4]);
+  });
+
+  it('handles java.lang.Long in normalizeAndroidValue', () => {
+    // i64 global values cross as decimal strings — the fake returns one,
+    // and normalizeAndroidValue should pass strings through unchanged.
+    installAndroidFake();
+    const runtime = new Wasm3Runtime();
+    const module = runtime.loadModule([1]);
+
+    expect(module.getGlobal('g_big')).toBe(72623859790382856n);
   });
 });
 
