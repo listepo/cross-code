@@ -421,8 +421,21 @@ jobs:
 
       - run: npm ci
 
-      - name: Build the plugin
-        run: npx nx run nativescript-wasm3:build
+      # The test app depends on both plugins through file: dependencies.
+      # wasm3 has a committed .aar; wamr may not (C sources not committed).
+      # Build both TypeScript layers — the native side is handled separately.
+      - name: Build the plugins
+        run: npx nx run-many -t build -p nativescript-wasm3 nativescript-wamr
+
+      - name: Check for WAMR C sources
+        id: wamr_sources
+        run: |
+          if find packages/nativescript-wamr/src/vendors/wamr -name '*.c' -o -name '*.h' | grep -q .; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::WAMR C sources not found — WAMR tests will fail at runtime on Android."
+          fi
 
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
@@ -443,8 +456,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # The plugin ships a prebuilt .aar with the wasm3 .so files for every ABI,
-      # so this needs no NDK — just the SDK the emulator action installs.
+      # The wasm3 plugin ships a prebuilt .aar with its .so files for every ABI.
+      # The WAMR plugin's .aar is only present when C sources are committed.
+      # WAMR tests will fail at runtime without it (known: continue-on-error).
       - name: Mocha specs on the Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -511,8 +525,20 @@ jobs:
 
       - run: npm ci
 
+      # The app resolves the plugin through a file: dependency and imports its
+      # built dist/, so the TypeScript has to exist before the app is bundled.
       - name: Build the plugin
         run: npx nx run nativescript-wamr:build
+
+      - name: Check for WAMR C sources
+        id: wamr_sources
+        run: |
+          if find packages/nativescript-wamr/src/vendors/wamr -name '*.c' -o -name '*.h' | grep -q .; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::WAMR C sources not found — WAMR tests will fail at runtime on Android."
+          fi
 
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wamr-test
@@ -533,8 +559,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # The plugin ships a prebuilt .aar with the WAMR .so files for every ABI,
-      # so this needs no NDK — just the SDK the emulator action installs.
+      # The WAMR plugin's .aar is only present when C sources are committed
+      # and the Gradle build succeeds. Without it, WAMR tests will fail at
+      # runtime (known: this job has continue-on-error).
       - name: Mocha specs on the Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
