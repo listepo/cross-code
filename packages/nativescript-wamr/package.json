@@ -29,6 +29,10 @@
         "executor": "nx:run-script",
         "options": { "script": "sync.vendors" }
       },
+      "download.wamr": {
+        "executor": "nx:run-script",
+        "options": { "script": "download.wamr" }
+      },
       "test.ios": {
         "executor": "nx:run-script",
         "options": { "script": "test.ios" }
@@ -48,6 +52,7 @@
     }
   },
   "scripts": {
+    "download.wamr": "node tools/download-wamr.mjs",
     "fixtures": "node tools/gen-fixtures.mjs && node tools/sync-wamr.mjs",
     "sync.vendors": "node tools/sync-wamr.mjs",
     "test.ios": "cd platforms/ios/NSCWamr && swift test --disable-sandbox",
