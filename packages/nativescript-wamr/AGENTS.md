@@ -537,19 +537,28 @@ files.
 
 **Run `ns typings` to generate TypeScript declarations for native platform classes.** This creates properly typed declarations for the `@objc` Swift classes (iOS) and Kotlin classes (Android) exposed by this plugin. Without this step, TypeScript code that interacts with native objects will lack proper types.
 
+**`ns typings` must be run from the test app directory** (`apps/nativescript-wasm-test`), not from the plugin directory, because it needs a fully prepared NativeScript project with platform directories and Xcode/Gradle configuration.
+
 ```bash
 # Generate native type declarations (required before writing platform adapter code)
-npm run typings.ios
-npm run typings.android
+cd apps/nativescript-wasm-test
+npx ns typings ios
+npx ns typings android
 ```
 
-These commands invoke `npx ns typings ios` and `npx ns typings android` respectively. The generated `.d.ts` files are written to the `typings/` directory and should be **committed** — they are the source-of-truth for native API types consumed by TypeScript platform adapters.
+The generated `.d.ts` files are written to `apps/nativescript-wasm-test/typings/ios/` and `.../typings/android/`. Copy the relevant native class declarations back to the plugin — they are the source-of-truth for native API types consumed by TypeScript platform adapters.
 
-**If `ns typings` fails with an EPERM error on macOS**, the `~/.local/share/.nativescript-cli/` directory may be write-protected by a macOS process sandbox (common in sandboxed terminals/IDEs). To resolve:
-1. Run the commands in a non-sandboxed terminal (Terminal.app, iTerm2 without sandbox)
-2. Or disable the sandbox for your terminal/IDE
+**Sandboxed macOS terminals (EPERM on `~/.local/share/.nativescript-cli/`):**
 
-The `chmod` workaround is typically insufficient — the restriction is at the sandbox level, not Unix permissions.
+The `ns` CLI writes state to `~/.local/share/.nativescript-cli/` on startup. If your terminal/IDE is sandboxed (macOS process sandbox, not Unix permissions), this directory is immutable. Patch the CLI to use `/tmp`:
+
+```bash
+# One-time patch (must re-run after npm install)
+sed -i '' 's|path.join(defaultProfileDirLocation, this.$staticConfig.PROFILE_DIR_NAME)|"/tmp/.nativescript-cli"|' \
+  node_modules/nativescript/lib/common/services/settings-service.js
+```
+
+Then run `ns` commands normally. The `--profile-dir` flag exists but is applied too late in startup to avoid the sandbox hit.
 
 ### Build/test commands
 

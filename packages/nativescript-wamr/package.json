@@ -63,8 +63,8 @@
     "test.ios": "cd platforms/ios/NSCWamr && swift test --disable-sandbox",
     "test.android": "cd platforms/android/wamr-android && ./gradlew :hosttest:test",
     "build.android": "cd platforms/android/wamr-android && ./gradlew :library:deployAar",
-    "typings.ios": "ns typings ios",
-    "typings.android": "ns typings android"
+    "typings.ios": "cd ../../apps/nativescript-wasm-test && ns typings ios",
+    "typings.android": "cd ../../apps/nativescript-wasm-test && ns typings android"
   },
   "devDependencies": {
     "@nativescript/core": "^8.9.0"
