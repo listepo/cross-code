@@ -88,7 +88,7 @@ fn test_load_module_and_call() {
     let ret_ptrs: [*const std::os::raw::c_void; 1] = [
         &mut ret_val as *mut u64 as *const std::os::raw::c_void,
     ];
-    let result = unsafe { m3_GetResults(func, 1, ret_ptrs.as_ptr()) };
+    let result = unsafe { m3_GetResults(func, 1, ret_ptrs.as_ptr() as *mut *const std::os::raw::c_void) };
     assert!(result.is_null(), "get_results should succeed");
     assert_eq!(ret_val, 7);
 
