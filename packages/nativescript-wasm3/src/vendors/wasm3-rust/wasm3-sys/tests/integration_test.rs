@@ -80,7 +80,7 @@ fn test_load_module_and_call() {
         &arg3 as *const u64 as *const std::os::raw::c_void,
         &arg4 as *const u64 as *const std::os::raw::c_void,
     ];
-    let result = unsafe { m3_Call(func, 2, arg_ptrs.as_ptr()) };
+    let result = unsafe { m3_Call(func, 2, arg_ptrs.as_ptr() as *mut *const std::os::raw::c_void) };
     assert!(result.is_null(), "call should succeed");
 
     // Get result
