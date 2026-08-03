@@ -533,6 +533,25 @@ files.
 
 ## Full build / test sequence
 
+### ⚠️ Before writing any TypeScript that calls native APIs
+
+**Run `ns typings` to generate TypeScript declarations for native platform classes.** This creates properly typed declarations for the `@objc` Swift classes (iOS) and Kotlin classes (Android) exposed by this plugin. Without this step, TypeScript code that interacts with native objects will lack proper types.
+
+```bash
+# Generate native type declarations (required before writing platform adapter code)
+npm run typings.ios
+npm run typings.android
+```
+
+These commands invoke `npx ns typings ios` and `npx ns typings android` respectively. The generated `.d.ts` files are written to the `typings/` directory and should be **committed** — they are the source-of-truth for native API types consumed by TypeScript platform adapters.
+
+**If `ns typings` fails with an EPERM error on macOS**, the `~/.local/share/.nativescript-cli/` directory may have restrictive permissions. Workaround:
+```bash
+chmod -R u+w ~/.local/share/.nativescript-cli/
+```
+
+### Build/test commands
+
 The `ns` CLI is a local devDependency — always invoke it with `npx ns` so it
 resolves to `node_modules/.bin/ns` and never hits macOS permission issues on
 `~/.local/share/.nativescript-cli`.
