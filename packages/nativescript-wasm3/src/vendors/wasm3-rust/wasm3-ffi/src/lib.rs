@@ -476,7 +476,6 @@ impl Wasm3ModuleInstance {
 
 pub struct Wasm3Function {
     ptr: IM3Function,
-    runtime: IM3Runtime,
     signature: FunctionSignature,
 }
 
