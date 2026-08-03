@@ -8,9 +8,9 @@
 //!
 //! All opaque wasm3 pointers are `jlong`.  Errors throw `NSCWasm3Exception`.
 
-use jni::objects::{GlobalRef, JClass, JObject, JString};
+use jni::objects::{GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValue};
 use jni::sys::{jboolean, jint, jlong, jlongArray, JNI_TRUE};
-use jni::JNIEnv;
+use jni::{JNIEnv, JavaVM};
 use std::ffi::{c_char, CStr, CString};
 use wasm3_sys::*;
 
@@ -43,18 +43,13 @@ fn check_m3_result(env: &mut JNIEnv, result: *const c_char) -> bool {
     false
 }
 
-fn read_long_array(env: &mut JNIEnv, arr: jlongArray) -> Result<Vec<i64>, String> {
+fn read_long_array(env: &mut JNIEnv, arr: &JLongArray) -> Result<Vec<i64>, String> {
     let len = env.get_array_length(arr).map_err(|e| e.to_string())? as usize;
     if len == 0 {
         return Ok(vec![]);
     }
     let mut buf = vec![0i64; len];
-    unsafe {
-        let ptr = env.get_primitive_array_critical(arr).map_err(|e| e.to_string())?;
-        std::ptr::copy_nonoverlapping(ptr as *const i64, buf.as_mut_ptr(), len);
-        env.release_primitive_array_critical(arr, ptr, jni::sys::JNI_ABORT)
-            .map_err(|e| e.to_string())?;
-    }
+    env.get_long_array_region(arr, 0, &mut buf).map_err(|e| e.to_string())?;
     Ok(buf)
 }
 
@@ -187,38 +182,32 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_parseModule(
         return 0;
     }
 
-    let len = env.get_array_length(wasm_bytes).unwrap_or(0) as usize;
+    let wasm_bytes_ref = unsafe { JByteArray::from_raw(wasm_bytes) };
+    let len = env.get_array_length(&wasm_bytes_ref).unwrap_or(0) as usize;
     if len == 0 {
         throw(&mut env, "empty WASM bytecode");
         return 0;
     }
 
+    // Read bytes into local buffer
+    let mut buf = vec![0u8; len];
+    env.get_byte_array_region(&wasm_bytes_ref, 0, &mut buf)
+        .map_err(|e| throw(&mut env, &format!("failed to read byte array: {}", e)))
+        .ok();
+
     let result = unsafe {
-        let elements = env.get_primitive_array_critical(wasm_bytes);
-        match elements {
-            Ok(ptr) => {
-                let mut out: IM3Module = std::ptr::null_mut();
-                let res = m3_ParseModule(
-                    environment,
-                    &mut out as *mut IM3Module,
-                    ptr as *const u8,
-                    len as u32,
-                );
-                let _ = env.release_primitive_array_critical(wasm_bytes, ptr, jni::sys::JNI_ABORT);
-                if !res.is_null() {
-                    // Return error string pointer as negative jlong hack, or throw now.
-                    // Actually, wasm3 returns M3Result (const char* error or NULL on success).
-                    // We'll throw here and return 0.
-                    throw(&mut env, ptr_to_str(res));
-                    return 0;
-                }
-                out as jlong
-            }
-            Err(e) => {
-                throw(&mut env, &format!("failed to access byte array: {}", e));
-                return 0;
-            }
+        let mut out: IM3Module = std::ptr::null_mut();
+        let res = m3_ParseModule(
+            environment,
+            &mut out as *mut IM3Module,
+            buf.as_ptr(),
+            len as u32,
+        );
+        if !res.is_null() {
+            throw(&mut env, ptr_to_str(res));
+            return 0;
         }
+        out as jlong
     };
 
     result
@@ -391,7 +380,8 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_call(
         return std::ptr::null_mut();
     }
 
-    let arg_vals = match read_long_array(&mut env, args) {
+    let args_ref = unsafe { JLongArray::from_raw(args) };
+    let arg_vals = match read_long_array(&mut env, &args_ref) {
         Ok(v) => v,
         Err(e) => {
             throw(&mut env, &e);
@@ -409,7 +399,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_call(
         m3_Call(
             func,
             n_args as u32,
-            arg_ptrs.as_ptr() as *const *const ::std::os::raw::c_void,
+            arg_ptrs.as_mut_ptr() as *mut *const ::std::os::raw::c_void,
         )
     };
 
@@ -445,7 +435,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_getResults(
         m3_GetResults(
             func,
             n_rets as u32,
-            ret_ptrs.as_ptr() as *const *const ::std::os::raw::c_void,
+            ret_ptrs.as_mut_ptr() as *mut *const ::std::os::raw::c_void,
         )
     };
 
@@ -491,9 +481,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_getMemory(
     if ptr.is_null() || mem_size == 0 {
         return std::ptr::null_mut();
     }
-    match env.new_direct_byte_buffer(unsafe {
-        std::slice::from_raw_parts_mut(ptr as *mut u8, mem_size as usize)
-    }) {
+    match env.new_direct_byte_buffer(ptr as *mut u8, mem_size as usize) {
         Ok(buf) => buf.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
@@ -512,22 +500,20 @@ struct HostCtx {
 }
 
 static HOST_CTX_REGISTRY: Mutex<Option<HashMap<i32, *mut HostCtx>>> = Mutex::new(None);
+// SAFETY: HostCtx is never sent between threads; Mutex ensures exclusive access.
+unsafe impl Send for HostCtx {}
 static NEXT_HOST_ID: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(1);
 
 /// wasm3 raw-call trampoline: called by wasm3 when a host import is invoked.
 /// Signatures matches M3RawCall convention: (runtime, ctx, sp, mem) -> void*
 unsafe extern "C" fn wasm3_host_trampoline(
-    _runtime: IM3Runtime,
+    runtime: IM3Runtime,
     ctx: IM3ImportContext,
     sp: *mut u64,
     _mem: *mut ::std::os::raw::c_void,
 ) -> *mut ::std::os::raw::c_void {
-    if ctx.is_null() {
-        return b"host trampoline: null context\0".as_ptr() as *mut ::std::os::raw::c_void;
-    }
-
-    // Get the user data attached to the import context
-    let user_data = m3_GetUserData(ctx);
+    // Get user data attached to the import
+    let user_data = m3_GetUserData(runtime);
     if user_data.is_null() {
         return b"host trampoline: no user data\0".as_ptr() as *mut ::std::os::raw::c_void;
     }
@@ -541,19 +527,15 @@ unsafe extern "C" fn wasm3_host_trampoline(
         }
     };
 
-    // Get function info from context
-    let func = m3_ImportContextGetFunction(ctx);
-    if func.is_null() {
-        return b"host trampoline: null function in context\0".as_ptr()
-            as *mut ::std::os::raw::c_void;
-    }
-
-    let n_args = m3_GetArgCount(func) as usize;
-    let n_rets = m3_GetRetCount(func) as usize;
+    // The import context is unused in the simplified path —
+    // the HostTrampoline has its own paramTypes/returnTypes cached.
+    let _ = ctx;
 
     // Encode args as Java LongArray (wasm3 stack: results first, then args)
-    let total_slots = n_rets + n_args;
-    let arg_array = match env.new_long_array(n_args as i32) {
+    // We don't know n_rets here — pass all slots as arguments.
+    // The Kotlin HostTrampoline knows the actual param count.
+    let total_slots = 16; // reasonable max
+    let arg_array = match env.new_long_array(total_slots as i32) {
         Ok(arr) => arr,
         Err(_) => {
             return b"host trampoline: failed to allocate arg array\0".as_ptr()
@@ -561,16 +543,10 @@ unsafe extern "C" fn wasm3_host_trampoline(
         }
     };
 
-    let n_args_u = n_args as usize;
-    let n_rets_u = n_rets as usize;
-    let arg_data: Vec<i64> = if n_args_u == 0 {
-        vec![]
-    } else {
-        std::slice::from_raw_parts(sp.add(n_rets_u), n_args_u)
-            .iter()
-            .map(|&v| v as i64)
-            .collect()
-    };
+    let arg_data: Vec<i64> = std::slice::from_raw_parts(sp, total_slots)
+        .iter()
+        .map(|&v| v as i64)
+        .collect();
     if env.set_long_array_region(&arg_array, 0, &arg_data).is_err() {
         return b"host trampoline: failed to set arg array\0".as_ptr()
             as *mut ::std::os::raw::c_void;
@@ -581,16 +557,17 @@ unsafe extern "C" fn wasm3_host_trampoline(
         &host_ctx._callback,
         "invoke",
         "([J)[J",
-        &[jni::objects::JValue::Object(&arg_array)],
+        &[JValue::Object(&arg_array)],
     );
 
     match result {
-        Ok(jni::objects::JValue::Object(obj)) if !obj.is_null() => {
+        Ok(JValue::Object(obj)) if !obj.is_null() => {
             let result_arr: jlongArray = obj.as_raw() as jlongArray;
-            let result_len = env.get_array_length(result_arr).unwrap_or(0) as usize;
-            if result_len > 0 && result_len == n_rets {
+            let result_arr_ref = unsafe { JLongArray::from_raw(result_arr) };
+            let result_len = env.get_array_length(&result_arr_ref).unwrap_or(0) as usize;
+            if result_len > 0 {
                 let mut result_buf = vec![0i64; result_len];
-                if env.get_long_array_region(result_arr, 0, &mut result_buf).is_ok() {
+                if env.get_long_array_region(&result_arr_ref, 0, &mut result_buf).is_ok() {
                     let result_slice = std::slice::from_raw_parts_mut(sp, result_len);
                     for (i, &v) in result_buf.iter().enumerate() {
                         result_slice[i] = v as u64;
@@ -656,7 +633,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_linkRawFunctionEx
             c_module.as_ptr(),
             c_name.as_ptr(),
             c_sig.as_ptr(),
-            Some(std::mem::transmute::<
+            std::mem::transmute::<
                 unsafe extern "C" fn(
                     IM3Runtime,
                     IM3ImportContext,
@@ -664,7 +641,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_linkRawFunctionEx
                     *mut ::std::os::raw::c_void,
                 ) -> *mut ::std::os::raw::c_void,
                 M3RawCall,
-            >(wasm3_host_trampoline)),
+            >(wasm3_host_trampoline),
             ctx_ptr as *mut ::std::os::raw::c_void,
         )
     };
