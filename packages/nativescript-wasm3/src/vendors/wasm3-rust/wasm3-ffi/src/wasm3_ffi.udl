@@ -1,0 +1,87 @@
+/// wasm3 FFI bindings for Swift and Kotlin via UniFFI.
+
+namespace wasm3_ffi {};
+
+[Enum]
+interface WasmValueType {
+    I32();
+    I64();
+    F32();
+    F64();
+};
+
+dictionary WasmValue {
+    WasmValueType kind;
+    u32 bits_lo;
+    u32 bits_hi;
+};
+
+dictionary FunctionSignature {
+    string raw;
+    sequence<WasmValueType> params;
+    sequence<WasmValueType> results;
+};
+
+dictionary RuntimeConfig {
+    u32 default_stack_size;
+};
+
+[Error]
+interface Wasm3Error {
+    InitFailed(string message);
+    ModuleParseFailed(string message);
+    ModuleLoadFailed(string message);
+    FunctionNotFound(string message);
+    CallFailed(string message);
+    MemoryAccessFailed(string message);
+    GlobalAccessFailed(string message);
+    InvalidArgument(string message);
+};
+
+interface Wasm3Runtime {
+    [Throws=Wasm3Error]
+    constructor(RuntimeConfig config);
+
+    [Throws=Wasm3Error]
+    Wasm3Module load_module(sequence<u8> wasm_bytes);
+
+    string version();
+};
+
+interface Wasm3Module {
+    [Throws=Wasm3Error]
+    Wasm3ModuleInstance instantiate();
+
+    string? module_name();
+};
+
+interface Wasm3ModuleInstance {
+    [Throws=Wasm3Error]
+    Wasm3Function find_function(string name);
+
+    [Throws=Wasm3Error]
+    WasmValue get_global(string name);
+
+    [Throws=Wasm3Error]
+    void set_global(string name, WasmValue value);
+
+    u32 memory_size();
+
+    [Throws=Wasm3Error]
+    sequence<u8> read_memory(u32 offset, u32 length);
+
+    [Throws=Wasm3Error]
+    void write_memory(u32 offset, sequence<u8> data);
+
+    string? module_name();
+
+    [Throws=Wasm3Error]
+    void link_host_function(string module_name, string name, string signature);
+};
+
+interface Wasm3Function {
+    FunctionSignature signature();
+
+    [Throws=Wasm3Error]
+    sequence<u64> call(sequence<u64> args);
+};

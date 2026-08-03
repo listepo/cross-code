@@ -78,7 +78,7 @@ fn main() {
         .opt_level(2);
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
-    if target_os == "macos" || target_os == "ios" {
+    if target_os == "macos" {
         build.flag("-mmacosx-version-min=12.0");
     } else if target_os == "ios" {
         build.flag("-mios-version-min=13.0");
