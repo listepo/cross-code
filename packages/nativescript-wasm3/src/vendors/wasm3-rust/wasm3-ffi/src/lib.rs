@@ -211,6 +211,7 @@ impl Wasm3Runtime {
 
         Ok(Arc::new(Wasm3Module {
             ptr: module,
+            runtime: self.runtime,
             bytecode: wasm_bytes,
         }))
     }
@@ -237,6 +238,7 @@ impl Drop for Wasm3Runtime {
 
 pub struct Wasm3Module {
     ptr: IM3Module,
+    runtime: IM3Runtime,
     #[allow(dead_code)]
     bytecode: Vec<u8>,
 }
@@ -248,6 +250,7 @@ impl Wasm3Module {
     pub fn instantiate(self: Arc<Self>) -> Result<Arc<Wasm3ModuleInstance>, Wasm3Error> {
         Ok(Arc::new(Wasm3ModuleInstance {
             module: self.ptr,
+            runtime: self.runtime,
         }))
     }
 
@@ -275,6 +278,7 @@ impl Drop for Wasm3Module {
 
 pub struct Wasm3ModuleInstance {
     module: IM3Module,
+    runtime: IM3Runtime,
 }
 
 unsafe impl Send for Wasm3ModuleInstance {}
@@ -291,16 +295,33 @@ impl Wasm3ModuleInstance {
             }
         })?;
 
-        // Find the runtime. wasm3's findFunction requires a runtime.
-        // We don't have a runtime reference here — this is a known limitation.
-        // For now, return an error indicating this needs the runtime.
-        // In practice, the caller should use Wasm3Runtime.find_function instead.
-        Err(Wasm3Error::FunctionNotFound {
-            message: format!(
-                "find_function requires runtime context — use runtime.find_function('{}')",
-                name
-            ),
-        })
+        let mut func: IM3Function = std::ptr::null_mut();
+        let result = unsafe {
+            m3_FindFunction(&mut func as *mut IM3Function, self.runtime, c_name.as_ptr())
+        };
+        if let Some(err) = m3_result_to_option(result) {
+            return Err(Wasm3Error::FunctionNotFound { message: err });
+        }
+        if func.is_null() {
+            return Err(Wasm3Error::FunctionNotFound {
+                message: format!("function '{}' not found", name),
+            });
+        }
+
+        let n_args = unsafe { m3_GetArgCount(func) } as usize;
+        let n_rets = unsafe { m3_GetRetCount(func) } as usize;
+        let params: Vec<WasmValueType> = (0..n_args)
+            .filter_map(|i| WasmValueType::from_m3_type(unsafe { m3_GetArgType(func, i as u32) } as i32))
+            .collect();
+        let results: Vec<WasmValueType> = (0..n_rets)
+            .filter_map(|i| WasmValueType::from_m3_type(unsafe { m3_GetRetType(func, i as u32) } as i32))
+            .collect();
+        let sig = build_signature_string(&params, &results);
+
+        Ok(Arc::new(Wasm3Function {
+            ptr: func,
+            signature: FunctionSignature { raw: sig, params, results },
+        }))
     }
 
     pub fn get_global(&self, name: String) -> Result<WasmValue, Wasm3Error> {
@@ -363,22 +384,42 @@ impl Wasm3ModuleInstance {
     }
 
     pub fn memory_size(&self) -> u32 {
-        // wasm3's GetMemorySize requires a runtime, not just a module instance.
-        // Return a conservative default.
-        64 * 1024
+        unsafe { m3_GetMemorySize(self.runtime) as u32 }
     }
 
     pub fn read_memory(&self, offset: u32, length: u32) -> Result<Vec<u8>, Wasm3Error> {
-        // wasm3 memory access requires a runtime.
-        Err(Wasm3Error::MemoryAccessFailed {
-            message: "read_memory requires runtime context".into(),
-        })
+        let mut mem_size: u32 = 0;
+        let ptr = unsafe { m3_GetMemory(self.runtime, &mut mem_size, 0) };
+        if ptr.is_null() {
+            return Err(Wasm3Error::MemoryAccessFailed {
+                message: "module has no linear memory".into(),
+            });
+        }
+        if offset as u64 + length as u64 > mem_size as u64 {
+            return Err(Wasm3Error::MemoryAccessFailed {
+                message: format!("read out of bounds: offset={}, length={}, size={}", offset, length, mem_size),
+            });
+        }
+        let mut buf = vec![0u8; length as usize];
+        unsafe { std::ptr::copy_nonoverlapping((ptr as *const u8).add(offset as usize), buf.as_mut_ptr(), length as usize) };
+        Ok(buf)
     }
 
     pub fn write_memory(&self, offset: u32, data: Vec<u8>) -> Result<(), Wasm3Error> {
-        Err(Wasm3Error::MemoryAccessFailed {
-            message: "write_memory requires runtime context".into(),
-        })
+        let mut mem_size: u32 = 0;
+        let ptr = unsafe { m3_GetMemory(self.runtime, &mut mem_size, 0) };
+        if ptr.is_null() {
+            return Err(Wasm3Error::MemoryAccessFailed {
+                message: "module has no linear memory".into(),
+            });
+        }
+        if offset as u64 + data.len() as u64 > mem_size as u64 {
+            return Err(Wasm3Error::MemoryAccessFailed {
+                message: format!("write out of bounds: offset={}, len={}, size={}", offset, data.len(), mem_size),
+            });
+        }
+        unsafe { std::ptr::copy_nonoverlapping(data.as_ptr(), (ptr as *mut u8).add(offset as usize), data.len()) };
+        Ok(())
     }
 
     pub fn module_name(&self) -> Option<String> {
