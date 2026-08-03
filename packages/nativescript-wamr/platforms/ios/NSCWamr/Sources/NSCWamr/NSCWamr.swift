@@ -406,7 +406,7 @@ public final class NSCWamrRuntime: NSObject {
         for module in modules {
             let inst = try module.instance()
             if let f = name.withCString({ wasm_runtime_lookup_function(inst, $0) }) {
-                return NSCWamrFunction(function: f, moduleInst: inst, execEnv: try module.execEnv())
+                return NSCWamrFunction(function: f, moduleInst: inst, execEnv: try module.execEnv(), runtime: self)
             }
         }
         throw makeError(8, "function not found: \(name)")
@@ -420,7 +420,8 @@ public final class NSCWamrRuntime: NSObject {
         // maximum growable size for modules that declare memory.grow limits.
         guard let memory = wasm_runtime_get_memory(inst, 0) else { return 0 }
         let pages = wasm_memory_get_cur_page_count(memory)
-        return UInt32(truncatingIfNeeded: pages * 64 * 1024)
+        let size = UInt64(pages) * 64 * 1024
+        return UInt32(clamping: size)
     }
 
     @objc(readMemoryAtOffset:length:error:)
@@ -510,8 +511,9 @@ public final class NSCWamrModule: NSObject {
     @discardableResult
     fileprivate func resolveSymbolsIfNeeded() -> Bool {
         guard !symbolsResolved else { return true }
-        symbolsResolved = true
-        return wasm_runtime_resolve_symbols(module)
+        let ok = wasm_runtime_resolve_symbols(module)
+        if ok { symbolsResolved = true }
+        return ok
     }
 
     private var symbolsResolved = false
@@ -691,13 +693,19 @@ public final class NSCWamrFunction: NSObject {
     private let function: wasm_function_inst_t
     private let moduleInst: wasm_module_inst_t
     private let execEnv: wasm_exec_env_t
+    /// Retains the runtime so the exec env / module instance stays alive for
+    /// the lifetime of the function (the runtime never holds functions, so
+    /// this is cycle-free).
+    @objc public let runtime: NSCWamrRuntime
 
     fileprivate init(function: wasm_function_inst_t,
                      moduleInst: wasm_module_inst_t,
-                     execEnv: wasm_exec_env_t) {
+                     execEnv: wasm_exec_env_t,
+                     runtime: NSCWamrRuntime) {
         self.function = function
         self.moduleInst = moduleInst
         self.execEnv = execEnv
+        self.runtime = runtime
         super.init()
     }
 
