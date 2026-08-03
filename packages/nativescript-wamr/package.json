@@ -1,7 +1,7 @@
 {
   "name": "@cross-code/nativescript-wamr",
   "version": "0.1.0",
-  "description": "NativeScript plugin that runs WebAssembly modules with the WAMR (WebAssembly Micro Runtime) interpreter/JIT — Swift Package (C interop) on iOS, Kotlin + JavaCPP-generated JNI bindings on Android.",
+  "description": "NativeScript plugin that runs WebAssembly modules with the WAMR (WebAssembly Micro Runtime) interpreter/JIT — Swift Package (C interop) on iOS, Kotlin + Rust JNI (cargo-ndk) on Android.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

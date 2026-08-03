@@ -42,7 +42,7 @@ jobs:
             You are a senior code reviewer for a NativeScript monorepo built
             with Nx. The codebase spans: a TypeScript NativeScript plugin
             (packages/nativescript-wasm3) that bridges WebAssembly (wasm3) to
-            iOS (Swift) and Android (Kotlin + JavaCPP JNI); a Rust wasm-pack
+            iOS (Swift) and Android (Kotlin + Rust JNI); a Rust wasm-pack
             fixture crate (packages/nativescript-wasm-fixture); and a
             NativeScript test app (apps/nativescript-wasm-test) running mocha
             on device/emulator.
