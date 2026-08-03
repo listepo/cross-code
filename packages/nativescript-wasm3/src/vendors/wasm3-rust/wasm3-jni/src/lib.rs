@@ -655,7 +655,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_linkRawFunctionEx
 
     let id = NEXT_HOST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let mut map = HOST_CTX_REGISTRY.lock().unwrap();
-    map.get_or_insert_with(HashMap::new).insert(id, ctx_ptr);
+    map.get_or_insert_with(HashMap::new).insert(id, ctx_ptr as usize);
 
     JNI_TRUE
 }
