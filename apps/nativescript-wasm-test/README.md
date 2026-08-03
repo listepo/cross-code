@@ -87,7 +87,7 @@ npx nx typecheck nativescript-wasm-test
 ## Running the demo page
 
 ```bash
-npm install                       # in this directory — links the three @org packages
+npm install                       # in this directory — links the three @cross-code packages
 ns run ios
 ns run android
 ```
