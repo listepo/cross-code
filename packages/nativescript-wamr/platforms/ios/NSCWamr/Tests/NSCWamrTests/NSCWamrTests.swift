@@ -153,10 +153,13 @@ final class NSCWamrTests: XCTestCase {
     }
 
     func testUnlinkedImportFails() throws {
-        // WAMR reports the missing import when the function is looked up or
-        // compiled. The exact error varies by WAMR build, but it should throw.
+        // WAMR reports the missing import when the function is looked up,
+        // compiled, or called. The exact error varies by WAMR build — in this
+        // version findFunction succeeds but the call traps with
+        // "failed to call unlinked import function". Either way it must throw.
         let (runtime, _) = try loadSuite()
-        XCTAssertThrowsError(try runtime.findFunction("call_host_add")) { error in
+        let function = try runtime.findFunction("call_host_add")
+        XCTAssertThrowsError(try function.call([1, 2])) { error in
             let message = "\(error)"
             XCTAssertTrue(
                 message.contains("missing") || message.contains("import")

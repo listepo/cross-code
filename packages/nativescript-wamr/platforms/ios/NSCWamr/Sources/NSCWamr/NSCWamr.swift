@@ -355,9 +355,16 @@ public final class NSCWamrRuntime: NSObject {
         _ = buffer.initialize(from: data)
 
         var errorBuf = [CChar](repeating: 0, count: 256)
+        // Load WITHOUT resolving imports: WAMR resolves them at load time and
+        // caches the result on the module, so host functions linked afterwards
+        // would never be seen (stale registrations from earlier runtimes win).
+        // Resolution is deferred to instantiateAll() instead, after the caller
+        // had a chance to link host functions.
+        var loadArgs = LoadArgs()
+        loadArgs.no_resolve = true
         guard let module = errorBuf.withUnsafeMutableBufferPointer({ errBuf in
-            wasm_runtime_load(buffer.baseAddress, UInt32(data.count),
-                              errBuf.baseAddress, UInt32(errBuf.count))
+            wasm_runtime_load_ex(buffer.baseAddress, UInt32(data.count),
+                                 &loadArgs, errBuf.baseAddress, UInt32(errBuf.count))
         }) else {
             buffer.deallocate()
             throw makeError(1, "failed to load module: \(String(cString: errorBuf))")
@@ -379,10 +386,13 @@ public final class NSCWamrRuntime: NSObject {
     ///
     /// Instantiation is deferred because WAMR binds a module's imports before
     /// the instance exists: a host function linked afterwards would never be
-    /// seen. So modules are loaded, callers get a chance to link their imports,
-    /// and instances are created on the first operation that needs one.
+    /// seen. So modules are loaded with no_resolve, callers get a chance to
+    /// link their imports, and instances are created on the first operation
+    /// that needs one — after re-resolving the (now linked) imports.
     fileprivate func instantiateAll() throws {
-        for module in modules { _ = try module.instance() }
+        for module in modules {
+            _ = try module.instance()
+        }
     }
 
     fileprivate var firstInstance: wasm_module_inst_t? {
@@ -406,10 +416,11 @@ public final class NSCWamrRuntime: NSObject {
 
     @objc public var memorySize: UInt32 {
         guard let inst = firstInstance else { return 0 }
-        var start: UInt64 = 0
-        var end: UInt64 = 0
-        guard wasm_runtime_get_app_addr_range(inst, 0, &start, &end) else { return 0 }
-        return UInt32(truncatingIfNeeded: end - start)
+        // Current (not max) size: wasm_runtime_get_app_addr_range reports the
+        // maximum growable size for modules that declare memory.grow limits.
+        guard let memory = wasm_runtime_get_memory(inst, 0) else { return 0 }
+        let pages = wasm_memory_get_cur_page_count(memory)
+        return UInt32(truncatingIfNeeded: pages * 64 * 1024)
     }
 
     @objc(readMemoryAtOffset:length:error:)
@@ -417,8 +428,13 @@ public final class NSCWamrRuntime: NSObject {
         guard let inst = firstInstance else {
             throw makeError(2, "no module loaded")
         }
-        guard wasm_runtime_validate_app_addr(inst, UInt64(offset), UInt64(length)) else {
-            throw makeError(3, "memory read out of bounds (offset \(offset), length \(length))")
+        // Validate against the CURRENT memory size.  WAMR's
+        // wasm_runtime_validate_app_addr checks the maximum growable size,
+        // which can exceed the actual memory for modules that declare
+        // memory.grow limits.
+        let size = UInt64(memorySize)
+        if UInt64(offset) + UInt64(length) > size {
+            throw makeError(3, "memory read out of bounds (offset \(offset), length \(length), size \(size))")
         }
         guard let native = wasm_runtime_addr_app_to_native(inst, UInt64(offset)) else {
             throw makeError(3, "cannot translate app address \(offset)")
@@ -431,8 +447,9 @@ public final class NSCWamrRuntime: NSObject {
         guard let inst = firstInstance else {
             throw makeError(2, "no module loaded")
         }
-        guard wasm_runtime_validate_app_addr(inst, UInt64(offset), UInt64(data.count)) else {
-            throw makeError(3, "memory write out of bounds (offset \(offset), length \(data.count))")
+        let size = UInt64(memorySize)
+        if UInt64(offset) + UInt64(data.count) > size {
+            throw makeError(3, "memory write out of bounds (offset \(offset), length \(data.count), size \(size))")
         }
         guard let native = wasm_runtime_addr_app_to_native(inst, UInt64(offset)) else {
             throw makeError(3, "cannot translate app address \(offset)")
@@ -450,16 +467,13 @@ public final class NSCWamrRuntime: NSObject {
 private final class HostRegistration {
     private let moduleName: UnsafeMutablePointer<CChar>
     private let symbolName: UnsafeMutablePointer<CChar>
-    private let signature: UnsafeMutablePointer<CChar>?
     private let symbols: UnsafeMutablePointer<NativeSymbol>
 
     init(moduleName: UnsafeMutablePointer<CChar>,
          symbolName: UnsafeMutablePointer<CChar>,
-         signature: UnsafeMutablePointer<CChar>?,
          symbols: UnsafeMutablePointer<NativeSymbol>) {
         self.moduleName = moduleName
         self.symbolName = symbolName
-        self.signature = signature
         self.symbols = symbols
     }
 
@@ -468,7 +482,6 @@ private final class HostRegistration {
         symbols.deinitialize(count: 1)
         symbols.deallocate()
         free(symbolName)
-        if let sig = signature { free(sig) }
         free(moduleName)
     }
 }
@@ -480,13 +493,28 @@ public final class NSCWamrModule: NSObject {
     private let module: wasm_module_t
     private var moduleInst: wasm_module_inst_t?
     private var moduleExecEnv: wasm_exec_env_t?
-    @objc public let runtime: NSCWamrRuntime
+    /// Weak to avoid a retain cycle with NSCWamrRuntime.modules — the runtime
+    /// owns the module, so it always outlives it.
+    @objc public weak var runtime: NSCWamrRuntime?
 
     fileprivate init(module: wasm_module_t, runtime: NSCWamrRuntime) {
         self.module = module
         self.runtime = runtime
         super.init()
     }
+
+    /// Re-resolves imports on the module.  Called before the first instance is
+    /// created, after the caller had a chance to link host functions.
+    /// Returns false when an import is still unresolved (the caller decides
+    /// whether that is an error).
+    @discardableResult
+    fileprivate func resolveSymbolsIfNeeded() -> Bool {
+        guard !symbolsResolved else { return true }
+        symbolsResolved = true
+        return wasm_runtime_resolve_symbols(module)
+    }
+
+    private var symbolsResolved = false
 
     /// Instantiates on first use, so imports linked after loadModule are bound.
     fileprivate func instance() throws -> wasm_module_inst_t {
@@ -495,8 +523,11 @@ public final class NSCWamrModule: NSObject {
         // WAMR binds a module's imports while loading it, so a host function
         // registered afterwards is still unlinked. Re-resolving picks those up
         // and is a no-op for imports that already resolved.
-        wasm_runtime_resolve_symbols(module)
+        resolveSymbolsIfNeeded()
 
+        guard let runtime else {
+            throw makeError(1, "runtime deallocated")
+        }
         var errorBuf = [CChar](repeating: 0, count: 256)
         guard let inst = errorBuf.withUnsafeMutableBufferPointer({ errBuf in
             wasm_runtime_instantiate(module, runtime.moduleStackSize, 256 * 1024,
@@ -533,7 +564,10 @@ public final class NSCWamrModule: NSObject {
 
     @objc(findFunction:error:)
     public func findFunction(_ name: String) throws -> NSCWamrFunction {
-        try runtime.findFunction(name)
+        guard let runtime else {
+            throw makeError(1, "runtime deallocated")
+        }
+        return try runtime.findFunction(name)
     }
 
     /// Links a JavaScript/Swift callback as a WebAssembly import.
@@ -560,6 +594,9 @@ public final class NSCWamrModule: NSObject {
             resultTypes: parsed.results
         )
         // Retained by the runtime below; the trampoline reads it back unowned.
+        guard let runtime else {
+            throw makeError(1, "runtime deallocated")
+        }
         runtime.hostContexts.append(ctx)
 
         // WAMR keeps pointers instead of copying: register_natives stores the
@@ -567,12 +604,11 @@ public final class NSCWamrModule: NSObject {
         // whenever it resolves an import. All three must outlive this call, so
         // they are handed to a HostRegistration that frees them on teardown.
         //
-        // The signature is left NULL: it only drives the pointer/string
-        // annotations ('*', '~', '$') that this wire protocol does not use, and
-        // a wasm3-notation string there fails WAMR's check and unlinks the
+        // The signature is left NULL: check_symbol_signature() only runs when
+        // the signature is non-empty, and NULL/empty is treated as "no check"
+        // (wasm_native.c:235-253). A wrong-format string there unlinks the
         // import.
-        guard let symName = strdup(name), let modName = strdup(moduleName),
-              let symSig = strdup(wamrSig) else {
+        guard let symName = strdup(name), let modName = strdup(moduleName) else {
             throw makeError(10, "failed to allocate symbol strings for \(name)")
         }
 
@@ -580,14 +616,13 @@ public final class NSCWamrModule: NSObject {
         var symbol = NativeSymbol()
         symbol.symbol = UnsafePointer(symName)
         symbol.func_ptr = hostTrampolineFuncPtr
-        symbol.signature = UnsafePointer(symSig)
+        symbol.signature = nil
         symbol.attachment = Unmanaged.passUnretained(ctx).toOpaque()
         symbols.initialize(to: symbol)
 
         guard wasm_runtime_register_natives_raw(modName, symbols, 1) else {
             symbols.deinitialize(count: 1)
             symbols.deallocate()
-            free(symSig)
             free(symName)
             free(modName)
             runtime.hostContexts.removeLast()
@@ -595,7 +630,7 @@ public final class NSCWamrModule: NSObject {
         }
 
         runtime.registrations.append(
-            HostRegistration(moduleName: modName, symbolName: symName, signature: symSig, symbols: symbols))
+            HostRegistration(moduleName: modName, symbolName: symName, symbols: symbols))
     }
 
     // MARK: Globals
