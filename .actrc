@@ -1,6 +1,9 @@
 # act configuration for local CI debugging
 # See: https://nektosact.com/usage/index.html#configuration-file
 
+# Use Podman instead of Docker
+--container-daemon-socket /run/user/1000/podman/podman.sock
+
 # Apple Silicon needs explicit architecture
 --container-architecture linux/amd64
 
