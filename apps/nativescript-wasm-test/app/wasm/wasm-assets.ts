@@ -2,8 +2,8 @@
  * Where the fixture binaries live inside the app bundle.
  *
  * `webpack.config.js` copies them out of `@org/nativescript-wasm-fixture`
- * (the wasm-pack output) into `wasm/` at build time. wasm3 reads them straight
- * from disk, so the app hands the plugin a path rather than bytes.
+ * (the wasm-pack output) into `wasm/` at build time. Both runtimes read them
+ * straight from disk, so the app hands the plugin a path rather than bytes.
  */
 import { File, knownFolders, path } from '@nativescript/core';
 

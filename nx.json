@@ -12,7 +12,7 @@
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
-      "exclude": ["apps/nativescript-wasm-test/*", "apps/nativescript-wamr-test/*"],
+      "exclude": ["apps/nativescript-wasm-test/*"],
       "options": {
         "typecheck": {
           "targetName": "typecheck"

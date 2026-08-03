@@ -28,6 +28,9 @@
     },
     {
       "path": "../../packages/nativescript-wasm3"
+    },
+    {
+      "path": "../../packages/nativescript-wamr"
     }
   ]
 }

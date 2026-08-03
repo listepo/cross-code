@@ -2,14 +2,55 @@
  * The WebAssembly exercise shared by the on-device demo page and the mocha
  * specs in `app/tests/`.
  *
- * Both run on the device's own wasm3 interpreter: the demo page renders the
- * checks, `ns test` asserts on them.
+ * It runs on whichever runtime the caller hands it — `@org/nativescript-wasm3`
+ * or `@org/nativescript-wamr`. Both plugins expose the same shape, so the suite
+ * is typed against the structural interfaces below rather than either package:
+ * the demo page renders the checks, `ns test` asserts on them, and neither
+ * runtime is privileged here.
  *
  * The module under test is `@org/nativescript-wasm-fixture` (Rust, built with
  * wasm-pack); its generated `.d.ts` is what types `callFixture` below.
  */
-import type { Wasm3Imports, Wasm3Module, WasmArg, WasmValue } from '@org/nativescript-wasm3';
 import type * as FixtureExports from '@org/nativescript-wasm-fixture/types';
+
+// ---------------------------------------------------------------------------
+// The runtime surface the suite needs
+// ---------------------------------------------------------------------------
+//
+// Mirrors of the plugin types — `Wasm3Runtime`/`Wasm3Module` and
+// `WamrRuntime`/`WamrModule` both satisfy these structurally, which is what
+// lets one suite drive either runtime.
+
+/** Values returned to JavaScript. i64 results come back as bigint. */
+export type WasmValue = number | bigint;
+
+/** Values accepted as arguments. Strings are allowed for lossless i64. */
+export type WasmArg = number | bigint | string;
+
+/** A JavaScript function importable by WebAssembly code. */
+export type HostFunction = (...args: WasmValue[]) => WasmValue | WasmValue[] | void;
+
+/** The nested `{ module: { name: { signature, fn } } }` import object. */
+export interface HostImports {
+  [module: string]: {
+    [name: string]: { signature: string; fn: HostFunction };
+  };
+}
+
+/** The slice of a runtime the checks below touch. */
+export interface WasmRuntimeLike {
+  readonly memorySize: number;
+  readMemory(offset: number, length: number): Uint8Array;
+  writeMemory(offset: number, bytes: Uint8Array | ArrayBuffer | number[]): void;
+}
+
+/** The slice of a loaded module the checks below touch. */
+export interface WasmModuleLike {
+  readonly runtime: WasmRuntimeLike;
+  call(name: string, ...args: WasmArg[]): WasmValue | WasmValue[] | undefined;
+  getGlobal(name: string): WasmValue;
+  setGlobal(name: string, value: WasmArg): void;
+}
 
 // ---------------------------------------------------------------------------
 // Typed calls into the fixture
@@ -32,7 +73,7 @@ type FixtureResult<K extends FixtureFunction> = ReturnType<Extract<FixtureApi[K]
  * checked at compile time instead of at the bridge.
  */
 export function callFixture<K extends FixtureFunction>(
-  module: Wasm3Module,
+  module: WasmModuleLike,
   name: K,
   ...args: FixtureArgs<K>
 ): FixtureResult<K> {
@@ -55,7 +96,7 @@ export interface HostCall {
  * wasm-bindgen glue the numeric exports never reach; it is linked as a no-op
  * so the module resolves all of its imports.
  */
-export function createHostImports(log: HostCall[]): Wasm3Imports {
+export function createHostImports(log: HostCall[]): HostImports {
   const sink =
     (fn: string) =>
     (value: WasmValue): void => {
@@ -118,7 +159,7 @@ function checkThat(name: string, ok: boolean, actual: unknown, expected: string)
  * Exercises every value type in both directions — exports, imports, module
  * state and linear memory — against the fixture module.
  */
-export function runFixtureChecks(module: Wasm3Module, log: HostCall[]): Check[] {
+export function runFixtureChecks(module: WasmModuleLike, log: HostCall[]): Check[] {
   const call = <K extends FixtureFunction>(name: K, ...args: FixtureArgs<K>) =>
     callFixture(module, name, ...args);
   const checks: Check[] = [];
@@ -210,7 +251,7 @@ export function runFixtureChecks(module: Wasm3Module, log: HostCall[]): Check[] 
  * Reads and writes the mutable exported globals of `globals.wasm` — the module
  * hand-assembled by `test_types::globals`.
  */
-export function runGlobalsChecks(module: Wasm3Module): Check[] {
+export function runGlobalsChecks(module: WasmModuleLike): Check[] {
   const checks: Check[] = [];
 
   checks.push(check('g_i32 initial', module.getGlobal('g_i32'), 42));

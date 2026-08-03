@@ -24,8 +24,8 @@ import {
   runFixtureChecks,
   summarize,
   type HostCall,
-} from '../wasm/fixture-suite';
-import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM, readAppFile } from '../wasm/wasm-assets';
+} from '../../wasm/fixture-suite';
+import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM, readAppFile } from '../../wasm/wasm-assets';
 
 describe('the fixture module through @org/nativescript-wamr', () => {
   let runtime: WamrRuntime;
@@ -43,7 +43,10 @@ describe('the fixture module through @org/nativescript-wamr', () => {
   });
 
   afterEach(() => {
-    runtime.dispose();
+    // beforeEach may have thrown before the runtime existed (a missing native
+    // layer does exactly that), and an unguarded dispose would then report a
+    // second, misleading failure on top of the real one.
+    runtime?.dispose();
   });
 
   it('passes every check in the shared suite', () => {

@@ -8,8 +8,8 @@
  */
 import { Wasm3Error, Wasm3Runtime, type Wasm3Module } from '@org/nativescript-wasm3';
 
-import { runGlobalsChecks, summarize } from '../wasm/fixture-suite';
-import { appWasmPath, GLOBALS_WASM } from '../wasm/wasm-assets';
+import { runGlobalsChecks, summarize } from '../../wasm/fixture-suite';
+import { appWasmPath, GLOBALS_WASM } from '../../wasm/wasm-assets';
 
 describe('globals.wasm through @org/nativescript-wasm3', () => {
   let runtime: Wasm3Runtime;
@@ -21,7 +21,10 @@ describe('globals.wasm through @org/nativescript-wasm3', () => {
   });
 
   afterEach(() => {
-    runtime.dispose();
+    // beforeEach may have thrown before the runtime existed (a missing native
+    // layer does exactly that), and an unguarded dispose would then report a
+    // second, misleading failure on top of the real one.
+    runtime?.dispose();
   });
 
   it('passes every check in the shared suite', () => {
