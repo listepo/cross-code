@@ -1,0 +1,23 @@
+[package]
+name = "wamr-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Safe Rust wrapper around WAMR (WebAssembly Micro Runtime) with UniFFI bindings for Swift"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "lib"]
+name = "wamr_ffi"
+
+[dependencies]
+wamr-sys = { path = "../wamr-sys" }
+thiserror = "2"
+uniffi = { version = "0.32", features = ["cli"] }
+
+# The binary needs these for CLI functionality
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[build-dependencies]
+uniffi = { version = "0.32", features = ["build"] }
