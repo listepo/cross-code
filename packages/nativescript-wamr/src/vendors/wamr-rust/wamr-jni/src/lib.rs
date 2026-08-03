@@ -193,7 +193,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
         return 0;
     }
 
-    result as jlong
+    module as jlong
 }
 
 #[no_mangle]
@@ -483,7 +483,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_getMemory(
     if size == 0 {
         return std::ptr::null_mut();
     }
-    match env.new_direct_byte_buffer(unsafe { std::slice::from_raw_parts_mut(ptr, size) }) {
+    match env.new_direct_byte_buffer(ptr, size) {
         Ok(buf) => buf.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
