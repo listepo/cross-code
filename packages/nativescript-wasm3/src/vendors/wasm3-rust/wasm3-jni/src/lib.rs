@@ -8,9 +8,9 @@
 //!
 //! All opaque wasm3 pointers are `jlong`.  Errors throw `NSCWasm3Exception`.
 
-use jni::objects::{GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValue};
+use jni::objects::{GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValueOwned};
 use jni::sys::{jboolean, jint, jlong, jlongArray, JNI_TRUE};
-use jni::{JNIEnv, JavaVM};
+use jni::JNIEnv;
 use std::ffi::{c_char, CStr, CString};
 use wasm3_sys::*;
 
@@ -191,7 +191,10 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_parseModule(
 
     // Read bytes into local buffer
     let mut buf = vec![0u8; len];
-    env.get_byte_array_region(&wasm_bytes_ref, 0, &mut buf)
+    // get_byte_array_region expects &mut [i8]; transmute from &mut [u8]
+    env.get_byte_array_region(&wasm_bytes_ref, 0, unsafe {
+        std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut i8, len)
+    })
         .map_err(|e| throw(&mut env, &format!("failed to read byte array: {}", e)))
         .ok();
 
@@ -390,7 +393,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_call(
     };
 
     // Build array of uint64_t pointers
-    let arg_ptrs: Vec<*mut u64> = arg_vals
+    let mut arg_ptrs: Vec<*mut u64> = arg_vals
         .iter()
         .map(|v| v as *const i64 as *mut u64)
         .collect();
@@ -426,7 +429,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_getResults(
     }
 
     let mut ret_vals: Vec<u64> = vec![0u64; n_rets as usize];
-    let ret_ptrs: Vec<*mut u64> = ret_vals
+    let mut ret_ptrs: Vec<*mut u64> = ret_vals
         .iter_mut()
         .map(|v| v as *mut u64)
         .collect();
@@ -481,7 +484,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_getMemory(
     if ptr.is_null() || mem_size == 0 {
         return std::ptr::null_mut();
     }
-    match env.new_direct_byte_buffer(ptr as *mut u8, mem_size as usize) {
+    match unsafe { env.new_direct_byte_buffer(ptr as *mut u8, mem_size as usize) } {
         Ok(buf) => buf.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
@@ -499,9 +502,8 @@ struct HostCtx {
     _callback: GlobalRef,
 }
 
-static HOST_CTX_REGISTRY: Mutex<Option<HashMap<i32, *mut HostCtx>>> = Mutex::new(None);
-// SAFETY: HostCtx is never sent between threads; Mutex ensures exclusive access.
-unsafe impl Send for HostCtx {}
+// Store HostCtx pointers as usize for Sync compatibility
+static HOST_CTX_REGISTRY: Mutex<Option<HashMap<i32, usize>>> = Mutex::new(None);
 static NEXT_HOST_ID: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(1);
 
 /// wasm3 raw-call trampoline: called by wasm3 when a host import is invoked.
@@ -561,7 +563,7 @@ unsafe extern "C" fn wasm3_host_trampoline(
     );
 
     match result {
-        Ok(JValue::Object(obj)) if !obj.is_null() => {
+        Ok(JValueOwned::Object(obj)) if !obj.is_null() => {
             let result_arr: jlongArray = obj.as_raw() as jlongArray;
             let result_arr_ref = unsafe { JLongArray::from_raw(result_arr) };
             let result_len = env.get_array_length(&result_arr_ref).unwrap_or(0) as usize;
