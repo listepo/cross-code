@@ -7,7 +7,7 @@ use wamr_sys::shim;
 
 fn fixture_bytes(name: &str) -> Vec<u8> {
     let path = format!(
-        "{}/../../test-support/fixtures/{}",
+        "{}/../../../../test-support/fixtures/{}",
         env!("CARGO_MANIFEST_DIR"),
         name
     );

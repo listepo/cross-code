@@ -7,7 +7,7 @@ use wasm3_sys::*;
 /// Helper: read a test fixture into a Vec<u8>.
 fn fixture_bytes(name: &str) -> Vec<u8> {
     let path = format!(
-        "{}/../../test-support/fixtures/{}",
+        "{}/../../../../test-support/fixtures/{}",
         env!("CARGO_MANIFEST_DIR"),
         name
     );
