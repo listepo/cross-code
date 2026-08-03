@@ -68,5 +68,11 @@
   },
   "devDependencies": {
     "@nativescript/core": "^8.9.0"
+  },
+  "nativescript": {
+    "platforms": {
+      "ios": "8.6.0",
+      "android": "8.6.0"
+    }
   }
 }

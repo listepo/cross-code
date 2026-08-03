@@ -19,7 +19,7 @@ let package = Package(
         .target(
             name: "CWamr",
             path: "Sources/CWamr",
-            exclude: ["LICENSE", "README.md"],
+            exclude: ["README.md"],
             publicHeadersPath: "include",
             cSettings: [
                 .headerSearchPath("."),
