@@ -39,10 +39,10 @@
 
 Two sibling plugins live under `packages/`:
 
-- **`nativescript-wasm3`** (`@org/nativescript-wasm3`) — mature plugin binding
+- **`nativescript-wasm3`** (`@cross-code/nativescript-wasm3`) — mature plugin binding
   the wasm3 interpreter (Swift Package on iOS, Kotlin + JavaCPP on Android).
   See `packages/nativescript-wasm3/AGENTS.md`.
-- **`nativescript-wamr`** (`@org/nativescript-wamr`) — newer plugin binding
+- **`nativescript-wamr`** (`@cross-code/nativescript-wamr`) — newer plugin binding
   WAMR (WebAssembly Micro Runtime) with four execution tiers (Interpreter,
   Fast JIT, LLVM JIT, AOT), WASI support, and the same wire protocol as wasm3.
   See `packages/nativescript-wamr/AGENTS.md`.

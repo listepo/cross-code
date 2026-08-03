@@ -7,7 +7,7 @@ AI-agent guidance for working on the `nativescript-wasm-test` app.
 ## What this app is
 
 A NativeScript app that exercises **both** WebAssembly plugins —
-`@org/nativescript-wasm3` and `@org/nativescript-wamr` — against their real
+`@cross-code/nativescript-wasm3` and `@cross-code/nativescript-wamr` — against their real
 native runtimes, two ways:
 
 - **A demo page** (`app/main-view-model.ts`) that runs the shared check suite on
@@ -44,10 +44,10 @@ plugins share one app, one check suite and one CI job pair.
 app/
   test.ts                 unit-test entry point; require.context pulls in **/*.spec.ts
   tests/
-    wasm3/                   the same two specs, against @org/nativescript-wasm3
+    wasm3/                   the same two specs, against @cross-code/nativescript-wasm3
       fixture-module.spec.ts   the Rust fixture through the plugin's whole API
       globals-module.spec.ts   mutable exported globals (getGlobal / setGlobal)
-    wamr/                    the same two, against @org/nativescript-wamr,
+    wamr/                    the same two, against @cross-code/nativescript-wamr,
       fixture-module.spec.ts   plus execution-tier and WASI coverage
       globals-module.spec.ts
   wasm/
@@ -121,7 +121,7 @@ asserts its own runtime's behaviour; do not unify these two cases.
 ### 5. `fixture-suite.ts` is the canonical correctness specification
 
 `app/wasm/fixture-suite.ts` holds the check list that the demo page and all four
-spec files run. When you add an export to `@org/nativescript-wasm-fixture`, add
+spec files run. When you add an export to `@cross-code/nativescript-wasm-fixture`, add
 the check there — every caller picks it up, on both runtimes. Do not add
 plugin-level marshalling checks directly in the spec files; the specs delegate to
 `summarize(runFixtureChecks(...))` and only add cases that need their own
@@ -141,7 +141,7 @@ callFixture(module, 'add_f64', 0.1, 0.2)               // ✓ number required
 callFixture(module, 'add_i64', 2)                      // ✗ TS error: not bigint
 ```
 
-The types come from `@org/nativescript-wasm-fixture/types`, the wasm-pack
+The types come from `@cross-code/nativescript-wasm-fixture/types`, the wasm-pack
 generated `.d.ts` — so an argument-type mismatch is a compile error rather than a
 silent truncation at the bridge.
 

@@ -1,6 +1,6 @@
 # nativescript-wasm-fixture
 
-The WebAssembly fixture used to test [`@org/nativescript-wasm3`](../nativescript-wasm3).
+The WebAssembly fixture used to test [`@cross-code/nativescript-wasm3`](../nativescript-wasm3).
 A Rust crate (`src/test-types`) built with wasm-pack, plus the exports that let
 the rest of the workspace reach its build outputs.
 
@@ -14,10 +14,10 @@ src/test-types/pkg/                      wasm-pack output — committed, see bel
 
 | Subpath | Contents |
 | --- | --- |
-| `@org/nativescript-wasm-fixture` | the wasm-bindgen JS bindings |
-| `@org/nativescript-wasm-fixture/types` | the generated `.d.ts` (and its JS) — types the calls in the test app |
-| `@org/nativescript-wasm-fixture/types.wasm` | `test_types_bg.wasm`, the fixture module |
-| `@org/nativescript-wasm-fixture/globals.wasm` | the module with one mutable exported global per value type |
+| `@cross-code/nativescript-wasm-fixture` | the wasm-bindgen JS bindings |
+| `@cross-code/nativescript-wasm-fixture/types` | the generated `.d.ts` (and its JS) — types the calls in the test app |
+| `@cross-code/nativescript-wasm-fixture/types.wasm` | `test_types_bg.wasm`, the fixture module |
+| `@cross-code/nativescript-wasm-fixture/globals.wasm` | the module with one mutable exported global per value type |
 
 `test_types_bg.wasm` covers every value type (i32, i64, f32, f64) as exports and
 as host imports, plus void functions, mixed-type arguments, module-level mutable

@@ -1,6 +1,6 @@
 # AGENTS.md — nativescript-wasm3
 
-AI-agent guidance for working on the `@org/nativescript-wasm3` plugin.
+AI-agent guidance for working on the `@cross-code/nativescript-wasm3` plugin.
 
 ---
 
@@ -100,7 +100,7 @@ Host import callbacks must also outlive the runtime — on **all three** levels:
 
 - iOS: `[HostContext]` array on `NSCWasm3Runtime`. `HostContext` holds the
   closure; the C trampoline receives an `Unmanaged` unretained pointer. The
-  array keeps the context alive. 
+  array keeps the context alive.
 - Android: `val hostFunctions = mutableListOf<M3RawCall>()` on
   `NSCWasm3Runtime`. The list prevents GC.
 ### OPEN BUG: host imports crash on iOS under NativeScript
@@ -407,7 +407,7 @@ The fixtures are committed. Don't regenerate unless you changed what they test.
 ## Test app
 
 `apps/nativescript-wasm-test` drives this plugin's public API against the Rust
-fixture in `@org/nativescript-wasm-fixture`, on the device's own wasm3 build —
+fixture in `@cross-code/nativescript-wasm-fixture`, on the device's own wasm3 build —
 from a demo page, and as a mocha suite under `ns test ios` / `ns test android`.
 Both run the same list of checks (`app/wasm/fixture-suite.ts`).
 

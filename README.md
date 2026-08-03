@@ -10,9 +10,9 @@ two sibling plugins: [`wasm3`](https://github.com/wasm3/wasm3) (interpreted) and
 
 | Package | Description |
 |---------|-------------|
-| [`@org/nativescript-wasm3`](packages/nativescript-wasm3) | NativeScript plugin — Swift Package on iOS, Kotlin + JavaCPP JNI on Android (wasm3 interpreter) |
-| [`@org/nativescript-wamr`](packages/nativescript-wamr) | NativeScript plugin — Swift Package on iOS, Kotlin + JavaCPP JNI on Android (WAMR: interpreter, Fast JIT, LLVM JIT, AOT, WASI) |
-| [`@org/nativescript-wasm-fixture`](packages/nativescript-wasm-fixture) | Rust/wasm-pack test fixtures (committed `.wasm` binaries) |
+| [`@cross-code/nativescript-wasm3`](packages/nativescript-wasm3) | NativeScript plugin — Swift Package on iOS, Kotlin + JavaCPP JNI on Android (wasm3 interpreter) |
+| [`@cross-code/nativescript-wamr`](packages/nativescript-wamr) | NativeScript plugin — Swift Package on iOS, Kotlin + JavaCPP JNI on Android (WAMR: interpreter, Fast JIT, LLVM JIT, AOT, WASI) |
+| [`@cross-code/nativescript-wasm-fixture`](packages/nativescript-wasm-fixture) | Rust/wasm-pack test fixtures (committed `.wasm` binaries) |
 | [`nativescript-wasm-test`](apps/nativescript-wasm-test) | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and under mocha |
 
 ## Prerequisites

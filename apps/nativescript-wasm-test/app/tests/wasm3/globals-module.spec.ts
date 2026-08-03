@@ -6,12 +6,12 @@
  * cannot. The Rust unit tests in the fixture package check that encoding;
  * these check what the plugin makes of it.
  */
-import { Wasm3Error, Wasm3Runtime, type Wasm3Module } from '@org/nativescript-wasm3';
+import { Wasm3Error, Wasm3Runtime, type Wasm3Module } from '@cross-code/nativescript-wasm3';
 
 import { runGlobalsChecks, summarize } from '../../wasm/fixture-suite';
 import { appWasmPath, GLOBALS_WASM } from '../../wasm/wasm-assets';
 
-describe('globals.wasm through @org/nativescript-wasm3', () => {
+describe('globals.wasm through @cross-code/nativescript-wasm3', () => {
   let runtime: Wasm3Runtime;
   let module: Wasm3Module;
 

@@ -1,4 +1,4 @@
-# @org/nativescript-wasm3
+# @cross-code/nativescript-wasm3
 
 NativeScript plugin that loads and executes WebAssembly modules with the
 [wasm3](https://github.com/wasm3/wasm3) interpreter (v0.5.2).
@@ -20,7 +20,7 @@ NativeScript plugin that loads and executes WebAssembly modules with the
 ## Install
 
 ```bash
-ns plugin add @org/nativescript-wasm3
+ns plugin add @cross-code/nativescript-wasm3
 ```
 
 The plugin ships its own `nativescript.config.ts` declaring the local Swift
@@ -32,7 +32,7 @@ bundled `.aar` and `include.gradle` are picked up automatically.
 
 ```ts
 import { knownFolders, path } from '@nativescript/core';
-import { Wasm3Runtime } from '@org/nativescript-wasm3';
+import { Wasm3Runtime } from '@cross-code/nativescript-wasm3';
 
 const runtime = new Wasm3Runtime();             // default 64 KiB stack
 // const runtime = new Wasm3Runtime({ stackSizeInBytes: 128 * 1024 });

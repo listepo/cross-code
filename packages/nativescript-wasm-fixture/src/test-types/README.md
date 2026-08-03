@@ -1,6 +1,6 @@
 # test-types
 
-The Rust crate behind `@org/nativescript-wasm-fixture`. Scaffolded from
+The Rust crate behind `@cross-code/nativescript-wasm-fixture`. Scaffolded from
 [`wasm-pack-template`](https://rustwasm.github.io/docs/wasm-pack/), then filled
 with fixtures for the wasm3 NativeScript plugin.
 

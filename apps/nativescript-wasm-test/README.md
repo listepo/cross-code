@@ -1,9 +1,9 @@
 # nativescript-wasm-test
 
-The test app for [`@org/nativescript-wasm3`](../../packages/nativescript-wasm3)
-and [`@org/nativescript-wamr`](../../packages/nativescript-wamr). It runs the
+The test app for [`@cross-code/nativescript-wasm3`](../../packages/nativescript-wasm3)
+and [`@cross-code/nativescript-wamr`](../../packages/nativescript-wamr). It runs the
 WebAssembly fixture from
-[`@org/nativescript-wasm-fixture`](../../packages/nativescript-wasm-fixture)
+[`@cross-code/nativescript-wasm-fixture`](../../packages/nativescript-wasm-fixture)
 two ways, on both of the device's own runtimes — the wasm3 interpreter and WAMR:
 
 - **from the demo page** — tap **RUN** for a per-check pass/fail report;
@@ -18,8 +18,8 @@ app/wasm/fixture-suite.ts   the checks, shared by the demo page and the specs
 app/wasm/wasm-assets.ts     where webpack puts the .wasm files in the bundle
 app/main-view-model.ts      the demo page: runs the suite on both runtimes
 app/test.ts                 unit-test entry point (require.context over **/*.spec.ts)
-app/tests/wasm3/*.spec.ts   the mocha specs for @org/nativescript-wasm3
-app/tests/wamr/*.spec.ts    the mocha specs for @org/nativescript-wamr
+app/tests/wasm3/*.spec.ts   the mocha specs for @cross-code/nativescript-wasm3
+app/tests/wamr/*.spec.ts    the mocha specs for @cross-code/nativescript-wamr
 karma.conf.js               mocha + chai frameworks, NativeScript launchers
 ```
 
@@ -71,7 +71,7 @@ WAMR adds, on top of that:
 
 Calls into the fixture go through `callFixture()`, which types its arguments
 and result from the `.d.ts` wasm-pack generates from the Rust source
-(`@org/nativescript-wasm-fixture/types`) — so passing a `number` where the Rust
+(`@cross-code/nativescript-wasm-fixture/types`) — so passing a `number` where the Rust
 function takes an `i64` is a compile error, not a runtime surprise.
 
 This is the only suite where either plugin's TypeScript adapters meet the real

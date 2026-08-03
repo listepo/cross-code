@@ -11,12 +11,12 @@ import {
   WamrRuntime,
   WamrExecutionTier,
   type WamrModule,
-} from '@org/nativescript-wamr';
+} from '@cross-code/nativescript-wamr';
 
 import { runGlobalsChecks, summarize } from '../../wasm/fixture-suite';
 import { appWasmPath, GLOBALS_WASM } from '../../wasm/wasm-assets';
 
-describe('globals.wasm through @org/nativescript-wamr', () => {
+describe('globals.wasm through @cross-code/nativescript-wamr', () => {
   let runtime: WamrRuntime;
   let module: WamrModule;
 

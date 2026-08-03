@@ -1,5 +1,5 @@
 {
-  "name": "@org/nativescript-wasm-fixture",
+  "name": "@cross-code/nativescript-wasm-fixture",
   "version": "0.0.1",
   "private": true,
   "type": "module",

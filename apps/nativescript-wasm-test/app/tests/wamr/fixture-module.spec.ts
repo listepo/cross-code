@@ -16,7 +16,7 @@ import {
   WamrRuntime,
   WamrExecutionTier,
   type WamrModule,
-} from '@org/nativescript-wamr';
+} from '@cross-code/nativescript-wamr';
 
 import {
   callFixture,
@@ -27,7 +27,7 @@ import {
 } from '../../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM, readAppFile } from '../../wasm/wasm-assets';
 
-describe('the fixture module through @org/nativescript-wamr', () => {
+describe('the fixture module through @cross-code/nativescript-wamr', () => {
   let runtime: WamrRuntime;
   let module: WamrModule;
   let log: HostCall[];

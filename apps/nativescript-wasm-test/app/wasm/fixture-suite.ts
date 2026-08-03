@@ -2,16 +2,16 @@
  * The WebAssembly exercise shared by the on-device demo page and the mocha
  * specs in `app/tests/`.
  *
- * It runs on whichever runtime the caller hands it — `@org/nativescript-wasm3`
- * or `@org/nativescript-wamr`. Both plugins expose the same shape, so the suite
+ * It runs on whichever runtime the caller hands it — `@cross-code/nativescript-wasm3`
+ * or `@cross-code/nativescript-wamr`. Both plugins expose the same shape, so the suite
  * is typed against the structural interfaces below rather than either package:
  * the demo page renders the checks, `ns test` asserts on them, and neither
  * runtime is privileged here.
  *
- * The module under test is `@org/nativescript-wasm-fixture` (Rust, built with
+ * The module under test is `@cross-code/nativescript-wasm-fixture` (Rust, built with
  * wasm-pack); its generated `.d.ts` is what types `callFixture` below.
  */
-import type * as FixtureExports from '@org/nativescript-wasm-fixture/types';
+import type * as FixtureExports from '@cross-code/nativescript-wasm-fixture/types';
 
 // ---------------------------------------------------------------------------
 // The runtime surface the suite needs
