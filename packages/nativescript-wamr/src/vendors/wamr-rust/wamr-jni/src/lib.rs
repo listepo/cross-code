@@ -12,7 +12,7 @@
 //! The C shim (`nsc_wamr_shim.c`) is compiled into the same shared library
 //! by `wamr-sys`'s build.rs, so we just call its functions via `extern "C"`.
 
-use jni::objects::{GlobalRef, JClass, JObject, JString, JValue};
+use jni::objects::{GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValue};
 use jni::sys::{jboolean, jint, jlong, jlongArray, JNI_TRUE};
 use jni::{JNIEnv, JavaVM};
 use std::ffi::{c_char, CStr, CString};
@@ -40,18 +40,13 @@ fn java_str_to_cstring(env: &mut JNIEnv, s: &JString) -> Result<CString, String>
 }
 
 /// Reads a jlongArray into a Rust Vec<i64>.
-fn read_long_array(env: &mut JNIEnv, arr: jlongArray) -> Result<Vec<i64>, String> {
+fn read_long_array(env: &mut JNIEnv, arr: &JLongArray) -> Result<Vec<i64>, String> {
     let len = env.get_array_length(arr).map_err(|e| e.to_string())? as usize;
     if len == 0 {
         return Ok(vec![]);
     }
     let mut buf = vec![0i64; len];
-    unsafe {
-        let ptr = env.get_primitive_array_critical(arr).map_err(|e| e.to_string())?;
-        std::ptr::copy_nonoverlapping(ptr as *const i64, buf.as_mut_ptr(), len);
-        env.release_primitive_array_critical(arr, ptr, jni::sys::JNI_ABORT)
-            .map_err(|e| e.to_string())?;
-    }
+    env.get_long_array_region(arr, 0, &mut buf).map_err(|e| e.to_string())?;
     Ok(buf)
 }
 
@@ -66,7 +61,7 @@ fn new_long_array(env: &mut JNIEnv, data: &[i64]) -> Result<jlongArray, String> 
 
 /// Check a C-shim result pointer (NULL = success, non-NULL = error string).
 fn check_c_result(env: &mut JNIEnv, result: *const c_char) -> bool {
-    if result.is_null() {
+    if module.is_null() {
         return true;
     }
     let msg = unsafe { ptr_to_str(result) };
@@ -169,7 +164,8 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
         return 0;
     }
 
-    let len = env.get_array_length(wasm_bytes).unwrap_or(0) as usize;
+    let wasm_bytes_ref = unsafe { JByteArray::from_raw(wasm_bytes) };
+    let len = env.get_array_length(&wasm_bytes_ref).unwrap_or(0) as usize;
     if len == 0 {
         throw(&mut env, "empty WASM bytecode");
         return 0;
@@ -177,27 +173,21 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
 
     let mut error_buf: [c_char; 256] = [0; 256];
 
-    let result = unsafe {
-        let elements = env.get_primitive_array_critical(wasm_bytes);
-        match elements {
-            Ok(ptr) => {
-                let module = nsc_wamr_load_module(
-                    rt,
-                    ptr as *const u8,
-                    len as i32,
-                    error_buf.as_mut_ptr(),
-                );
-                let _ = env.release_primitive_array_critical(wasm_bytes, ptr, jni::sys::JNI_ABORT);
-                module
-            }
-            Err(e) => {
-                throw(&mut env, &format!("failed to access byte array: {}", e));
-                return 0;
-            }
-        }
-    };
+    // Read bytes into local buffer
+    let mut buf = vec![0u8; len];
+    if let Err(e) = env.get_byte_array_region(&wasm_bytes_ref, 0, &mut buf) {
+        throw(&mut env, &format!("failed to read byte array: {}", e));
+        return 0;
+    }
 
-    if result.is_null() {
+    let module = unsafe {
+        nsc_wamr_load_module(
+            rt,
+            buf.as_ptr(),
+            len as i32,
+            error_buf.as_mut_ptr(),
+        )
+    };
         let msg = unsafe { ptr_to_str(error_buf.as_ptr()) };
         throw(&mut env, if msg.is_empty() { "failed to load module" } else { msg });
         return 0;
@@ -375,7 +365,8 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_call(
     }
 
     // Read the array of i64 values
-    let arg_vals = match read_long_array(&mut env, args) {
+    let args_ref = unsafe { JLongArray::from_raw(args) };
+    let arg_vals = match read_long_array(&mut env, &args_ref) {
         Ok(v) => v,
         Err(e) => {
             throw(&mut env, &e);
