@@ -12,10 +12,23 @@ let package = Package(
         .library(name: "NSCWasm3", targets: ["NSCWasm3"])
     ],
     targets: [
+        // wasm3 interpreter, compiled as C. The sources in this target are a
+        // script-managed copy of the plugin's canonical vendor directory
+        // (src/vendors/wasm3) — run `node tools/sync-wasm3.mjs` to refresh.
+        .target(
+            name: "CWasm3",
+            path: "Sources/CWasm3",
+            exclude: ["LICENSE", "README.md"],
+            publicHeadersPath: "include",
+            cSettings: [
+                .headerSearchPath(".")
+            ]
+        ),
         // Swift wrapper using native Swift/C interoperability, exposed to the
         // NativeScript runtime through @objc classes.
         .target(
             name: "NSCWasm3",
+            dependencies: ["CWasm3"],
             path: "Sources/NSCWasm3"
         ),
         .testTarget(
