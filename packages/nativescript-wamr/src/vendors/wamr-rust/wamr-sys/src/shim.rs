@@ -483,7 +483,7 @@ pub fn get_memory(runtime: *mut NscWamrRuntime) -> *mut u8 {
 // host-function linking
 // ---------------------------------------------------------------------------
 
-fn convert_signature(sig: &str) -> Option<String> {
+pub fn convert_signature(sig: &str) -> Option<String> {
     if let Some(paren) = sig.find('(') {
         if let Some(close) = sig.rfind(')') {
             let rets: String = sig[..paren].chars().filter(|&c| c != 'v').collect();
@@ -618,4 +618,77 @@ pub fn set_global(
     }
 
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_type_constants() {
+        assert_eq!(WASM_I32, 0);
+        assert_eq!(WASM_I64, 1);
+        assert_eq!(WASM_F32, 2);
+        assert_eq!(WASM_F64, 3);
+    }
+
+    #[test]
+    fn test_to_simple_type() {
+        assert_eq!(to_simple_type(0x7F), WASM_I32);
+        assert_eq!(to_simple_type(0x7E), WASM_I64);
+        assert_eq!(to_simple_type(0x7D), WASM_F32);
+        assert_eq!(to_simple_type(0x7C), WASM_F64);
+        assert_eq!(to_simple_type(0x00), -1);
+        assert_eq!(to_simple_type(0xFF), -1);
+    }
+
+    #[test]
+    fn test_from_simple_type() {
+        assert_eq!(from_simple_type(WASM_I32), 0x7F);
+        assert_eq!(from_simple_type(WASM_I64), 0x7E);
+        assert_eq!(from_simple_type(WASM_F32), 0x7D);
+        assert_eq!(from_simple_type(WASM_F64), 0x7C);
+        assert_eq!(from_simple_type(-1), -1);
+        assert_eq!(from_simple_type(99), -1);
+    }
+
+    #[test]
+    fn test_type_roundtrip() {
+        for &simple in &[WASM_I32, WASM_I64, WASM_F32, WASM_F64] {
+            let wamr = from_simple_type(simple);
+            assert!(wamr > 0);
+            let back = to_simple_type(wamr);
+            assert_eq!(back, simple);
+        }
+    }
+
+    #[test]
+    fn test_slot_width() {
+        assert_eq!(slot_width(0x7F), 1); // i32
+        assert_eq!(slot_width(0x7E), 2); // i64
+        assert_eq!(slot_width(0x7D), 1); // f32
+        assert_eq!(slot_width(0x7C), 2); // f64
+        assert_eq!(slot_width(0x00), 0);
+        assert_eq!(slot_width(0xFF), 0);
+    }
+
+    #[test]
+    fn test_convert_signature_basic() {
+        assert_eq!(convert_signature("i(ii)"), Some("(ii)i".into()));
+        assert_eq!(convert_signature("v()"), Some("()".into()));
+        assert_eq!(convert_signature("v(I)"), Some("(I)".into()));
+        assert_eq!(convert_signature("F(FF)"), Some("(FF)F".into()));
+        assert_eq!(convert_signature("ii(i)"), Some("(i)ii".into()));
+        assert_eq!(convert_signature("v(iIfF)"), Some("(iIfF)".into()));
+    }
+
+    #[test]
+    fn test_convert_signature_edge_cases() {
+        assert_eq!(convert_signature("i"), Some("i".into()));
+        assert_eq!(convert_signature(""), Some("".into()));
+    }
 }
