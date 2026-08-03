@@ -450,13 +450,16 @@ public final class NSCWamrRuntime: NSObject {
 private final class HostRegistration {
     private let moduleName: UnsafeMutablePointer<CChar>
     private let symbolName: UnsafeMutablePointer<CChar>
+    private let signature: UnsafeMutablePointer<CChar>?
     private let symbols: UnsafeMutablePointer<NativeSymbol>
 
     init(moduleName: UnsafeMutablePointer<CChar>,
          symbolName: UnsafeMutablePointer<CChar>,
+         signature: UnsafeMutablePointer<CChar>?,
          symbols: UnsafeMutablePointer<NativeSymbol>) {
         self.moduleName = moduleName
         self.symbolName = symbolName
+        self.signature = signature
         self.symbols = symbols
     }
 
@@ -465,6 +468,7 @@ private final class HostRegistration {
         symbols.deinitialize(count: 1)
         symbols.deallocate()
         free(symbolName)
+        if let sig = signature { free(sig) }
         free(moduleName)
     }
 }
@@ -567,7 +571,8 @@ public final class NSCWamrModule: NSObject {
         // annotations ('*', '~', '$') that this wire protocol does not use, and
         // a wasm3-notation string there fails WAMR's check and unlinks the
         // import.
-        guard let symName = strdup(name), let modName = strdup(moduleName) else {
+        guard let symName = strdup(name), let modName = strdup(moduleName),
+              let symSig = strdup(wamrSig) else {
             throw makeError(10, "failed to allocate symbol strings for \(name)")
         }
 
@@ -575,13 +580,14 @@ public final class NSCWamrModule: NSObject {
         var symbol = NativeSymbol()
         symbol.symbol = UnsafePointer(symName)
         symbol.func_ptr = hostTrampolineFuncPtr
-        symbol.signature = nil
+        symbol.signature = UnsafePointer(symSig)
         symbol.attachment = Unmanaged.passUnretained(ctx).toOpaque()
         symbols.initialize(to: symbol)
 
         guard wasm_runtime_register_natives_raw(modName, symbols, 1) else {
             symbols.deinitialize(count: 1)
             symbols.deallocate()
+            free(symSig)
             free(symName)
             free(modName)
             runtime.hostContexts.removeLast()
@@ -589,7 +595,7 @@ public final class NSCWamrModule: NSObject {
         }
 
         runtime.registrations.append(
-            HostRegistration(moduleName: modName, symbolName: symName, symbols: symbols))
+            HostRegistration(moduleName: modName, symbolName: symName, signature: symSig, symbols: symbols))
     }
 
     // MARK: Globals
