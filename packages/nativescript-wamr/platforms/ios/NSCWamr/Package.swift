@@ -24,8 +24,19 @@ let package = Package(
             cSettings: [
                 .headerSearchPath("."),
                 .headerSearchPath("core/iwasm/include"),
+                .headerSearchPath("core/iwasm/common"),
+                .headerSearchPath("core/iwasm/interpreter"),
                 .headerSearchPath("core/shared/platform/include"),
                 .headerSearchPath("core/shared/platform/darwin"),
+                .headerSearchPath("core/shared/platform/common/posix"),
+                .headerSearchPath("core/shared/platform/common/libc-util"),
+                .headerSearchPath("core/shared/platform/common/memory"),
+                .headerSearchPath("core/shared/utils"),
+                .headerSearchPath("core/shared/mem-alloc"),
+                .define("WASM_ENABLE_INTERP", to: "1"),
+                .define("WASM_ENABLE_FAST_INTERP", to: "0"),
+                .define("BH_PLATFORM_DARWIN", to: "1"),
+                .define("WAMR_BUILD_INVOKE_NATIVE_GENERAL", to: "1"),
             ]
         ),
         // Swift wrapper using native Swift/C interoperability, exposed to the
