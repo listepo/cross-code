@@ -92,7 +92,7 @@ fn test_load_module_and_call() {
     assert!(result.is_null(), "get_results should succeed");
     assert_eq!(ret_val, 7);
 
-    unsafe { m3_FreeModule(module) };
+    // wasm3_FreeRuntime frees modules; environment must outlive runtime
     unsafe { m3_FreeRuntime(rt) };
     unsafe { m3_FreeEnvironment(env) };
 }
@@ -118,7 +118,6 @@ fn test_nsc_global_get_set_error_on_missing() {
     // get_global on null should handle gracefully
     // (add.wasm has no globals, so m3_FindGlobal returns null)
 
-    unsafe { m3_FreeModule(module) };
     unsafe { m3_FreeRuntime(rt) };
     unsafe { m3_FreeEnvironment(env) };
 }
