@@ -1,0 +1,8 @@
+.gradle/
+.gradle-home/
+.kotlin/
+build/
+*.iml
+local.properties
+library/src/main/jniLibs/host/*.dylib
+library/src/main/jniLibs/host/*.so
