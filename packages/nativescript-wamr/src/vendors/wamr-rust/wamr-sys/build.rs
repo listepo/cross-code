@@ -104,10 +104,20 @@ fn main() {
         build.flag(&format!("-I{}", dir.display()));
     }
 
-    // WAMR defines for interpreter-only build on POSIX (macOS/Linux)
+    // WAMR defines for interpreter-only build on POSIX (macOS/Linux).
+    //
+    // The hardware bound checks have to be off. They are normally configured by
+    // WAMR's CMake (build-scripts/config_common.cmake), which is not part of the
+    // vendored subset, so both macros default to 0 — i.e. enabled — and the
+    // platform layer then walks the thread stack with os_alloca to install guard
+    // pages (posix_thread.c: touch_pages). That runs off the end of the stack
+    // here and faults before wasm_runtime_init returns. An interpreter-only
+    // embedding does not need them: bounds are checked in software instead.
     build
         .define("WASM_ENABLE_INTERP", "1")
         .define("WASM_ENABLE_FAST_INTERP", "0")
+        .define("WASM_DISABLE_HW_BOUND_CHECK", "1")
+        .define("WASM_DISABLE_STACK_HW_BOUND_CHECK", "1")
         .define("BH_PLATFORM_POSIX", "1")
         .define("WAMR_BUILD_INVOKE_NATIVE_GENERAL", "1");
 

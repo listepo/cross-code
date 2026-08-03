@@ -79,7 +79,7 @@ object NativeWamr {
      * Returns true on success, false on error (throws NSCWamrException).
      */
     @JvmStatic external fun linkHostFunction(
-        instHandle: Long,
+        runtimeHandle: Long,
         moduleName: String,
         name: String,
         signature: String,

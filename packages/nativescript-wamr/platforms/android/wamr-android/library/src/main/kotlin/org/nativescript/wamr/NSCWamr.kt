@@ -141,6 +141,7 @@ constructor(
     // into ByteArrays; they are held here for the runtime's lifetime.
     private val moduleBytes = mutableListOf<ByteArray>()
     internal val hostTrampolines = mutableListOf<HostTrampoline>()
+    private val modules = mutableListOf<NSCWamrModule>()
     private var closed = false
 
     companion object {
@@ -175,13 +176,28 @@ constructor(
             throw NSCWamrException("failed to load module")
         }
         moduleBytes.add(copy)
-        return NSCWamrModule(moduleHandle, this)
+        val module = NSCWamrModule(moduleHandle, this)
+        modules.add(module)
+        return module
     }
 
     fun loadModuleFromFile(path: String): NSCWamrModule = loadModule(File(path).readBytes())
 
+    /**
+     * Instantiates every loaded module that is still pending.
+     *
+     * Instantiation is deferred because WAMR resolves a module's imports when
+     * the instance is created: a host function linked afterwards would never be
+     * seen. So the module is loaded, callers get a chance to link their imports,
+     * and the instance is created on the first operation that needs one.
+     */
+    internal fun ensureInstantiated() {
+        for (module in modules) module.moduleInst()
+    }
+
     /** Finds an exported function anywhere in the runtime. */
     fun findFunction(name: String): NSCWamrFunction {
+        ensureInstantiated()
         val funcHandle = NativeWamr.findFunction(runtimeHandle, name)
         if (funcHandle == 0L) {
             throw NSCWamrException("function not found: $name")
@@ -191,9 +207,13 @@ constructor(
 
     // ------------------------------------------------------------------ memory
 
-    fun memorySize(): Int = NativeWamr.memorySize(runtimeHandle)
+    fun memorySize(): Int {
+        ensureInstantiated()
+        return NativeWamr.memorySize(runtimeHandle)
+    }
 
     fun readMemory(offset: Int, length: Int): ByteArray {
+        ensureInstantiated()
         val memory = NativeWamr.getMemory(runtimeHandle)
             ?: throw NSCWamrException("module has no linear memory")
         val size = NativeWamr.memorySize(runtimeHandle).toLong()
@@ -208,6 +228,7 @@ constructor(
     }
 
     fun writeMemory(offset: Int, data: ByteArray) {
+        ensureInstantiated()
         val memory = NativeWamr.getMemory(runtimeHandle)
             ?: throw NSCWamrException("module has no linear memory")
         val size = NativeWamr.memorySize(runtimeHandle).toLong()
@@ -270,13 +291,14 @@ class NSCWamrModule internal constructor(
         signature: String,
         callback: NSCWamrHostFunction,
     ) {
-        ensureInstantiated()
+        // Deliberately *not* instantiated first: WAMR binds imports when the
+        // instance is created, so the native has to be registered before that.
         val (paramTypes, returnTypes) = parseSignature(signature)
         val trampoline = HostTrampoline(callback, paramTypes, returnTypes)
         runtime.hostTrampolines.add(trampoline)
 
         val ok = NativeWamr.linkHostFunction(
-            instHandle, moduleName, name, signature, trampoline
+            runtime.runtimeHandle, moduleName, name, signature, trampoline
         )
         if (!ok) {
             throw NSCWamrException("failed to link host function: $moduleName.$name")

@@ -46,12 +46,54 @@ pub fn from_simple_type(simple_type: i32) -> i32 {
     }
 }
 
-fn slot_width(wamr_type_byte: u8) -> usize {
-    match wamr_type_byte {
-        0x7F | 0x7D => 1, // i32, f32
-        0x7E | 0x7C => 2, // i64, f64
+/// Slots a value of this kind occupies in WAMR's uint32 argv convention.
+///
+/// The argument is a `wasm_valkind_t` — what WAMR's introspection API actually
+/// hands back (wasm_func_get_param_types, wasm_global_inst_t::kind) — not the
+/// 0x7F-style byte from the wasm binary format. The two coincide with the
+/// wire's simple type codes, so no conversion is needed at this boundary.
+fn slot_width(valkind: wasm_valkind_t) -> usize {
+    match valkind as i32 {
+        WASM_I32 | WASM_F32 => 1,
+        WASM_I64 | WASM_F64 => 2,
         _ => 0,
     }
+}
+
+/// The instance/exec-env a function handle was found in, if it is still known.
+fn instance_for(func: wasm_function_inst_t) -> Option<(wasm_module_inst_t, wasm_exec_env_t)> {
+    let map = GLOBAL_FUNC_MAP.lock().unwrap_or_else(|e| e.into_inner());
+    map.as_ref()
+        .and_then(|m| m.get(&(func as usize)))
+        .map(|&(inst, env)| (inst as wasm_module_inst_t, env as wasm_exec_env_t))
+}
+
+/// Reads a function's parameter or result kinds through WAMR's own API.
+/// The counts come from the API too — 0 is a valid kind (i32), so scanning for
+/// a zero terminator would stop at the first i32.
+fn signature_kinds(func: wasm_function_inst_t, results: bool) -> Vec<wasm_valkind_t> {
+    let Some((inst, _)) = instance_for(func) else {
+        return Vec::new();
+    };
+    let count = unsafe {
+        if results {
+            wasm_func_get_result_count(func, inst)
+        } else {
+            wasm_func_get_param_count(func, inst)
+        }
+    } as usize;
+    if count == 0 {
+        return Vec::new();
+    }
+    let mut kinds: Vec<wasm_valkind_t> = vec![0; count];
+    unsafe {
+        if results {
+            wasm_func_get_result_types(func, inst, kinds.as_mut_ptr());
+        } else {
+            wasm_func_get_param_types(func, inst, kinds.as_mut_ptr());
+        }
+    }
+    kinds
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +225,11 @@ pub fn instantiate(
             *error_buf = 0;
         }
     }
+    // WAMR binds a module's imports while loading it, so any host function
+    // registered afterwards is still unlinked. Re-resolving here picks those up
+    // and is a no-op for imports that already resolved.
+    unsafe { wasm_runtime_resolve_symbols(module) };
+
     let rt = unsafe { &mut *runtime };
     let inst = unsafe {
         wasm_runtime_instantiate(
@@ -255,12 +302,33 @@ pub fn function_name(_func: wasm_function_inst_t) -> String {
     String::new()
 }
 
-// These require module_inst which we don't have from just a func pointer.
-// The call path uses the func_map instead.  Stubs for API compatibility.
-pub fn function_arg_count(_func: wasm_function_inst_t) -> i32 { 0 }
-pub fn function_arg_type(_func: wasm_function_inst_t, _index: i32) -> i32 { -1 }
-pub fn function_ret_count(_func: wasm_function_inst_t) -> i32 { 0 }
-pub fn function_ret_type(_func: wasm_function_inst_t, _index: i32) -> i32 { -1 }
+// The owning instance is recovered from the func_map that find_function fills.
+pub fn function_arg_count(func: wasm_function_inst_t) -> i32 {
+    signature_kinds(func, false).len() as i32
+}
+
+pub fn function_arg_type(func: wasm_function_inst_t, index: i32) -> i32 {
+    kind_at(&signature_kinds(func, false), index)
+}
+
+pub fn function_ret_count(func: wasm_function_inst_t) -> i32 {
+    signature_kinds(func, true).len() as i32
+}
+
+pub fn function_ret_type(func: wasm_function_inst_t, index: i32) -> i32 {
+    kind_at(&signature_kinds(func, true), index)
+}
+
+/// WAMR valkinds are the wire's simple type codes, so this is a bounds check.
+fn kind_at(kinds: &[wasm_valkind_t], index: i32) -> i32 {
+    if index < 0 {
+        return -1;
+    }
+    match kinds.get(index as usize) {
+        Some(&k) if slot_width(k) > 0 => k as i32,
+        _ => -1,
+    }
+}
 
 // ---------------------------------------------------------------------------
 // calling
@@ -268,23 +336,13 @@ pub fn function_ret_type(_func: wasm_function_inst_t, _index: i32) -> i32 { -1 }
 
 /// Build WAMR uint32 arg array from i64-encoded arguments.
 unsafe fn build_u32_args(
-    func: wasm_function_inst_t,
-    inst: wasm_module_inst_t,
+    ptypes: &[wasm_valkind_t],
     args: &[u64],
     out: &mut [u32],
 ) -> Result<i32, String> {
-    let mut types_buf: [wasm_valkind_t; 32] = [0; 32];
-    unsafe { wasm_func_get_param_types(func, inst, types_buf.as_mut_ptr()) };
-
-    let mut pcount: u32 = 0;
-    for i in 0..32 {
-        if types_buf[i] == 0 { break; }
-        pcount += 1;
-    }
-
     let mut slot_idx = 0usize;
-    for i in 0..pcount as usize {
-        let sw = slot_width(types_buf[i] as u8);
+    for i in 0..ptypes.len() {
+        let sw = slot_width(ptypes[i]);
         if sw == 0 { return Err("unknown param type".into()); }
         if slot_idx + sw > out.len() { return Err("too many arguments".into()); }
 
@@ -321,25 +379,14 @@ pub fn call(
         return Err("no execution environment".into());
     }
 
-    // Count param/result types
-    let mut ptypes: [wasm_valkind_t; 32] = [0; 32];
-    let mut rtypes: [wasm_valkind_t; 32] = [0; 32];
-    unsafe {
-        wasm_func_get_param_types(func, inst, ptypes.as_mut_ptr());
-        wasm_func_get_result_types(func, inst, rtypes.as_mut_ptr());
-    }
-    let mut pcount: u32 = 0;
-    let mut rcount: u32 = 0;
-    for i in 0..32 { if ptypes[i] == 0 { break; } pcount += 1; }
-    for i in 0..32 { if rtypes[i] == 0 { break; } rcount += 1; }
+    let ptypes = signature_kinds(func, false);
+    let rtypes = signature_kinds(func, true);
+    let rcount = rtypes.len();
 
-    let mut total_arg_slots = 0usize;
-    for i in 0..pcount as usize { total_arg_slots += slot_width(ptypes[i] as u8); }
-    let mut total_result_slots = 0usize;
-    for i in 0..rcount as usize { total_result_slots += slot_width(rtypes[i] as u8); }
+    let total_arg_slots: usize = ptypes.iter().map(|&k| slot_width(k)).sum();
 
     let mut arg_buf = vec![0u32; total_arg_slots.max(1)];
-    unsafe { build_u32_args(func, inst, args, &mut arg_buf)? };
+    unsafe { build_u32_args(&ptypes, args, &mut arg_buf)? };
 
     // Init result buffer in global state
     {
@@ -349,13 +396,13 @@ pub fn call(
 
     let ok;
     if rcount > 0 {
-        let mut arg_vals: Vec<wasm_val_t> = Vec::with_capacity(total_arg_slots);
-        let mut result_vals: Vec<wasm_val_t> = vec![unsafe { std::mem::zeroed() }; rcount as usize];
+        let mut arg_vals: Vec<wasm_val_t> = Vec::with_capacity(ptypes.len());
+        let mut result_vals: Vec<wasm_val_t> = vec![unsafe { std::mem::zeroed() }; rcount];
 
         // Build wasm_val_t args with kind fields
         let mut slot_pos = 0usize;
-        for i in 0..pcount as usize {
-            let sw = slot_width(ptypes[i] as u8);
+        for i in 0..ptypes.len() {
+            let sw = slot_width(ptypes[i]);
             let mut val: wasm_val_t = unsafe { std::mem::zeroed() };
             val.kind = ptypes[i];
             if sw == 1 {
@@ -371,19 +418,20 @@ pub fn call(
             }
         }
 
+        // wasm_runtime_call_wasm_a counts values, not slots.
         ok = unsafe {
             wasm_runtime_call_wasm_a(
                 env, func,
-                rcount, result_vals.as_mut_ptr(),
-                total_arg_slots as u32, arg_vals.as_mut_ptr(),
+                rcount as u32, result_vals.as_mut_ptr(),
+                arg_vals.len() as u32, arg_vals.as_mut_ptr(),
             )
         };
 
         if ok {
             let mut last = GLOBAL_LAST_RESULTS.lock().unwrap();
             if let Some((_, ref mut results)) = *last {
-                for i in 0..rcount as usize {
-                    let sw = slot_width(rtypes[i] as u8);
+                for i in 0..rcount {
+                    let sw = slot_width(rtypes[i]);
                     if sw == 1 {
                         results.push(unsafe { result_vals[i].of.i32_ } as u32);
                     } else {
@@ -429,24 +477,12 @@ pub fn get_results(
         return Err("no results available".into());
     }
 
-    // Look up inst for type info
-    let inst = {
-        let map = GLOBAL_FUNC_MAP.lock().unwrap();
-        match map.as_ref().and_then(|m| m.get(&(func as usize))) {
-            Some(&(inst, _)) => inst as wasm_module_inst_t,
-            None => return Err("function not found".into()),
-        }
-    };
-
-    let mut rtypes: [wasm_valkind_t; 32] = [0; 32];
-    unsafe { wasm_func_get_result_types(func, inst, rtypes.as_mut_ptr()) };
-    let mut rcount: u32 = 0;
-    for i in 0..32 { if rtypes[i] == 0 { break; } rcount += 1; }
+    let rtypes = signature_kinds(func, true);
 
     let mut slot_idx = 0usize;
-    for i in 0..rcount as usize {
+    for i in 0..rtypes.len() {
         if i >= ret_buf.len() { break; }
-        let sw = slot_width(rtypes[i] as u8);
+        let sw = slot_width(rtypes[i]);
         if sw == 0 || slot_idx + sw > results.len() { break; }
 
         ret_buf[i] = if sw == 1 {
@@ -552,8 +588,10 @@ pub fn get_global(
         return Err("global not found".into());
     }
 
-    let st = to_simple_type(global.kind as i32);
-    if st < 0 {
+    // wasm_global_inst_t::kind is a wasm_valkind_t, which is already the wire's
+    // simple type code — no 0x7F-style conversion belongs here.
+    let st = global.kind as i32;
+    if slot_width(global.kind) == 0 {
         return Err("global has unsupported type".into());
     }
 
@@ -562,11 +600,11 @@ pub fn get_global(
     }
 
     let bits = unsafe {
-        match global.kind as u32 {
-            0x7F => *(global.global_data as *const i32) as u64,
-            0x7E => *(global.global_data as *const i64) as u64,
-            0x7D => (*(global.global_data as *const f32)).to_bits() as u64,
-            0x7C => (*(global.global_data as *const f64)).to_bits(),
+        match st {
+            WASM_I32 => *(global.global_data as *const i32) as u64,
+            WASM_I64 => *(global.global_data as *const i64) as u64,
+            WASM_F32 => (*(global.global_data as *const f32)).to_bits() as u64,
+            WASM_F64 => (*(global.global_data as *const f64)).to_bits(),
             _ => return Err("global has unsupported type".into()),
         }
     };
@@ -580,7 +618,8 @@ pub fn get_global_type(inst: wasm_module_inst_t, name: &str) -> i32 {
     let mut global: wasm_global_inst_t = unsafe { std::mem::zeroed() };
     let ok = unsafe { wasm_runtime_get_export_global_inst(inst, c_name.as_ptr(), &mut global) };
     if !ok { return -1; }
-    to_simple_type(global.kind as i32)
+    if slot_width(global.kind) == 0 { return -1; }
+    global.kind as i32
 }
 
 pub fn set_global(
@@ -601,7 +640,10 @@ pub fn set_global(
         return Err("global not found".into());
     }
 
-    let expected = to_simple_type(global.kind as i32);
+    let expected = global.kind as i32;
+    if slot_width(global.kind) == 0 {
+        return Err("global has unsupported type".into());
+    }
     if type_code != expected {
         return Err("global type mismatch".into());
     }
@@ -611,11 +653,11 @@ pub fn set_global(
     }
 
     unsafe {
-        match global.kind as u32 {
-            0x7F => *(global.global_data as *mut i32) = (bits & 0xFFFF_FFFF) as i32,
-            0x7E => *(global.global_data as *mut i64) = bits as i64,
-            0x7D => *(global.global_data as *mut u32) = (bits & 0xFFFF_FFFF) as u32,
-            0x7C => *(global.global_data as *mut u64) = bits,
+        match expected {
+            WASM_I32 => *(global.global_data as *mut i32) = (bits & 0xFFFF_FFFF) as i32,
+            WASM_I64 => *(global.global_data as *mut i64) = bits as i64,
+            WASM_F32 => *(global.global_data as *mut u32) = (bits & 0xFFFF_FFFF) as u32,
+            WASM_F64 => *(global.global_data as *mut u64) = bits,
             _ => return Err("global has unsupported type".into()),
         }
     }

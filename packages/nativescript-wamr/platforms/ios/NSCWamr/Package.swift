@@ -35,7 +35,15 @@ let package = Package(
                 .headerSearchPath("core/shared/mem-alloc"),
                 .define("WASM_ENABLE_INTERP", to: "1"),
                 .define("WASM_ENABLE_FAST_INTERP", to: "0"),
-                .define("BH_PLATFORM_DARWIN", to: "1"),
+                // Both bound checks must be off. WAMR normally configures them
+                // through its CMake build, which is not part of the vendored
+                // subset, so they default to enabled and the platform layer
+                // walks the thread stack to install guard pages — which runs off
+                // the end of the stack before wasm_runtime_init returns. An
+                // interpreter-only embedding checks bounds in software instead.
+                .define("WASM_DISABLE_HW_BOUND_CHECK", to: "1"),
+                .define("WASM_DISABLE_STACK_HW_BOUND_CHECK", to: "1"),
+                .define("BH_PLATFORM_POSIX", to: "1"),
                 .define("WAMR_BUILD_INVOKE_NATIVE_GENERAL", to: "1"),
             ]
         ),

@@ -12,11 +12,16 @@
 //! The C shim (`nsc_wamr_shim.c`) is compiled into the same shared library
 //! by `wamr-sys`'s build.rs, so we just call its functions via `extern "C"`.
 
-use jni::objects::{GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValue};
+use jni::objects::{
+    GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValue, JValueOwned,
+};
 use jni::sys::{jboolean, jint, jlong, jlongArray, JNI_TRUE};
 use jni::{JNIEnv, JavaVM};
 use std::ffi::{c_char, CStr, CString};
 use wamr_sys::*;
+
+/// The opaque runtime handle the shim hands back, under the C shim's old name.
+type nsc_wamr_runtime_t = wamr_sys::shim::NscWamrRuntime;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -61,7 +66,7 @@ fn new_long_array(env: &mut JNIEnv, data: &[i64]) -> Result<jlongArray, String> 
 
 /// Check a C-shim result pointer (NULL = success, non-NULL = error string).
 fn check_c_result(env: &mut JNIEnv, result: *const c_char) -> bool {
-    if module.is_null() {
+    if result.is_null() {
         return true;
     }
     let msg = unsafe { ptr_to_str(result) };
@@ -143,6 +148,11 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_destroyRuntime(
 ) {
     let rt = runtime_ptr as *mut nsc_wamr_runtime_t;
     if !rt.is_null() {
+        // Before tearing the runtime down: WAMR's native registry is global and
+        // holds borrowed pointers, so this runtime's host functions have to be
+        // withdrawn from it. Leaving them registered would let a later runtime
+        // resolve imports against callbacks belonging to a disposed one.
+        release_host_registrations(runtime_ptr as usize);
         unsafe { nsc_wamr_destroy_runtime(rt) };
     }
 }
@@ -504,7 +514,9 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_getMemory(
     if size == 0 {
         return std::ptr::null_mut();
     }
-    match env.new_direct_byte_buffer(ptr, size) {
+    // Safe: the pointer/size come from WAMR's own linear memory, which stays
+    // mapped for as long as the module instance lives.
+    match unsafe { env.new_direct_byte_buffer(ptr, size) } {
         Ok(buf) => buf.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
@@ -522,96 +534,152 @@ use std::sync::Mutex;
 /// `wasm_runtime_get_function_attachment`.
 struct HostCtx {
     jvm: JavaVM,
-    _trampoline: GlobalRef, // global ref to HostTrampoline (kept alive)
+    trampoline: GlobalRef, // global ref to HostTrampoline (kept alive)
+    // WAMR's raw calling convention hands the native a bare uint64 buffer with
+    // no arity, so the counts parsed from the declared signature are kept here.
+    n_args: usize,
+    n_rets: usize,
 }
 
-/// Registry of host contexts for cleanup.  Keyed by a unique ID so we can
-/// release the GlobalRef when the runtime is destroyed.
-static HOST_CTX_REGISTRY: Mutex<Option<HashMap<i32, *mut HostCtx>>> = Mutex::new(None);
-static NEXT_HOST_ID: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(1);
+/// Counts params and results in a wasm3-notation signature such as `i(ii)`,
+/// `F(FF)` or `v(I)`. `v` is the void marker and contributes nothing.
+fn signature_arity(signature: &str) -> Option<(usize, usize)> {
+    let open = signature.find('(')?;
+    let close = signature.rfind(')')?;
+    let rets = signature[..open].chars().filter(|&c| c != 'v').count();
+    let params = signature[open + 1..close].chars().filter(|&c| c != 'v').count();
+    Some((params, rets))
+}
 
-/// The universal C trampoline.  WAMR calls this when the WASM module invokes
-/// a host import.  We retrieve the HostCtx from `wasm_runtime_get_function_attachment`
-/// and call back into Kotlin via JNI.
-unsafe extern "C" fn wamr_host_trampoline(
-    exec_env: wasm_exec_env_t,
-    _args: *mut u64,
-    n_args: i32,
-    results: *mut u64,
-    n_rets: i32,
-) -> *mut std::os::raw::c_void {
+/// Everything one `wasm_runtime_register_natives_raw` call leaked, so that
+/// destroyRuntime can withdraw the registration and free it again. The pointers
+/// are held as usize because raw pointers are not Send.
+#[derive(Clone, Copy)]
+struct HostRegistration {
+    module_name: usize,
+    symbols: usize,
+    ctx: usize,
+}
+
+/// Registrations by runtime handle. WAMR's native registry is process-global,
+/// so without this the host functions of a disposed runtime stay resolvable.
+static HOST_REGISTRATIONS: Mutex<Option<HashMap<usize, Vec<HostRegistration>>>> =
+    Mutex::new(None);
+
+fn host_registrations<R>(
+    f: impl FnOnce(&mut HashMap<usize, Vec<HostRegistration>>) -> R,
+) -> R {
+    let mut guard = HOST_REGISTRATIONS.lock().unwrap_or_else(|e| e.into_inner());
+    f(guard.get_or_insert_with(HashMap::new))
+}
+
+/// Unregisters and frees every host function linked against `runtime`.
+/// Must run before wasm_runtime_destroy, which frees the registry itself.
+fn release_host_registrations(runtime: usize) {
+    let Some(entries) = host_registrations(|map| map.remove(&runtime)) else {
+        return;
+    };
+    for entry in entries {
+        unsafe {
+            wasm_runtime_unregister_natives(
+                entry.module_name as *const c_char,
+                entry.symbols as *mut NativeSymbol,
+            );
+            let symbols = Box::from_raw(entry.symbols as *mut [NativeSymbol; 1]);
+            drop(CString::from_raw(symbols[0].symbol as *mut c_char));
+            drop(symbols);
+            drop(CString::from_raw(entry.module_name as *mut c_char));
+            drop(Box::from_raw(entry.ctx as *mut HostCtx));
+        }
+    }
+}
+
+// Trap messages raised on the module instance. The wording matches the iOS
+// wrapper, and the shared test suites assert the "host function" part.
+const TRAP_INVALID_RETURN: &[u8] = b"NSCWamr: host function returned invalid values\0";
+const TRAP_INVALID_CONTEXT: &[u8] = b"NSCWamr: invalid host import context\0";
+
+/// A raw native reports failure by setting an exception on the instance —
+/// unlike wasm3's trampoline, its return type carries no error channel.
+unsafe fn trap(exec_env: wasm_exec_env_t, message: &[u8]) {
+    let inst = wasm_runtime_get_module_inst(exec_env);
+    if !inst.is_null() {
+        wasm_runtime_set_exception(inst, message.as_ptr() as *const c_char);
+    }
+}
+
+/// The universal C trampoline. WAMR calls this when the WASM module invokes a
+/// host import, using its raw calling convention: `void (wasm_exec_env_t,
+/// uint64 *argv)`, where argv holds one 64-bit slot per parameter on the way in
+/// and the single result on the way out (see wasm_runtime_invoke_native_raw).
+/// The arity is not passed, so it comes from the HostCtx; the context itself
+/// arrives through `wasm_runtime_get_function_attachment`.
+unsafe extern "C" fn wamr_host_trampoline(exec_env: wasm_exec_env_t, argv: *mut u64) {
     let attachment = wasm_runtime_get_function_attachment(exec_env);
     if attachment.is_null() {
-        return b"host trampoline: no attachment\0".as_ptr() as *mut std::os::raw::c_void;
+        return trap(exec_env, TRAP_INVALID_CONTEXT);
     }
 
     let ctx = &*(attachment as *const HostCtx);
     let mut env = match ctx.jvm.attach_current_thread() {
         Ok(e) => e,
-        Err(_) => {
-            return b"host trampoline: failed to attach JNI thread\0".as_ptr()
-                as *mut std::os::raw::c_void;
-        }
+        Err(_) => return trap(exec_env, TRAP_INVALID_CONTEXT),
     };
 
-    // Build arguments as Java LongArray
-    let n_args_u = n_args as usize;
-    let arg_data: Vec<i64> = if n_args_u == 0 {
-        // No arguments — don't touch _args (may be null)
-        vec![]
+    // Build arguments as a Java long[].
+    let arg_data: Vec<i64> = if ctx.n_args == 0 || argv.is_null() {
+        Vec::new()
     } else {
-        let arg_slice = std::slice::from_raw_parts(_args, n_args_u);
-        arg_slice.iter().map(|&v| v as i64).collect()
+        std::slice::from_raw_parts(argv, ctx.n_args)
+            .iter()
+            .map(|&v| v as i64)
+            .collect()
     };
-    let arg_array = match env.new_long_array(n_args_u as i32) {
+    let arg_array = match env.new_long_array(arg_data.len() as i32) {
         Ok(arr) => arr,
-        Err(_) => {
-            return b"host trampoline: failed to allocate arg array\0".as_ptr()
-                as *mut std::os::raw::c_void;
-        }
+        Err(_) => return trap(exec_env, TRAP_INVALID_CONTEXT),
     };
-    if !arg_data.is_empty() {
-        if env
-            .set_long_array_region(&arg_array, 0, &arg_data)
-            .is_err()
-        {
-            return b"host trampoline: failed to set arg array\0".as_ptr()
-                as *mut std::os::raw::c_void;
-        }
+    if !arg_data.is_empty() && env.set_long_array_region(&arg_array, 0, &arg_data).is_err() {
+        return trap(exec_env, TRAP_INVALID_CONTEXT);
     }
 
-    // Call HostTrampoline.invoke([J) → [J
+    // Call HostTrampoline.invoke([J) → [J. A null return means the Kotlin side
+    // rejected the call (wrong arity, uncoercible value, or a thrown callback).
     let result = env.call_method(
-        &ctx._trampoline,
+        &ctx.trampoline,
         "invoke",
         "([J)[J",
         &[JValue::Object(&arg_array)],
     );
 
-    match result {
-        Ok(JValue::Object(obj)) if !obj.is_null() => {
-            let result_arr: jlongArray = obj.as_raw() as jlongArray;
-            let result_len = env
-                .get_array_length(result_arr)
-                .unwrap_or(0) as usize;
-            if result_len > 0 && result_len <= n_rets as usize {
-                let mut result_buf = vec![0i64; result_len];
-                if env
-                    .get_long_array_region(result_arr, 0, &mut result_buf)
-                    .is_ok()
-                {
-                    let result_slice =
-                        std::slice::from_raw_parts_mut(results, result_len);
-                    for (i, &v) in result_buf.iter().enumerate() {
-                        result_slice[i] = v as u64;
-                    }
-                }
-            }
-            std::ptr::null_mut() // success
+    // A callback that threw leaves a pending exception; clear it so the trap
+    // surfaces as a WAMR error rather than tripping the next JNI call.
+    if env.exception_check().unwrap_or(false) {
+        let _ = env.exception_clear();
+        return trap(exec_env, TRAP_INVALID_RETURN);
+    }
+
+    let obj = match result {
+        Ok(JValueOwned::Object(obj)) if !obj.is_null() => obj,
+        _ => return trap(exec_env, TRAP_INVALID_RETURN),
+    };
+
+    let result_arr = JLongArray::from_raw(obj.as_raw() as jlongArray);
+    if env.get_array_length(&result_arr).unwrap_or(-1) as usize != ctx.n_rets {
+        return trap(exec_env, TRAP_INVALID_RETURN);
+    }
+    if ctx.n_rets > 0 && !argv.is_null() {
+        let mut result_buf = vec![0i64; ctx.n_rets];
+        if env
+            .get_long_array_region(&result_arr, 0, &mut result_buf)
+            .is_err()
+        {
+            return trap(exec_env, TRAP_INVALID_RETURN);
         }
-        _ => {
-            b"host trampoline: callback failed\0".as_ptr()
-                as *mut std::os::raw::c_void
+        // invoke_native_raw reads the result back out of argv[0].
+        let result_slice = std::slice::from_raw_parts_mut(argv, ctx.n_rets);
+        for (slot, &v) in result_slice.iter_mut().zip(result_buf.iter()) {
+            *slot = v as u64;
         }
     }
 }
@@ -620,18 +688,12 @@ unsafe extern "C" fn wamr_host_trampoline(
 pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_linkHostFunction(
     mut env: JNIEnv,
     _class: JClass,
-    inst_ptr: jlong,
+    runtime_ptr: jlong,
     module_name: JString,
     name: JString,
     signature: JString,
     trampoline: JObject,
 ) -> jboolean {
-    let inst = inst_ptr as wasm_module_inst_t;
-    if inst.is_null() {
-        throw(&mut env, "null module instance");
-        return 0;
-    }
-
     let c_module = match java_str_to_cstring(&mut env, &module_name) {
         Ok(s) => s,
         Err(e) => {
@@ -646,12 +708,16 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_linkHostFunction(
             return 0;
         }
     };
-    let c_sig = match java_str_to_cstring(&mut env, &signature) {
-        Ok(s) => s,
+    let sig_str: String = match env.get_string(&signature) {
+        Ok(s) => s.into(),
         Err(e) => {
-            throw(&mut env, &e);
+            throw(&mut env, &e.to_string());
             return 0;
         }
+    };
+    let Some((n_args, n_rets)) = signature_arity(&sig_str) else {
+        throw(&mut env, &format!("invalid wasm signature: {}", sig_str));
+        return 0;
     };
 
     // Create a global reference to the trampoline so it won't be GC'd
@@ -676,35 +742,57 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_linkHostFunction(
     // Allocate HostCtx on the heap — stored as NativeSymbol.attachment
     let ctx = Box::new(HostCtx {
         jvm,
-        _trampoline: global_ref,
+        trampoline: global_ref,
+        n_args,
+        n_rets,
     });
     let ctx_ptr = Box::into_raw(ctx);
 
     // Build and register the NativeSymbol directly (bypassing the C shim's
-    // link_host_function so we can set attachment)
+    // link_host_function so we can set attachment).
+    //
+    // WAMR keeps pointers instead of copying: register_natives stores the
+    // module name, the symbol array and each symbol's name as-is and reads them
+    // whenever it resolves an import. All three therefore have to outlive this
+    // call, so they are leaked deliberately.
+    //
+    // The signature is left NULL: it only drives the pointer/string annotations
+    // ('*', '~', '$') that this wire protocol does not use, and a wasm3-notation
+    // string there would fail WAMR's signature check and unlink the import.
+    let module_name_ptr = c_module.into_raw();
+    let symbol_name = c_name.into_raw();
     let mut sym: NativeSymbol = unsafe { std::mem::zeroed() };
-    sym.symbol = c_name.as_ptr();
+    sym.symbol = symbol_name;
     sym.func_ptr = wamr_host_trampoline as *mut std::os::raw::c_void;
-    sym.signature = c_sig.as_ptr();
+    sym.signature = std::ptr::null();
     sym.attachment = ctx_ptr as *mut std::os::raw::c_void;
+    let symbols = Box::into_raw(Box::new([sym]));
 
-    let ok =
-        unsafe { wasm_runtime_register_natives_raw(c_module.as_ptr(), &mut sym, 1) };
+    let ok = unsafe {
+        wasm_runtime_register_natives_raw(module_name_ptr, symbols as *mut NativeSymbol, 1)
+    };
 
     if !ok {
-        // Free the context on failure
         unsafe {
+            drop(Box::from_raw(symbols));
+            drop(CString::from_raw(symbol_name));
+            drop(CString::from_raw(module_name_ptr));
             drop(Box::from_raw(ctx_ptr));
         }
         throw(&mut env, "failed to register native function");
         return 0;
     }
 
-    // Store in registry for future cleanup
-    let id = NEXT_HOST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let mut map = HOST_CTX_REGISTRY.lock().unwrap();
-    map.get_or_insert_with(HashMap::new)
-        .insert(id, ctx_ptr);
+    // Remember it so destroyRuntime can unregister and free it.
+    host_registrations(|map| {
+        map.entry(runtime_ptr as usize)
+            .or_default()
+            .push(HostRegistration {
+                module_name: module_name_ptr as usize,
+                symbols: symbols as usize,
+                ctx: ctx_ptr as usize,
+            })
+    });
 
     JNI_TRUE
 }

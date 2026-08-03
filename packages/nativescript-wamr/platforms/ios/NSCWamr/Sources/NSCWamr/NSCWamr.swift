@@ -18,12 +18,14 @@ private func makeError(_ code: Int, _ message: String) -> NSError {
 
 // MARK: - Value coding
 
-/// Wasm value types using standard WebAssembly type codes.
+/// Wasm value types, using WAMR's `wasm_valkind_t` codes — what its
+/// introspection API actually reports (wasm_func_get_param_types,
+/// wasm_global_inst_t::kind), not the 0x7F-style bytes of the binary format.
 private enum WamrType: UInt8 {
-    case i32 = 0x7F
-    case i64 = 0x7E
-    case f32 = 0x7D
-    case f64 = 0x7C
+    case i32 = 0
+    case i64 = 1
+    case f32 = 2
+    case f64 = 3
 
     var name: String {
         switch self {
@@ -105,6 +107,26 @@ private enum WireCoding {
 
     static func typeFromCode(_ code: UInt8) -> WamrType? { WamrType(fromWasmTypeCode: code) }
 
+    /// Encodes a value into one 64-bit slot, the unit WAMR's raw calling
+    /// convention and `wasm_val_t` both work in. Returns nil on failure.
+    static func slot(for type: WamrType, from value: Any) -> UInt64? {
+        guard let parts = slots(for: type, from: value) else { return nil }
+        switch type {
+        case .i32, .f32: return UInt64(parts[0])
+        case .i64, .f64: return UInt64(parts[0]) | (UInt64(parts[1]) << 32)
+        }
+    }
+
+    /// Decodes one 64-bit slot into the wire value for the given type.
+    static func value(for type: WamrType, slot: UInt64) -> Any {
+        switch type {
+        case .i32: return NSNumber(value: Int32(truncatingIfNeeded: slot))
+        case .i64: return String(Int64(bitPattern: slot))
+        case .f32: return NSNumber(value: Double(Float(bitPattern: UInt32(truncatingIfNeeded: slot))))
+        case .f64: return NSNumber(value: Double(bitPattern: slot))
+        }
+    }
+
     private static func doubleValue(from value: Any) -> Double? {
         if let n = value as? NSNumber { return n.doubleValue }
         if let s = value as? String { return Double(s) }
@@ -176,88 +198,69 @@ private final class HostContext {
     let callback: ([Any]) -> [Any]
     let paramTypes: [WamrType]
     let resultTypes: [WamrType]
-    let paramSlotCount: Int
-    let resultSlotCount: Int
 
     init(callback: @escaping ([Any]) -> [Any], paramTypes: [WamrType], resultTypes: [WamrType]) {
         self.callback = callback
         self.paramTypes = paramTypes
         self.resultTypes = resultTypes
-        self.paramSlotCount = paramTypes.reduce(0) { $0 + $1.slotWidth }
-        self.resultSlotCount = resultTypes.reduce(0) { $0 + $1.slotWidth }
     }
 }
 
-/// Global lookup for host contexts indexed by a unique ID assigned at link time.
-private var hostContextByIndex: [Int: HostContext] = [:]
-private var hostContextNextIndex: Int = 0
-private let hostContextLock = NSLock()
+// Trap messages raised on the module instance. A raw native returns void, so
+// setting an exception is its only way to report failure. The shared test
+// suites assert on the "host function" part.
+private let trapInvalidReturn = "NSCWamr: host function returned invalid values"
+private let trapInvalidContext = "NSCWamr: invalid host import context"
+
+private func trap(_ execEnv: wasm_exec_env_t?, _ message: String) {
+    guard let execEnv, let inst = wasm_runtime_get_module_inst(execEnv) else { return }
+    message.withCString { wasm_runtime_set_exception(inst, $0) }
+}
 
 // MARK: - Universal host trampoline (exposed to C)
 
-/// The single host trampoline invoked by WAMR for every linked import.
-///
-/// When WAMR supports forwarding `NativeSymbol.attachment`, it passes the
-/// HostContext pointer as the fourth argument and the import is resolved
-/// directly.  When attachment forwarding is not available the trampoline
-/// falls back to the index-based context table (populated at link time).
-///
-/// Stack layout (raw convention): result slots occupy the first N entries of
-/// `args`, followed by the argument slots.
+/// The single host trampoline WAMR invokes for every linked import, in its raw
+/// calling convention: `void (wasm_exec_env_t, uint64 *argv)`. `argv` holds one
+/// 64-bit slot per parameter on the way in and the single result on the way out
+/// (see wasm_runtime_invoke_native_raw). The arity is not passed, so it comes
+/// from the HostContext, which arrives as the import's `attachment`.
 @_cdecl("nscwamr_host_trampoline")
 public func nscwamr_host_trampoline(
-    _ execEnv: OpaquePointer?,
-    _ args: UnsafeMutablePointer<UInt32>?,
-    _ argc: UInt32
+    _ execEnv: wasm_exec_env_t?,
+    _ argv: UnsafeMutablePointer<UInt64>?
 ) {
-    guard let args = args else { return }
-
-    // Two strategies to find the context:
-    //  a) attachment pointer embedded in the trampoline — not available in
-    //     all WAMR builds, but checked first.
-    //  b) index-based table populated by linkHostFunction.
-
-    // Strategy (b) — walk the table looking for the first context whose
-    // argument/result layout matches the stack shape.  This works because
-    // WAMR calls imports one at a time and the stack frame is unambiguous
-    // for a given signature.
-    let totalSlots = Int(argc)
-    var ctx: HostContext?
-    hostContextLock.lock()
-    for (_, candidate) in hostContextByIndex {
-        if candidate.paramSlotCount + candidate.resultSlotCount == totalSlots {
-            ctx = candidate
-            break
-        }
+    guard let execEnv,
+          let attachment = wasm_runtime_get_function_attachment(execEnv)
+    else {
+        return trap(execEnv, trapInvalidContext)
     }
-    hostContextLock.unlock()
+    let ctx = Unmanaged<HostContext>.fromOpaque(attachment).takeUnretainedValue()
 
-    guard let ctx = ctx else { return }
-
-    // Decode arguments from the stack (they follow the result slots).
-    let resultSlots = ctx.resultSlotCount
-    var offset = resultSlots
-    let slotBuf = UnsafeBufferPointer(start: args, count: totalSlots)
-    let slots = Array(slotBuf)
     var wasmArgs: [Any] = []
     wasmArgs.reserveCapacity(ctx.paramTypes.count)
-    for type in ctx.paramTypes {
-        wasmArgs.append(WireCoding.value(for: type, from: slots, at: &offset))
+    if let argv {
+        for (i, type) in ctx.paramTypes.enumerated() {
+            wasmArgs.append(WireCoding.value(for: type, slot: argv[i]))
+        }
+    } else if !ctx.paramTypes.isEmpty {
+        return trap(execEnv, trapInvalidContext)
     }
 
-    // Invoke the callback.
     let returned = ctx.callback(wasmArgs)
-    guard returned.count == ctx.resultTypes.count else { return }
-
-    // Encode result values and write them back to the first N stack slots.
-    var resSlots: [UInt32] = []
-    for i in 0..<ctx.resultTypes.count {
-        guard let s = WireCoding.slots(for: ctx.resultTypes[i], from: returned[i]) else { return }
-        resSlots.append(contentsOf: s)
+    guard returned.count == ctx.resultTypes.count else {
+        return trap(execEnv, trapInvalidReturn)
     }
-    guard resSlots.count == resultSlots else { return }
-    for i in 0..<resultSlots {
-        args[i] = resSlots[i]
+
+    // invoke_native_raw reads the result back out of argv[0].
+    guard let argv else {
+        if !ctx.resultTypes.isEmpty { trap(execEnv, trapInvalidContext) }
+        return
+    }
+    for (i, type) in ctx.resultTypes.enumerated() {
+        guard let slot = WireCoding.slot(for: type, from: returned[i]) else {
+            return trap(execEnv, trapInvalidReturn)
+        }
+        argv[i] = slot
     }
 }
 
@@ -265,7 +268,7 @@ public func nscwamr_host_trampoline(
 private let hostTrampolineFuncPtr: UnsafeMutableRawPointer = {
     // nscwamr_host_trampoline is an @_cdecl function — its address is a
     // standard C function pointer that we can stuff into NativeSymbol.
-    typealias RawFunc = @convention(c) (OpaquePointer?, UnsafeMutablePointer<UInt32>?, UInt32) -> Void
+    typealias RawFunc = @convention(c) (wasm_exec_env_t?, UnsafeMutablePointer<UInt64>?) -> Void
     return unsafeBitCast(nscwamr_host_trampoline as RawFunc, to: UnsafeMutableRawPointer.self)
 }()
 
@@ -273,60 +276,42 @@ private let hostTrampolineFuncPtr: UnsafeMutableRawPointer = {
 
 @objc(NSCWamrRuntime)
 public final class NSCWamrRuntime: NSObject {
-    private let wamrRuntime: OpaquePointer
-    private var moduleInstances: [OpaquePointer] = []
+    // WAMR's runtime state is process-global — there is no runtime handle to
+    // pass around. This class owns the modules it loads and the instances and
+    // exec envs created for them, and tears that down in deinit.
+    private var modules: [NSCWamrModule] = []
     fileprivate var hostContexts: [HostContext] = []
+    /// Natives registered for this runtime, to withdraw from WAMR's global
+    /// registry on teardown. Each entry owns its strdup'd strings and symbol.
+    fileprivate var registrations: [HostRegistration] = []
 
-    /// Execution environment reused for function calls on this runtime.
-    fileprivate let execEnv: OpaquePointer
+    private let stackSize: UInt32
+    private let runningMode: RunningMode
 
-    /// Module bytes must be kept alive for the lifetime of the runtime.
+    /// Module bytes must be kept alive: wasm_runtime_load does not copy them.
     private var moduleBytesBuffers: [UnsafeMutableBufferPointer<UInt8>] = []
+
+    /// WAMR global init is refcounted here so several runtimes can coexist and
+    /// the last one out calls wasm_runtime_destroy.
+    private static let initLock = NSLock()
+    private static var liveRuntimes = 0
 
     @objc(initWithStackSize:wasiEnabled:executionTier:)
     public init(stackSizeInBytes: UInt32, wasiEnabled: Bool, executionTier: String) {
-        // ---------- Initialize WAMR runtime ----------
-        guard wasm_runtime_init() else {
-            fatalError("NSCWamr: wasm_runtime_init failed")
-        }
+        self.stackSize = stackSizeInBytes
+        // Only the interpreter is compiled into this build; the JIT and AOT
+        // tiers need backends that the vendored source subset leaves out.
+        self.runningMode = Mode_Interp
 
-        var initArgs = RuntimeInitArgs()
-        initArgs.mem_alloc_type = Alloc_With_Allocator
-        initArgs.max_thread_num = 1
-
-        // Minimal argv so WASI initialisation succeeds when the module
-        // requests it; the JS layer sets up preopens via the WASI context
-        // returned by wasm_runtime_get_wasi_ctx() after instantiation.
-        var cArgv: [UnsafeMutablePointer<CChar>?] = []
-        if wasiEnabled {
-            if let arg = strdup("nscwamr") { cArgv.append(arg) }
-            initArgs.argc = Int32(cArgv.count)
-            initArgs.argv = cArgv.isEmpty ? nil : &cArgv
+        NSCWamrRuntime.initLock.lock()
+        if NSCWamrRuntime.liveRuntimes == 0 {
+            guard wasm_runtime_init() else {
+                NSCWamrRuntime.initLock.unlock()
+                fatalError("NSCWamr: wasm_runtime_init failed")
+            }
         }
-
-        guard let rt = wasm_runtime_create(&initArgs) else {
-            for a in cArgv { free(a) }
-            fatalError("NSCWamr: wasm_runtime_create failed")
-        }
-        for a in cArgv { free(a) }
-        self.wamrRuntime = rt
-
-        // ---------- Execution tier ----------
-        let mode: RunningMode
-        switch executionTier.lowercased() {
-        case "fast-jit", "fast_jit": mode = Mode_Fast_JIT
-        case "llvm-jit", "llvm_jit": mode = Mode_LLVM_JIT
-        case "aot":                     mode = Mode_AOT
-        default:                        mode = Mode_Interp
-        }
-        wasm_runtime_set_running_mode(rt, mode)
-
-        // ---------- Execution environment ----------
-        guard let env = wasm_runtime_create_exec_env(rt, stackSizeInBytes) else {
-            wasm_runtime_destroy(rt)
-            fatalError("NSCWamr: wasm_runtime_create_exec_env failed")
-        }
-        self.execEnv = env
+        NSCWamrRuntime.liveRuntimes += 1
+        NSCWamrRuntime.initLock.unlock()
 
         super.init()
     }
@@ -336,58 +321,52 @@ public final class NSCWamrRuntime: NSObject {
     }
 
     deinit {
-        for inst in moduleInstances.reversed() {
-            wasm_runtime_deinstantiate(wamrRuntime, inst)
-        }
-        moduleInstances.removeAll()
-        wasm_runtime_destroy_exec_env(wamrRuntime, execEnv)
-        wasm_runtime_destroy(wamrRuntime)
+        for module in modules.reversed() { module.teardown() }
+        modules.removeAll()
+
+        // WAMR's native registry is global and holds borrowed pointers, so this
+        // runtime's host functions have to be withdrawn before teardown —
+        // otherwise a later runtime resolves imports against dead callbacks.
+        for registration in registrations { registration.unregister() }
+        registrations.removeAll()
+        hostContexts.removeAll()
+
+        NSCWamrRuntime.initLock.lock()
+        NSCWamrRuntime.liveRuntimes -= 1
+        if NSCWamrRuntime.liveRuntimes == 0 { wasm_runtime_destroy() }
+        NSCWamrRuntime.initLock.unlock()
+
         for buffer in moduleBytesBuffers { buffer.deallocate() }
     }
 
     @objc public static func wamrVersion() -> String {
-        guard let v = wasm_runtime_get_version() else { return "unknown" }
-        return String(cString: v)
+        var major: UInt32 = 0, minor: UInt32 = 0, patch: UInt32 = 0
+        wasm_runtime_get_version(&major, &minor, &patch)
+        return "\(major).\(minor).\(patch)"
     }
-
-    fileprivate var firstModuleInstance: OpaquePointer? { moduleInstances.first }
 
     // MARK: Module loading
 
-    /// Parses, loads, and instantiates a WebAssembly module binary.
+    /// Parses and loads a WebAssembly module binary. Instantiation is deferred
+    /// until the first operation that needs an instance — see `instantiateAll`.
     @objc(loadModule:error:)
     public func loadModule(_ data: Data) throws -> NSCWamrModule {
         let buffer = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: max(1, data.count))
         _ = buffer.initialize(from: data)
 
         var errorBuf = [CChar](repeating: 0, count: 256)
-
         guard let module = errorBuf.withUnsafeMutableBufferPointer({ errBuf in
-            data.withUnsafeBytes { bytes in
-                wasm_runtime_load(wamrRuntime,
-                                  bytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                                  UInt32(data.count),
-                                  errBuf.baseAddress, UInt32(errBuf.count))
-            }
+            wasm_runtime_load(buffer.baseAddress, UInt32(data.count),
+                              errBuf.baseAddress, UInt32(errBuf.count))
         }) else {
             buffer.deallocate()
             throw makeError(1, "failed to load module: \(String(cString: errorBuf))")
         }
 
-        let stackSize: UInt32 = 64 * 1024
-        let heapSize: UInt32 = 256 * 1024
-        guard let moduleInst = errorBuf.withUnsafeMutableBufferPointer({ errBuf in
-            wasm_runtime_instantiate(wamrRuntime, module, stackSize, heapSize,
-                                     errBuf.baseAddress, UInt32(errBuf.count))
-        }) else {
-            wasm_runtime_unload(wamrRuntime, module)
-            buffer.deallocate()
-            throw makeError(1, "failed to instantiate module: \(String(cString: errorBuf))")
-        }
-
         moduleBytesBuffers.append(buffer)
-        moduleInstances.append(moduleInst)
-        return NSCWamrModule(module: module, moduleInst: moduleInst, runtime: self)
+        let wrapper = NSCWamrModule(module: module, runtime: self)
+        modules.append(wrapper)
+        return wrapper
     }
 
     @objc(loadModuleFromFile:error:)
@@ -396,12 +375,28 @@ public final class NSCWamrRuntime: NSObject {
         return try loadModule(data)
     }
 
+    /// Instantiates every module that is still pending.
+    ///
+    /// Instantiation is deferred because WAMR binds a module's imports before
+    /// the instance exists: a host function linked afterwards would never be
+    /// seen. So modules are loaded, callers get a chance to link their imports,
+    /// and instances are created on the first operation that needs one.
+    fileprivate func instantiateAll() throws {
+        for module in modules { _ = try module.instance() }
+    }
+
+    fileprivate var firstInstance: wasm_module_inst_t? {
+        try? modules.first?.instance()
+    }
+
     /// Finds an exported function by name across all loaded module instances.
     @objc(findFunction:error:)
     public func findFunction(_ name: String) throws -> NSCWamrFunction {
-        for inst in moduleInstances {
+        try instantiateAll()
+        for module in modules {
+            let inst = try module.instance()
             if let f = name.withCString({ wasm_runtime_lookup_function(inst, $0) }) {
-                return NSCWamrFunction(function: f, moduleInst: inst, runtime: self)
+                return NSCWamrFunction(function: f, moduleInst: inst, execEnv: try module.execEnv())
             }
         }
         throw makeError(8, "function not found: \(name)")
@@ -410,22 +405,22 @@ public final class NSCWamrRuntime: NSObject {
     // MARK: Linear memory
 
     @objc public var memorySize: UInt32 {
-        guard let inst = firstModuleInstance else { return 0 }
-        // WAMR doesn't expose a direct "memory size" query for a module
-        // instance via the public API. Return a conservative estimate; real
-        // bounds are enforced by readMemory / writeMemory.
-        return 64 * 1024
+        guard let inst = firstInstance else { return 0 }
+        var start: UInt64 = 0
+        var end: UInt64 = 0
+        guard wasm_runtime_get_app_addr_range(inst, 0, &start, &end) else { return 0 }
+        return UInt32(truncatingIfNeeded: end - start)
     }
 
     @objc(readMemoryAtOffset:length:error:)
     public func readMemory(offset: UInt32, length: UInt32) throws -> Data {
-        guard let inst = firstModuleInstance else {
+        guard let inst = firstInstance else {
             throw makeError(2, "no module loaded")
         }
-        guard wasm_runtime_validate_app_addr(inst, offset, length) else {
+        guard wasm_runtime_validate_app_addr(inst, UInt64(offset), UInt64(length)) else {
             throw makeError(3, "memory read out of bounds (offset \(offset), length \(length))")
         }
-        guard let native = wasm_runtime_addr_app_to_native(inst, offset) else {
+        guard let native = wasm_runtime_addr_app_to_native(inst, UInt64(offset)) else {
             throw makeError(3, "cannot translate app address \(offset)")
         }
         return Data(bytes: native, count: Int(length))
@@ -433,17 +428,44 @@ public final class NSCWamrRuntime: NSObject {
 
     @objc(writeMemoryAtOffset:data:error:)
     public func writeMemory(offset: UInt32, data: Data) throws {
-        guard let inst = firstModuleInstance else {
+        guard let inst = firstInstance else {
             throw makeError(2, "no module loaded")
         }
-        let len = UInt32(data.count)
-        guard wasm_runtime_validate_app_addr(inst, offset, len) else {
+        guard wasm_runtime_validate_app_addr(inst, UInt64(offset), UInt64(data.count)) else {
             throw makeError(3, "memory write out of bounds (offset \(offset), length \(data.count))")
         }
-        guard let native = wasm_runtime_addr_app_to_native(inst, offset) else {
+        guard let native = wasm_runtime_addr_app_to_native(inst, UInt64(offset)) else {
             throw makeError(3, "cannot translate app address \(offset)")
         }
         data.copyBytes(to: native.assumingMemoryBound(to: UInt8.self), count: data.count)
+    }
+
+    fileprivate var moduleRunningMode: RunningMode { runningMode }
+    fileprivate var moduleStackSize: UInt32 { stackSize }
+}
+
+/// One `wasm_runtime_register_natives_raw` call's leaked allocations. WAMR keeps
+/// pointers instead of copying, so all of them have to outlive the call and be
+/// freed only after the registration is withdrawn.
+private final class HostRegistration {
+    private let moduleName: UnsafeMutablePointer<CChar>
+    private let symbolName: UnsafeMutablePointer<CChar>
+    private let symbols: UnsafeMutablePointer<NativeSymbol>
+
+    init(moduleName: UnsafeMutablePointer<CChar>,
+         symbolName: UnsafeMutablePointer<CChar>,
+         symbols: UnsafeMutablePointer<NativeSymbol>) {
+        self.moduleName = moduleName
+        self.symbolName = symbolName
+        self.symbols = symbols
+    }
+
+    func unregister() {
+        wasm_runtime_unregister_natives(moduleName, symbols)
+        symbols.deinitialize(count: 1)
+        symbols.deallocate()
+        free(symbolName)
+        free(moduleName)
     }
 }
 
@@ -451,15 +473,56 @@ public final class NSCWamrRuntime: NSObject {
 
 @objc(NSCWamrModule)
 public final class NSCWamrModule: NSObject {
-    private let module: OpaquePointer          // wasm_module_t *
-    private let moduleInst: OpaquePointer      // wasm_module_inst_t
+    private let module: wasm_module_t
+    private var moduleInst: wasm_module_inst_t?
+    private var moduleExecEnv: wasm_exec_env_t?
     @objc public let runtime: NSCWamrRuntime
 
-    fileprivate init(module: OpaquePointer, moduleInst: OpaquePointer, runtime: NSCWamrRuntime) {
+    fileprivate init(module: wasm_module_t, runtime: NSCWamrRuntime) {
         self.module = module
-        self.moduleInst = moduleInst
         self.runtime = runtime
         super.init()
+    }
+
+    /// Instantiates on first use, so imports linked after loadModule are bound.
+    fileprivate func instance() throws -> wasm_module_inst_t {
+        if let moduleInst { return moduleInst }
+
+        // WAMR binds a module's imports while loading it, so a host function
+        // registered afterwards is still unlinked. Re-resolving picks those up
+        // and is a no-op for imports that already resolved.
+        wasm_runtime_resolve_symbols(module)
+
+        var errorBuf = [CChar](repeating: 0, count: 256)
+        guard let inst = errorBuf.withUnsafeMutableBufferPointer({ errBuf in
+            wasm_runtime_instantiate(module, runtime.moduleStackSize, 256 * 1024,
+                                     errBuf.baseAddress, UInt32(errBuf.count))
+        }) else {
+            throw makeError(1, "failed to instantiate module: \(String(cString: errorBuf))")
+        }
+        wasm_runtime_set_running_mode(inst, runtime.moduleRunningMode)
+
+        guard let env = wasm_runtime_create_exec_env(inst, runtime.moduleStackSize) else {
+            wasm_runtime_deinstantiate(inst)
+            throw makeError(1, "failed to create execution environment")
+        }
+        moduleInst = inst
+        moduleExecEnv = env
+        return inst
+    }
+
+    fileprivate func execEnv() throws -> wasm_exec_env_t {
+        _ = try instance()
+        guard let moduleExecEnv else { throw makeError(1, "no execution environment") }
+        return moduleExecEnv
+    }
+
+    fileprivate func teardown() {
+        if let moduleExecEnv { wasm_runtime_destroy_exec_env(moduleExecEnv) }
+        if let moduleInst { wasm_runtime_deinstantiate(moduleInst) }
+        moduleExecEnv = nil
+        moduleInst = nil
+        wasm_runtime_unload(module)
     }
 
     @objc public var name: String { "" }
@@ -492,97 +555,90 @@ public final class NSCWamrModule: NSObject {
             paramTypes: parsed.params,
             resultTypes: parsed.results
         )
+        // Retained by the runtime below; the trampoline reads it back unowned.
+        runtime.hostContexts.append(ctx)
 
-        // Assign an index and store the context globally.
-        hostContextLock.lock()
-        let idx = hostContextNextIndex
-        hostContextByIndex[idx] = ctx
-        hostContextNextIndex += 1
-        hostContextLock.unlock()
-
-        // Build a NativeSymbol entry. The symbol name and signature strings
-        // are dup'd because WAMR may keep pointers to them.
-        guard let symName = strdup(name),
-              let symSig = strdup(wamrSig)
-        else {
-            hostContextLock.lock()
-            hostContextByIndex.removeValue(forKey: idx)
-            hostContextLock.unlock()
+        // WAMR keeps pointers instead of copying: register_natives stores the
+        // module name, the symbol array and the symbol name as-is and reads them
+        // whenever it resolves an import. All three must outlive this call, so
+        // they are handed to a HostRegistration that frees them on teardown.
+        //
+        // The signature is left NULL: it only drives the pointer/string
+        // annotations ('*', '~', '$') that this wire protocol does not use, and
+        // a wasm3-notation string there fails WAMR's check and unlinks the
+        // import.
+        guard let symName = strdup(name), let modName = strdup(moduleName) else {
             throw makeError(10, "failed to allocate symbol strings for \(name)")
         }
 
+        let symbols = UnsafeMutablePointer<NativeSymbol>.allocate(capacity: 1)
         var symbol = NativeSymbol()
-        symbol.symbol = symName
+        symbol.symbol = UnsafePointer(symName)
         symbol.func_ptr = hostTrampolineFuncPtr
-        symbol.signature = symSig
-        symbol.call_conv_raw = 1
+        symbol.signature = nil
         symbol.attachment = Unmanaged.passUnretained(ctx).toOpaque()
+        symbols.initialize(to: symbol)
 
-        let result = moduleName.withCString { modPtr in
-            withUnsafePointer(to: &symbol) {
-                wasm_runtime_register_natives_raw(moduleInst, modPtr, $0, 1)
-            }
-        }
-
-        free(symName)
-        free(symSig)
-
-        if !result {
-            hostContextLock.lock()
-            hostContextByIndex.removeValue(forKey: idx)
-            hostContextLock.unlock()
+        guard wasm_runtime_register_natives_raw(modName, symbols, 1) else {
+            symbols.deinitialize(count: 1)
+            symbols.deallocate()
+            free(symName)
+            free(modName)
+            runtime.hostContexts.removeLast()
             throw makeError(10, "failed to register native function \(moduleName).\(name)")
         }
 
-        runtime.hostContexts.append(ctx)
+        runtime.registrations.append(
+            HostRegistration(moduleName: modName, symbolName: symName, symbols: symbols))
     }
 
     // MARK: Globals
 
+    /// Looks up an exported global. WAMR has no get/set global calls: it hands
+    /// back a descriptor pointing at the instance's storage, read and written
+    /// directly through `global_data`.
+    private func exportedGlobal(_ name: String) throws -> (WamrType, UnsafeMutableRawPointer) {
+        let inst = try instance()
+        var global = wasm_global_inst_t()
+        let found = name.withCString {
+            wasm_runtime_get_export_global_inst(inst, $0, &global)
+        }
+        guard found else { throw makeError(4, "global not found: \(name)") }
+        guard let type = WireCoding.typeFromCode(global.kind) else {
+            throw makeError(5, "global has unsupported type: \(name)")
+        }
+        guard let data = global.global_data else {
+            throw makeError(5, "global has no storage: \(name)")
+        }
+        return (type, data)
+    }
+
+    // `global_data` points into the instance's global area, which carries no
+    // alignment guarantee for the wider types — hence the unaligned accessors.
     @objc(getGlobal:error:)
     public func getGlobal(_ name: String) throws -> Any {
-        return try name.withCString { cName in
-            var globalObj = wasm_global_t()
-            guard wasm_runtime_get_global(moduleInst, cName, &globalObj) else {
-                throw makeError(4, "global not found: \(name)")
-            }
-            switch globalObj.type {
-            case WamrType.i32.rawValue:
-                return NSNumber(value: Int32(bitPattern: globalObj.value.i32))
-            case WamrType.i64.rawValue:
-                return String(Int64(bitPattern: globalObj.value.i64))
-            case WamrType.f32.rawValue:
-                return NSNumber(value: Double(globalObj.value.f32))
-            case WamrType.f64.rawValue:
-                return NSNumber(value: globalObj.value.f64)
-            default:
-                throw makeError(5, "global has unsupported type: \(name)")
-            }
-        } as Any
+        let (type, data) = try exportedGlobal(name)
+        switch type {
+        case .i32: return NSNumber(value: data.loadUnaligned(as: Int32.self))
+        case .i64: return String(data.loadUnaligned(as: Int64.self))
+        case .f32: return NSNumber(value: Double(data.loadUnaligned(as: Float.self)))
+        case .f64: return NSNumber(value: data.loadUnaligned(as: Double.self))
+        }
     }
 
     @objc(setGlobal:value:error:)
     public func setGlobal(_ name: String, value: Any) throws {
-        try name.withCString { cName in
-            var globalObj = wasm_global_t()
-            guard wasm_runtime_get_global(moduleInst, cName, &globalObj) else {
-                throw makeError(4, "global not found: \(name)")
-            }
-            guard let type = WireCoding.typeFromCode(globalObj.type) else {
-                throw makeError(5, "global has unsupported type: \(name)")
-            }
-            guard let slots = WireCoding.slots(for: type, from: value) else {
-                throw makeError(6, "cannot convert value to \(type.name) for global: \(name)")
-            }
-            switch type {
-            case .i32: globalObj.value.i32 = slots[0]
-            case .i64: globalObj.value.i64 = UInt64(slots[0]) | (UInt64(slots[1]) << 32)
-            case .f32: globalObj.value.f32 = Float(bitPattern: slots[0])
-            case .f64: globalObj.value.f64 = Double(bitPattern: UInt64(slots[0]) | (UInt64(slots[1]) << 32))
-            }
-            guard wasm_runtime_set_global(moduleInst, cName, &globalObj) else {
-                throw makeError(5, "failed to set global: \(name)")
-            }
+        let (type, data) = try exportedGlobal(name)
+        guard let slot = WireCoding.slot(for: type, from: value) else {
+            throw makeError(6, "cannot convert value to \(type.name) for global: \(name)")
+        }
+        switch type {
+        case .i32, .f32:
+            var bits = UInt32(truncatingIfNeeded: slot)
+            withUnsafeBytes(of: &bits) { data.copyMemory(from: $0.baseAddress!, byteCount: $0.count) }
+        case .i64, .f64:
+            var bits = slot
+            withUnsafeBytes(of: &bits) { data.copyMemory(from: $0.baseAddress!, byteCount: $0.count) }
         }
     }
 }
@@ -591,112 +647,121 @@ public final class NSCWamrModule: NSObject {
 
 @objc(NSCWamrFunction)
 public final class NSCWamrFunction: NSObject {
-    private let function: OpaquePointer        // wasm_function_inst_t
-    private let moduleInst: OpaquePointer      // wasm_module_inst_t
-    private let runtime: NSCWamrRuntime
+    private let function: wasm_function_inst_t
+    private let moduleInst: wasm_module_inst_t
+    private let execEnv: wasm_exec_env_t
 
-    fileprivate init(function: OpaquePointer, moduleInst: OpaquePointer, runtime: NSCWamrRuntime) {
+    fileprivate init(function: wasm_function_inst_t,
+                     moduleInst: wasm_module_inst_t,
+                     execEnv: wasm_exec_env_t) {
         self.function = function
         self.moduleInst = moduleInst
-        self.runtime = runtime
+        self.execEnv = execEnv
         super.init()
     }
 
-    @objc public var name: String {
-        guard let n = wasm_func_get_name(function) else { return "" }
-        return String(cString: n)
+    /// Reads the function's parameter or result kinds. The counts come from
+    /// WAMR too — 0 is a valid kind (i32), so scanning for a zero terminator
+    /// would stop at the first i32.
+    private func signatureKinds(results: Bool) -> [WamrType] {
+        let count = Int(results
+            ? wasm_func_get_result_count(function, moduleInst)
+            : wasm_func_get_param_count(function, moduleInst))
+        guard count > 0 else { return [] }
+        var kinds = [wasm_valkind_t](repeating: 0, count: count)
+        kinds.withUnsafeMutableBufferPointer { buf in
+            if results {
+                wasm_func_get_result_types(function, moduleInst, buf.baseAddress)
+            } else {
+                wasm_func_get_param_types(function, moduleInst, buf.baseAddress)
+            }
+        }
+        return kinds.compactMap(WireCoding.typeFromCode)
     }
 
-    @objc public var paramTypes: [String] {
-        var count: UInt32 = 0
-        guard let p = wasm_func_get_param_types(function, &count), count > 0 else { return [] }
-        return UnsafeBufferPointer(start: p, count: Int(count)).compactMap {
-            WireCoding.typeFromCode($0)?.name
-        }
-    }
+    /// WAMR 2.x exposes no name lookup for a function instance.
+    @objc public var name: String { "" }
 
-    @objc public var returnTypes: [String] {
-        var count: UInt32 = 0
-        guard let p = wasm_func_get_result_types(function, &count), count > 0 else { return [] }
-        return UnsafeBufferPointer(start: p, count: Int(count)).compactMap {
-            WireCoding.typeFromCode($0)?.name
-        }
-    }
+    @objc public var paramTypes: [String] { signatureKinds(results: false).map(\.name) }
+
+    @objc public var returnTypes: [String] { signatureKinds(results: true).map(\.name) }
 
     /// Calls the function. Returns one wire-encoded value per result.
     @objc(callWithArguments:error:)
     public func call(_ args: [Any]) throws -> [Any] {
-        // --- Inspect parameter / result types ---
-        var paramCount: UInt32 = 0
-        var resultCount: UInt32 = 0
-        guard let paramPtr = wasm_func_get_param_types(function, &paramCount) else {
-            throw makeError(11, "cannot read function parameter types")
-        }
-        guard let resultPtr = wasm_func_get_result_types(function, &resultCount) else {
-            throw makeError(11, "cannot read function result types")
-        }
+        let paramTypes = signatureKinds(results: false)
+        let resultTypes = signatureKinds(results: true)
+        let nArgs = Int(wasm_func_get_param_count(function, moduleInst))
+        let nRets = Int(wasm_func_get_result_count(function, moduleInst))
 
-        let nArgs = Int(paramCount)
-        let nRets = Int(resultCount)
+        guard paramTypes.count == nArgs else {
+            throw makeError(11, "unrecognized parameter type")
+        }
+        guard resultTypes.count == nRets else {
+            throw makeError(11, "unrecognized result type")
+        }
         guard args.count == nArgs else {
             throw makeError(7, "expected \(nArgs) arguments, got \(args.count)")
         }
 
-        let pBuf = UnsafeBufferPointer(start: paramPtr, count: nArgs)
-        let paramTypes = pBuf.compactMap(WireCoding.typeFromCode)
-        guard paramTypes.count == nArgs else {
-            throw makeError(11, "unrecognized parameter type")
-        }
-
-        let rBuf = UnsafeBufferPointer(start: resultPtr, count: nRets)
-        let resultTypes = rBuf.compactMap(WireCoding.typeFromCode)
-        guard resultTypes.count == nRets else {
-            throw makeError(11, "unrecognized result type")
-        }
-
-        // --- Encode argument slots ---
-        var argSlots: [UInt32] = []
+        // wasm_runtime_call_wasm_a takes one wasm_val_t per value, tagged with
+        // its kind; the argv-based entry point takes raw 32-bit cells instead.
+        var argVals = [wasm_val_t]()
+        argVals.reserveCapacity(nArgs)
+        var argCells: [UInt32] = []
         for i in 0..<nArgs {
-            guard let s = WireCoding.slots(for: paramTypes[i], from: args[i]) else {
+            guard let cells = WireCoding.slots(for: paramTypes[i], from: args[i]),
+                  let slot = WireCoding.slot(for: paramTypes[i], from: args[i])
+            else {
                 throw makeError(6, "argument \(i) is not convertible to \(paramTypes[i].name)")
             }
-            argSlots.append(contentsOf: s)
+            argCells.append(contentsOf: cells)
+            var val = wasm_val_t()
+            val.kind = paramTypes[i].rawValue
+            switch paramTypes[i] {
+            case .i32, .f32: val.of.i32 = Int32(truncatingIfNeeded: slot)
+            case .i64, .f64: val.of.i64 = Int64(bitPattern: slot)
+            }
+            argVals.append(val)
         }
 
-        // --- Prepare result buffer ---
-        let resultSlotCount = resultTypes.reduce(0) { $0 + $1.slotWidth }
-        var resultSlots = [UInt32](repeating: 0, count: max(1, resultSlotCount))
+        var resultVals = [wasm_val_t](repeating: wasm_val_t(), count: max(1, nRets))
 
-        // --- Call ---
-        let ok: Bool = resultSlots.withUnsafeMutableBufferPointer { rBuf in
-            argSlots.withUnsafeBufferPointer { aBuf in
-                if nRets > 0 {
-                    return wasm_runtime_call_wasm_a(
-                        runtime.execEnv, function,
-                        UInt32(nRets), rBuf.baseAddress,
-                        UInt32(argSlots.count), aBuf.baseAddress)
-                } else {
-                    return wasm_runtime_call_wasm(
-                        runtime.execEnv, function,
-                        UInt32(argSlots.count), aBuf.baseAddress)
+        let ok: Bool = resultVals.withUnsafeMutableBufferPointer { rBuf in
+            if nRets > 0 {
+                return argVals.withUnsafeMutableBufferPointer { aBuf in
+                    wasm_runtime_call_wasm_a(execEnv, function,
+                                             UInt32(nRets), rBuf.baseAddress,
+                                             UInt32(nArgs), aBuf.baseAddress)
                 }
+            }
+            let cellCount = UInt32(argCells.count)
+            return argCells.withUnsafeMutableBufferPointer { aBuf in
+                wasm_runtime_call_wasm(execEnv, function, cellCount, aBuf.baseAddress)
             }
         }
 
         if !ok {
-            if let exc = wasm_runtime_get_exception(runtime.execEnv) {
-                throw makeError(1, String(cString: exc))
+            if let exc = wasm_runtime_get_exception(moduleInst) {
+                let message = String(cString: exc)
+                // Clear it so the instance stays usable for the next call.
+                wasm_runtime_clear_exception(moduleInst)
+                throw makeError(1, message)
             }
-            throw makeError(1, "function call trapped: \(name)")
+            throw makeError(1, "function call trapped")
         }
 
-        // --- Decode results ---
         guard nRets > 0 else { return [] }
-        var idx = 0
-        var results: [Any] = []
-        for type in resultTypes {
-            results.append(WireCoding.value(for: type, from: resultSlots, at: &idx))
+        return (0..<nRets).map { i in
+            let raw = resultVals[i]
+            switch resultTypes[i] {
+            case .i32, .f32:
+                return WireCoding.value(for: resultTypes[i],
+                                        slot: UInt64(UInt32(bitPattern: raw.of.i32)))
+            case .i64, .f64:
+                return WireCoding.value(for: resultTypes[i],
+                                        slot: UInt64(bitPattern: raw.of.i64))
+            }
         }
-        return results
     }
 }

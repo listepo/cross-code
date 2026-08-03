@@ -47,6 +47,27 @@
 #define BH_HAS_DLFCN 1
 #define BH_HAS_STD_ATOMIC 1
 
+/* ── Build target ────────────────────────────────────────────────────── */
+
+/* WAMR's CMake normally sets one of the BUILD_TARGET_* macros. There is no
+ * CMake here, and SwiftPM cannot vary a -D by architecture, so the target is
+ * derived from the compiler's own arch macros instead. Without one of these,
+ * wasm_runtime_invoke_native is compiled out of wasm_runtime_common.c and the
+ * link fails with an undefined symbol. A build system that sets the macro
+ * explicitly (cc-rs does) wins. */
+#if !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_AMD_64)     \
+    && !defined(BUILD_TARGET_AARCH64) && !defined(BUILD_TARGET_X86_32) \
+    && !defined(BUILD_TARGET_ARM) && !defined(BUILD_TARGET_THUMB)
+#if defined(__aarch64__) || defined(__arm64__)
+#define BUILD_TARGET_AARCH64 1
+#elif defined(__x86_64__) || defined(_M_X64)
+#define BUILD_TARGET_X86_64 1
+#define BUILD_TARGET_AMD_64 1
+#else
+#error "NSCWamr: unsupported architecture — define BUILD_TARGET_* explicitly"
+#endif
+#endif
+
 /* ── Memory ──────────────────────────────────────────────────────────── */
 
 #define WASM_MEM_ALLOC_ALIGNMENT 8
@@ -74,9 +95,10 @@
 #define BLOCK_ADDR_CONFLICT_SIZE 4
 #define WASM_STACK_GUARD_SIZE (4 * 1024)
 
-#endif /* WAMR_CONFIG_H */
 #define AOT_CURRENT_VERSION 4
 #define APP_HEAP_SIZE_MAX (256 * 1024 * 1024)
 #define WASM_CONST_EXPR_STACK_SIZE (4 * 1024)
 #define WASM_TABLE_MAX_SIZE (1024 * 1024)
 #define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 1
+
+#endif /* WAMR_CONFIG_H */
