@@ -23,7 +23,7 @@ pub mod shim;
 // These #[no_mangle] extern "C" functions export the same symbols as the old
 // nsc_wamr_shim.c, so wamr-jni can call them unchanged.
 
-use std::ffi::CStr;
+use std::ffi::{c_char, CStr, CString};
 
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_to_simple_type(wamr_type_byte: i32) -> i32 {

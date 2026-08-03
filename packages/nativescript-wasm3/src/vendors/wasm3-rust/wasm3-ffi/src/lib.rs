@@ -149,6 +149,9 @@ pub struct Wasm3Runtime {
     config: RuntimeConfig,
 }
 
+unsafe impl Send for Wasm3Runtime {}
+unsafe impl Sync for Wasm3Runtime {}
+
 impl Wasm3Runtime {
     #[uniffi::constructor]
     pub fn new(config: RuntimeConfig) -> Result<Self, Wasm3Error> {

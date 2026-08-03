@@ -40,7 +40,8 @@ fn main() {
         .opaque_type("M3Module")
         .opaque_type("M3Function")
         .opaque_type("M3Global")
-        .opaque_type("M3ImportContext")
+        // M3ImportContext is *not* opaque: the host-function trampoline reads
+        // its `userdata` and `function` fields (wasm3.h declares both public).
         .generate_comments(false)
         .layout_tests(false)
         .derive_debug(false)

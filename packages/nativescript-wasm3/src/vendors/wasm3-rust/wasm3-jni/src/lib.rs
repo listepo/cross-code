@@ -8,7 +8,9 @@
 //!
 //! All opaque wasm3 pointers are `jlong`.  Errors throw `NSCWasm3Exception`.
 
-use jni::objects::{GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValueOwned};
+use jni::objects::{
+    GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValue, JValueOwned,
+};
 use jni::sys::{jboolean, jint, jlong, jlongArray, JNI_TRUE};
 use jni::JNIEnv;
 use std::ffi::{c_char, CStr, CString};
@@ -149,7 +151,9 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_freeRuntime(
 ) {
     let rt = runtime_ptr as IM3Runtime;
     if !rt.is_null() {
+        // m3_FreeRuntime frees the modules it owns; their bytes go with them.
         unsafe { m3_FreeRuntime(rt) };
+        module_buffers(|buffers| buffers.retain(|_, entry| entry.runtime != rt as usize));
     }
 }
 
@@ -168,6 +172,28 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_freeEnvironment(
 // ---------------------------------------------------------------------------
 // Module
 // ---------------------------------------------------------------------------
+
+// wasm3 does not copy the bytes handed to m3_ParseModule — it keeps pointing
+// into them and reads on demand, right up to the lazy compile that
+// m3_FindFunction triggers. The Kotlin wrapper holds its own ByteArray alive,
+// but that is a different buffer from the one the JNI layer passes down, so the
+// native copy has to be owned here for as long as the module lives. Dropping it
+// at the end of parseModule leaves wasm3 reading freed memory, which surfaces
+// later as bogus parse errors ("restricted opcode", "malformed Wasm binary").
+struct ModuleBuffer {
+    _bytes: Box<[u8]>,
+    /// Runtime the module was loaded into, or 0 while it is still unloaded.
+    /// m3_FreeRuntime frees its modules without calling back into freeModule,
+    /// so the buffers have to be released along with the runtime.
+    runtime: usize,
+}
+
+static MODULE_BUFFERS: Mutex<Option<HashMap<usize, ModuleBuffer>>> = Mutex::new(None);
+
+fn module_buffers<R>(f: impl FnOnce(&mut HashMap<usize, ModuleBuffer>) -> R) -> R {
+    let mut guard = MODULE_BUFFERS.lock().unwrap_or_else(|e| e.into_inner());
+    f(guard.get_or_insert_with(HashMap::new))
+}
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_parseModule(
@@ -189,16 +215,20 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_parseModule(
         return 0;
     }
 
-    // Read bytes into local buffer
-    let mut buf = vec![0u8; len];
+    // Read bytes into a buffer this layer keeps alive for the module's lifetime.
+    let mut buf = vec![0u8; len].into_boxed_slice();
     // get_byte_array_region expects &mut [i8]; transmute from &mut [u8]
-    env.get_byte_array_region(&wasm_bytes_ref, 0, unsafe {
-        std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut i8, len)
-    })
-        .map_err(|e| throw(&mut env, &format!("failed to read byte array: {}", e)))
-        .ok();
+    if env
+        .get_byte_array_region(&wasm_bytes_ref, 0, unsafe {
+            std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut i8, len)
+        })
+        .is_err()
+    {
+        throw(&mut env, "failed to read byte array");
+        return 0;
+    }
 
-    let result = unsafe {
+    let module = unsafe {
         let mut out: IM3Module = std::ptr::null_mut();
         let res = m3_ParseModule(
             environment,
@@ -210,10 +240,20 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_parseModule(
             throw(&mut env, ptr_to_str(res));
             return 0;
         }
-        out as jlong
+        out
     };
 
-    result
+    module_buffers(|buffers| {
+        buffers.insert(
+            module as usize,
+            ModuleBuffer {
+                _bytes: buf,
+                runtime: 0,
+            },
+        )
+    });
+
+    module as jlong
 }
 
 #[no_mangle]
@@ -233,6 +273,12 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_loadModule(
     if !check_m3_result(&mut env, res) {
         return 0;
     }
+    // The runtime owns the module from here on, so its bytes have to outlive it.
+    module_buffers(|buffers| {
+        if let Some(entry) = buffers.get_mut(&(module as usize)) {
+            entry.runtime = rt as usize;
+        }
+    });
     JNI_TRUE
 }
 
@@ -245,6 +291,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_freeModule(
     let module = module_ptr as IM3Module;
     if !module.is_null() {
         unsafe { m3_FreeModule(module) };
+        module_buffers(|buffers| buffers.remove(&(module as usize)));
     }
 }
 
@@ -499,89 +546,102 @@ use std::sync::Mutex;
 
 struct HostCtx {
     jvm: jni::JavaVM,
-    _callback: GlobalRef,
+    callback: GlobalRef,
 }
 
 // Store HostCtx pointers as usize for Sync compatibility
 static HOST_CTX_REGISTRY: Mutex<Option<HashMap<i32, usize>>> = Mutex::new(None);
 static NEXT_HOST_ID: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(1);
 
-/// wasm3 raw-call trampoline: called by wasm3 when a host import is invoked.
-/// Signatures matches M3RawCall convention: (runtime, ctx, sp, mem) -> void*
+// Trap messages handed back to wasm3. They must outlive the call, so they are
+// `'static` NUL-terminated byte strings. The wording matches the Swift
+// trampoline in NSCWasm3.swift — the shared test suites assert on it.
+const TRAP_INVALID_RETURN: &[u8] = b"NSCWasm3: host function returned invalid values\0";
+const TRAP_INVALID_CONTEXT: &[u8] = b"NSCWasm3: invalid host import context\0";
+
+fn trap(message: &'static [u8]) -> *const ::std::os::raw::c_void {
+    message.as_ptr() as *const ::std::os::raw::c_void
+}
+
+/// Trampoline invoked by wasm3 for every linked host function. The raw stack
+/// layout is: sp[0..n_rets] return slots, followed by one 64-bit slot per arg.
 unsafe extern "C" fn wasm3_host_trampoline(
-    runtime: IM3Runtime,
+    _runtime: IM3Runtime,
     ctx: IM3ImportContext,
     sp: *mut u64,
     _mem: *mut ::std::os::raw::c_void,
-) -> *mut ::std::os::raw::c_void {
-    // Get user data attached to the import
-    let user_data = m3_GetUserData(runtime);
-    if user_data.is_null() {
-        return b"host trampoline: no user data\0".as_ptr() as *mut ::std::os::raw::c_void;
+) -> *const ::std::os::raw::c_void {
+    if ctx.is_null() || (*ctx).userdata.is_null() || (*ctx).function.is_null() {
+        return trap(TRAP_INVALID_CONTEXT);
     }
 
-    let host_ctx = &*(user_data as *const HostCtx);
+    let host_ctx = &*((*ctx).userdata as *const HostCtx);
+    let function = (*ctx).function;
+    let n_args = m3_GetArgCount(function) as usize;
+    let n_rets = m3_GetRetCount(function) as usize;
+
     let mut env = match host_ctx.jvm.attach_current_thread() {
         Ok(e) => e,
-        Err(_) => {
-            return b"host trampoline: failed to attach JNI thread\0".as_ptr()
-                as *mut ::std::os::raw::c_void;
-        }
+        Err(_) => return trap(TRAP_INVALID_CONTEXT),
     };
 
-    // The import context is unused in the simplified path —
-    // the HostTrampoline has its own paramTypes/returnTypes cached.
-    let _ = ctx;
+    // Arguments live past the return slots; a zero-arg import gets an empty array.
+    let arg_data: Vec<i64> = if n_args == 0 || sp.is_null() {
+        Vec::new()
+    } else {
+        std::slice::from_raw_parts(sp.add(n_rets), n_args)
+            .iter()
+            .map(|&v| v as i64)
+            .collect()
+    };
 
-    // Encode args as Java LongArray (wasm3 stack: results first, then args)
-    // We don't know n_rets here — pass all slots as arguments.
-    // The Kotlin HostTrampoline knows the actual param count.
-    let total_slots = 16; // reasonable max
-    let arg_array = match env.new_long_array(total_slots as i32) {
+    let arg_array = match env.new_long_array(arg_data.len() as i32) {
         Ok(arr) => arr,
-        Err(_) => {
-            return b"host trampoline: failed to allocate arg array\0".as_ptr()
-                as *mut ::std::os::raw::c_void;
-        }
+        Err(_) => return trap(TRAP_INVALID_CONTEXT),
     };
-
-    let arg_data: Vec<i64> = std::slice::from_raw_parts(sp, total_slots)
-        .iter()
-        .map(|&v| v as i64)
-        .collect();
-    if env.set_long_array_region(&arg_array, 0, &arg_data).is_err() {
-        return b"host trampoline: failed to set arg array\0".as_ptr()
-            as *mut ::std::os::raw::c_void;
+    if !arg_data.is_empty() && env.set_long_array_region(&arg_array, 0, &arg_data).is_err() {
+        return trap(TRAP_INVALID_CONTEXT);
     }
 
-    // Call HostTrampoline.invoke([J) → [J
+    // Call HostTrampoline.invoke([J) → [J. A null return means the Kotlin side
+    // rejected the call (wrong arity, uncoercible value, or a thrown callback).
     let result = env.call_method(
-        &host_ctx._callback,
+        &host_ctx.callback,
         "invoke",
         "([J)[J",
         &[JValue::Object(&arg_array)],
     );
 
-    match result {
-        Ok(JValueOwned::Object(obj)) if !obj.is_null() => {
-            let result_arr: jlongArray = obj.as_raw() as jlongArray;
-            let result_arr_ref = unsafe { JLongArray::from_raw(result_arr) };
-            let result_len = env.get_array_length(&result_arr_ref).unwrap_or(0) as usize;
-            if result_len > 0 {
-                let mut result_buf = vec![0i64; result_len];
-                if env.get_long_array_region(&result_arr_ref, 0, &mut result_buf).is_ok() {
-                    let result_slice = std::slice::from_raw_parts_mut(sp, result_len);
-                    for (i, &v) in result_buf.iter().enumerate() {
-                        result_slice[i] = v as u64;
-                    }
-                }
-            }
-            std::ptr::null_mut()
+    // A callback that threw leaves a pending exception; clear it so the trap
+    // surfaces as a wasm3 error rather than tripping the next JNI call.
+    if env.exception_check().unwrap_or(false) {
+        let _ = env.exception_clear();
+        return trap(TRAP_INVALID_RETURN);
+    }
+
+    let obj = match result {
+        Ok(JValueOwned::Object(obj)) if !obj.is_null() => obj,
+        _ => return trap(TRAP_INVALID_RETURN),
+    };
+
+    let result_arr = JLongArray::from_raw(obj.as_raw() as jlongArray);
+    if env.get_array_length(&result_arr).unwrap_or(-1) as usize != n_rets {
+        return trap(TRAP_INVALID_RETURN);
+    }
+    if n_rets > 0 {
+        let mut result_buf = vec![0i64; n_rets];
+        if env
+            .get_long_array_region(&result_arr, 0, &mut result_buf)
+            .is_err()
+        {
+            return trap(TRAP_INVALID_RETURN);
         }
-        _ => {
-            b"host trampoline: callback failed\0".as_ptr() as *mut ::std::os::raw::c_void
+        let result_slice = std::slice::from_raw_parts_mut(sp, n_rets);
+        for (slot, &v) in result_slice.iter_mut().zip(result_buf.iter()) {
+            *slot = v as u64;
         }
     }
+    std::ptr::null()
 }
 
 #[no_mangle]
@@ -625,7 +685,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_linkRawFunctionEx
 
     let ctx = Box::new(HostCtx {
         jvm,
-        _callback: global_ref,
+        callback: global_ref,
     });
     let ctx_ptr = Box::into_raw(ctx);
 
@@ -635,15 +695,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_linkRawFunctionEx
             c_module.as_ptr(),
             c_name.as_ptr(),
             c_sig.as_ptr(),
-            std::mem::transmute::<
-                unsafe extern "C" fn(
-                    IM3Runtime,
-                    IM3ImportContext,
-                    *mut u64,
-                    *mut ::std::os::raw::c_void,
-                ) -> *mut ::std::os::raw::c_void,
-                M3RawCall,
-            >(wasm3_host_trampoline),
+            Some(wasm3_host_trampoline),
             ctx_ptr as *mut ::std::os::raw::c_void,
         )
     };
