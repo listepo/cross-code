@@ -146,7 +146,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_destroyRuntime(
     _class: JClass,
     runtime_ptr: jlong,
 ) {
-    let rt = runtime_ptr as wasm_runtime_t;
+    let rt = runtime_ptr as *mut nsc_wamr_runtime_t;
     if !rt.is_null() {
         unsafe { nsc_wamr_destroy_runtime(rt) };
     }
@@ -163,7 +163,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
     runtime_ptr: jlong,
     wasm_bytes: jni::sys::jbyteArray,
 ) -> jlong {
-    let rt = runtime_ptr as wasm_runtime_t;
+    let rt = runtime_ptr as *mut nsc_wamr_runtime_t;
     if rt.is_null() {
         throw(&mut env, "null runtime");
         return 0;
@@ -214,7 +214,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_instantiate(
     runtime_ptr: jlong,
 ) -> jlong {
     let module = module_ptr as wasm_module_t;
-    let rt = runtime_ptr as wasm_runtime_t;
+    let rt = runtime_ptr as *mut nsc_wamr_runtime_t;
 
     if module.is_null() || rt.is_null() {
         throw(&mut env, "null argument");
@@ -260,7 +260,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_findFunction(
     runtime_ptr: jlong,
     name: JString,
 ) -> jlong {
-    let rt = runtime_ptr as wasm_runtime_t;
+    let rt = runtime_ptr as *mut nsc_wamr_runtime_t;
     if rt.is_null() {
         throw(&mut env, "null runtime");
         return 0;
@@ -467,7 +467,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_memorySize(
     _class: JClass,
     runtime_ptr: jlong,
 ) -> jint {
-    let rt = runtime_ptr as wasm_runtime_t;
+    let rt = runtime_ptr as *mut nsc_wamr_runtime_t;
     if rt.is_null() {
         return 0;
     }
@@ -480,7 +480,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_getMemory(
     _class: JClass,
     runtime_ptr: jlong,
 ) -> jni::sys::jobject {
-    let rt = runtime_ptr as wasm_runtime_t;
+    let rt = runtime_ptr as *mut nsc_wamr_runtime_t;
     if rt.is_null() {
         return std::ptr::null_mut();
     }
@@ -808,7 +808,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_unloadModule(
     runtime_ptr: jlong,
 ) {
     let module = module_ptr as wasm_module_t;
-    let rt = runtime_ptr as wasm_runtime_t;
+    let rt = runtime_ptr as *mut nsc_wamr_runtime_t;
     if !module.is_null() && !rt.is_null() {
         // WAMR's wasm_runtime_unload is available in bindings
         unsafe { wasm_runtime_unload(module) };

@@ -15,8 +15,10 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 // ── NSC WAMR shim: flat helpers over WAMR APIs ─────────────────────────────
 // These are compiled alongside WAMR (see build.rs) and declared here so the
-// wamr-jni crate can call them directly.  Their signatures use the WAMR types
-// defined in the bindings above.
+// wamr-jni crate can call them directly.
+
+/// Opaque runtime handle — the C shim defines `nsc_wamr_runtime_t` internally.
+pub type nsc_wamr_runtime_t = std::os::raw::c_void;
 
 extern "C" {
     pub fn nsc_wamr_to_simple_type(wamr_type_byte: i32) -> i32;
@@ -25,22 +27,22 @@ extern "C" {
     pub fn nsc_wamr_create_runtime(
         stack_size_in_bytes: i32,
         error_buf: *mut std::os::raw::c_char,
-    ) -> wasm_runtime_t;
-    pub fn nsc_wamr_destroy_runtime(runtime: wasm_runtime_t);
+    ) -> *mut nsc_wamr_runtime_t;
+    pub fn nsc_wamr_destroy_runtime(runtime: *mut nsc_wamr_runtime_t);
     pub fn nsc_wamr_load_module(
-        runtime: wasm_runtime_t,
+        runtime: *mut nsc_wamr_runtime_t,
         bytes: *const u8,
         size: i32,
         error_buf: *mut std::os::raw::c_char,
     ) -> wasm_module_t;
     pub fn nsc_wamr_instantiate(
         module: wasm_module_t,
-        runtime: wasm_runtime_t,
+        runtime: *mut nsc_wamr_runtime_t,
         error_buf: *mut std::os::raw::c_char,
     ) -> wasm_module_inst_t;
     pub fn nsc_wamr_module_name(module: wasm_module_t) -> *const std::os::raw::c_char;
     pub fn nsc_wamr_find_function(
-        runtime: wasm_runtime_t,
+        runtime: *mut nsc_wamr_runtime_t,
         name: *const std::os::raw::c_char,
         error_buf: *mut std::os::raw::c_char,
     ) -> wasm_function_inst_t;
@@ -61,8 +63,8 @@ extern "C" {
         n_rets: i32,
         ret_ptrs: *mut *mut u64,
     ) -> *const std::os::raw::c_char;
-    pub fn nsc_wamr_memory_size(runtime: wasm_runtime_t) -> i32;
-    pub fn nsc_wamr_get_memory(runtime: wasm_runtime_t) -> *mut u8;
+    pub fn nsc_wamr_memory_size(runtime: *mut nsc_wamr_runtime_t) -> i32;
+    pub fn nsc_wamr_get_memory(runtime: *mut nsc_wamr_runtime_t) -> *mut u8;
     pub fn nsc_wamr_link_host_function(
         inst: wasm_module_inst_t,
         module_name: *const std::os::raw::c_char,
