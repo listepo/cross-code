@@ -11,4 +11,4 @@
 #   cd packages/nativescript-wasm3/platforms/android/wasm3-android && ./gradlew :hosttest:test
 #
 # To run everything in act switch to the full image (~17 GB):
-    -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:full-22.04
+-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:full-22.04
