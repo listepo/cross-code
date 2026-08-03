@@ -19,19 +19,6 @@ fn main() {
         .unwrap()
         .join("wasm3");
 
-    let shim_dir = manifest_dir
-        .parent()  // wasm3-rust
-        .unwrap()
-        .parent()  // vendors
-        .unwrap()
-        .parent()  // src
-        .unwrap()
-        .parent()  // plugin root
-        .unwrap()
-        .join("src")
-        .join("native")
-        .join("shim");
-
     // ── Step 1: Generate Rust bindings via bindgen ────────────────────────
     let header = "wrapper.h";
 
@@ -41,12 +28,10 @@ fn main() {
     let bindings = bindgen::Builder::default()
         .header(header)
         .clang_arg(format!("-I{}", vendor_dir.display()))
-        .clang_arg(format!("-I{}", shim_dir.display()))
         .allowlist_type("M3.*")
         .allowlist_type("IM3.*")
         .allowlist_type("m3_.*")
         .allowlist_function("m3_.*")
-        .allowlist_function("nsc_global_.*")
         .allowlist_var("M3_VERSION")
         .allowlist_var("c_m3Type_.*")
         .allowlist_var("d_m3MaxNumFunctionArgs")
@@ -85,7 +70,6 @@ fn main() {
     }
 
     build.flag(&format!("-I{}", vendor_dir.display()));
-    build.flag(&format!("-I{}", shim_dir.display()));
 
     // Define d_m3VerboseErrorMessages=1 for useful error strings
     build.define("d_m3VerboseErrorMessages", "1");
@@ -115,8 +99,9 @@ fn main() {
         build.file(source);
     }
 
-    // Compile the C shim
-    build.file(shim_dir.join("nsc_wasm3_shim.c"));
+    // Note: nsc_wasm3_shim.h is no longer compiled as C — its
+    // functionality (nsc_global_get, nsc_global_set) is now pure Rust
+    // in wasm3-sys/src/lib.rs.
 
     build.compile("m3");
 

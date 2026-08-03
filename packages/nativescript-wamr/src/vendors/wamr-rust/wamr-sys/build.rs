@@ -220,26 +220,8 @@ fn main() {
     // Use the portable C version to avoid platform-specific assembly issues.
     build.file(common_dir.join("arch").join("invokeNative_general.c"));
 
-    // ── NSC WAMR shim (src/native/shim/nsc_wamr_shim.c) ──────────────────
-    // Flat helpers that wrap awkward WAMR APIs for JNI binding.
-    // Path relative to wamr-sys: ../../../../native/shim/
-    let shim_dir = manifest_dir
-        .parent()  // wamr-rust
-        .unwrap()
-        .parent()  // vendors
-        .unwrap()
-        .parent()  // src
-        .unwrap()
-        .parent()  // plugin root
-        .unwrap()
-        .join("src")
-        .join("native")
-        .join("shim");
-
-    build.file(shim_dir.join("nsc_wamr_shim.c"));
-    // The shim needs bh_platform.h — add the platform include dirs
-    // (already in include_dirs).  The shim also includes "nsc_wamr_shim.h"
-    // which includes "wasm_export.h" — all covered.
+    // Note: nsc_wamr_shim.c is no longer compiled as C — its
+    // functionality is now pure Rust in wamr-sys/src/shim.rs.
 
     build.compile("wamr");
 

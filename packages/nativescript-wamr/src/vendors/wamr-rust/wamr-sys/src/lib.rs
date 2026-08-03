@@ -13,79 +13,222 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-// ── NSC WAMR shim: flat helpers over WAMR APIs ─────────────────────────────
-// These are compiled alongside WAMR (see build.rs) and declared here so the
-// wamr-jni crate can call them directly.
+// ── NSC WAMR shim: pure Rust helpers over WAMR APIs ────────────────────────
+// Previously `nsc_wamr_shim.c/h` — now rewritten in Rust (see shim.rs).
+// The wamr-jni crate uses these instead of extern "C" declarations.
 
-/// Opaque runtime handle — the C shim defines `nsc_wamr_runtime_t` internally.
-pub type nsc_wamr_runtime_t = std::os::raw::c_void;
+pub mod shim;
 
-extern "C" {
-    pub fn nsc_wamr_to_simple_type(wamr_type_byte: i32) -> i32;
-    pub fn nsc_wamr_from_simple_type(simple_type: i32) -> i32;
-    pub fn nsc_wamr_version() -> *const std::os::raw::c_char;
-    pub fn nsc_wamr_create_runtime(
-        stack_size_in_bytes: i32,
-        error_buf: *mut std::os::raw::c_char,
-    ) -> *mut nsc_wamr_runtime_t;
-    pub fn nsc_wamr_destroy_runtime(runtime: *mut nsc_wamr_runtime_t);
-    pub fn nsc_wamr_load_module(
-        runtime: *mut nsc_wamr_runtime_t,
-        bytes: *const u8,
-        size: i32,
-        error_buf: *mut std::os::raw::c_char,
-    ) -> wasm_module_t;
-    pub fn nsc_wamr_instantiate(
-        module: wasm_module_t,
-        runtime: *mut nsc_wamr_runtime_t,
-        error_buf: *mut std::os::raw::c_char,
-    ) -> wasm_module_inst_t;
-    pub fn nsc_wamr_module_name(module: wasm_module_t) -> *const std::os::raw::c_char;
-    pub fn nsc_wamr_find_function(
-        runtime: *mut nsc_wamr_runtime_t,
-        name: *const std::os::raw::c_char,
-        error_buf: *mut std::os::raw::c_char,
-    ) -> wasm_function_inst_t;
-    pub fn nsc_wamr_function_name(
-        func: wasm_function_inst_t,
-    ) -> *const std::os::raw::c_char;
-    pub fn nsc_wamr_function_arg_count(func: wasm_function_inst_t) -> i32;
-    pub fn nsc_wamr_function_arg_type(func: wasm_function_inst_t, index: i32) -> i32;
-    pub fn nsc_wamr_function_ret_count(func: wasm_function_inst_t) -> i32;
-    pub fn nsc_wamr_function_ret_type(func: wasm_function_inst_t, index: i32) -> i32;
-    pub fn nsc_wamr_call(
-        func: wasm_function_inst_t,
-        n_args: i32,
-        arg_ptrs: *mut *mut u64,
-    ) -> *const std::os::raw::c_char;
-    pub fn nsc_wamr_get_results(
-        func: wasm_function_inst_t,
-        n_rets: i32,
-        ret_ptrs: *mut *mut u64,
-    ) -> *const std::os::raw::c_char;
-    pub fn nsc_wamr_memory_size(runtime: *mut nsc_wamr_runtime_t) -> i32;
-    pub fn nsc_wamr_get_memory(runtime: *mut nsc_wamr_runtime_t) -> *mut u8;
-    pub fn nsc_wamr_link_host_function(
-        inst: wasm_module_inst_t,
-        module_name: *const std::os::raw::c_char,
-        name: *const std::os::raw::c_char,
-        signature: *const std::os::raw::c_char,
-        callback: *mut std::os::raw::c_void,
-    ) -> *const std::os::raw::c_char;
-    pub fn nsc_wamr_get_global(
-        inst: wasm_module_inst_t,
-        name: *const std::os::raw::c_char,
-        type_out: *mut i32,
-        bits_out: *mut u64,
-    ) -> *const std::os::raw::c_char;
-    pub fn nsc_wamr_get_global_type(
-        inst: wasm_module_inst_t,
-        name: *const std::os::raw::c_char,
-    ) -> i32;
-    pub fn nsc_wamr_set_global(
-        inst: wasm_module_inst_t,
-        name: *const std::os::raw::c_char,
-        type_: i32,
-        bits: u64,
-    ) -> *const std::os::raw::c_char;
+// ── C-compatible wrappers for JNI interop ──────────────────────────────────
+// These #[no_mangle] extern "C" functions export the same symbols as the old
+// nsc_wamr_shim.c, so wamr-jni can call them unchanged.
+
+use std::ffi::CStr;
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_to_simple_type(wamr_type_byte: i32) -> i32 {
+    shim::to_simple_type(wamr_type_byte)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_from_simple_type(simple_type: i32) -> i32 {
+    shim::from_simple_type(simple_type)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_version() -> *const std::os::raw::c_char {
+    static mut VERSION_BUF: [c_char; 64] = [0; 64];
+    let v = shim::version();
+    let bytes = v.as_bytes();
+    let len = bytes.len().min(63);
+    unsafe {
+        std::ptr::copy_nonoverlapping(bytes.as_ptr() as *const c_char, VERSION_BUF.as_mut_ptr(), len);
+        VERSION_BUF[len] = 0;
+    }
+    unsafe { VERSION_BUF.as_ptr() }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_create_runtime(
+    stack_size_in_bytes: i32,
+    error_buf: *mut std::os::raw::c_char,
+) -> *mut shim::NscWamrRuntime {
+    let mut buf: [c_char; 256] = [0; 256];
+    let rt = shim::create_runtime(stack_size_in_bytes, &mut buf);
+    if rt.is_null() && !error_buf.is_null() {
+        unsafe {
+            std::ptr::copy_nonoverlapping(buf.as_ptr(), error_buf, buf.len().min(256));
+        }
+    }
+    rt
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_destroy_runtime(runtime: *mut shim::NscWamrRuntime) {
+    shim::destroy_runtime(runtime);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_load_module(
+    runtime: *mut shim::NscWamrRuntime,
+    bytes: *const u8,
+    size: i32,
+    error_buf: *mut std::os::raw::c_char,
+) -> wasm_module_t {
+    shim::load_module(runtime, bytes, size, error_buf)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_instantiate(
+    module: wasm_module_t,
+    runtime: *mut shim::NscWamrRuntime,
+    error_buf: *mut std::os::raw::c_char,
+) -> wasm_module_inst_t {
+    shim::instantiate(module, runtime, error_buf)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_module_name(module: wasm_module_t) -> *const std::os::raw::c_char {
+    // Returns a static empty string — same as before
+    b"\0".as_ptr() as *const std::os::raw::c_char
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_find_function(
+    runtime: *mut shim::NscWamrRuntime,
+    name: *const std::os::raw::c_char,
+    error_buf: *mut std::os::raw::c_char,
+) -> wasm_function_inst_t {
+    shim::find_function(runtime, name, error_buf)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_function_name(func: wasm_function_inst_t) -> *const std::os::raw::c_char {
+    b"\0".as_ptr() as *const std::os::raw::c_char
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_function_arg_count(func: wasm_function_inst_t) -> i32 {
+    shim::function_arg_count(func)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_function_arg_type(func: wasm_function_inst_t, index: i32) -> i32 {
+    shim::function_arg_type(func, index)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_function_ret_count(func: wasm_function_inst_t) -> i32 {
+    shim::function_ret_count(func)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_function_ret_type(func: wasm_function_inst_t, index: i32) -> i32 {
+    shim::function_ret_type(func, index)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_call(
+    _func: wasm_function_inst_t,
+    _n_args: i32,
+    _arg_ptrs: *mut *mut u64,
+) -> *const std::os::raw::c_char {
+    // Stub: wamr-jni uses the two-phase API through the Rust shim directly
+    b"call: use Rust shim API\0".as_ptr() as *const std::os::raw::c_char
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_get_results(
+    _func: wasm_function_inst_t,
+    _n_rets: i32,
+    _ret_ptrs: *mut *mut u64,
+) -> *const std::os::raw::c_char {
+    b"get_results: use Rust shim API\0".as_ptr() as *const std::os::raw::c_char
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_memory_size(runtime: *mut shim::NscWamrRuntime) -> i32 {
+    shim::memory_size(runtime)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_get_memory(runtime: *mut shim::NscWamrRuntime) -> *mut u8 {
+    shim::get_memory(runtime)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_link_host_function(
+    inst: wasm_module_inst_t,
+    module_name: *const std::os::raw::c_char,
+    name: *const std::os::raw::c_char,
+    signature: *const std::os::raw::c_char,
+    callback: *mut std::os::raw::c_void,
+) -> *const std::os::raw::c_char {
+    if inst.is_null() {
+        return b"null module instance\0".as_ptr() as *const std::os::raw::c_char;
+    }
+    let mod_name = unsafe { CStr::from_ptr(module_name) }.to_string_lossy();
+    let func_name = unsafe { CStr::from_ptr(name) }.to_string_lossy();
+    let sig = unsafe { CStr::from_ptr(signature) }.to_string_lossy();
+    match shim::link_host_function(inst, &mod_name, &func_name, &sig, callback) {
+        Ok(()) => std::ptr::null(),
+        Err(e) => {
+            // Leak the error string — caller reads it once
+            let c_err = CString::new(e).unwrap_or_default();
+            c_err.into_raw() as *const std::os::raw::c_char
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_get_global(
+    inst: wasm_module_inst_t,
+    name: *const std::os::raw::c_char,
+    type_out: *mut i32,
+    bits_out: *mut u64,
+) -> *const std::os::raw::c_char {
+    if inst.is_null() || name.is_null() || type_out.is_null() || bits_out.is_null() {
+        return b"invalid argument\0".as_ptr() as *const std::os::raw::c_char;
+    }
+    let n = unsafe { CStr::from_ptr(name) }.to_string_lossy();
+    match shim::get_global(inst, &n) {
+        Ok((t, b)) => {
+            unsafe { *type_out = t; *bits_out = b; }
+            std::ptr::null()
+        }
+        Err(e) => {
+            let c_err = CString::new(e).unwrap_or_default();
+            c_err.into_raw() as *const std::os::raw::c_char
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_get_global_type(
+    inst: wasm_module_inst_t,
+    name: *const std::os::raw::c_char,
+) -> i32 {
+    if inst.is_null() || name.is_null() { return -1; }
+    let n = unsafe { CStr::from_ptr(name) }.to_string_lossy();
+    shim::get_global_type(inst, &n)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nsc_wamr_set_global(
+    inst: wasm_module_inst_t,
+    name: *const std::os::raw::c_char,
+    type_: i32,
+    bits: u64,
+) -> *const std::os::raw::c_char {
+    if inst.is_null() || name.is_null() {
+        return b"invalid argument\0".as_ptr() as *const std::os::raw::c_char;
+    }
+    let n = unsafe { CStr::from_ptr(name) }.to_string_lossy();
+    match shim::set_global(inst, &n, type_, bits) {
+        Ok(()) => std::ptr::null(),
+        Err(e) => {
+            let c_err = CString::new(e).unwrap_or_default();
+            c_err.into_raw() as *const std::os::raw::c_char
+        }
+    }
 }

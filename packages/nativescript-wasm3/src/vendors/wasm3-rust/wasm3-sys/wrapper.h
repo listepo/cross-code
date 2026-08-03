@@ -1,3 +1,3 @@
-// Bindgen wrapper: includes the main wasm3 public header and the C shim.
+// Bindgen wrapper: includes the main wasm3 public header.
+// nsc_global_get / nsc_global_set are now pure Rust (see lib.rs).
 #include "wasm3.h"
-#include "nsc_wasm3_shim.h"
