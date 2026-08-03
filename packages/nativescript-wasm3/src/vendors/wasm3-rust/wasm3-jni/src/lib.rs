@@ -561,10 +561,16 @@ unsafe extern "C" fn wasm3_host_trampoline(
         }
     };
 
-    let arg_data: Vec<i64> = std::slice::from_raw_parts(sp.add(n_rets), n_args)
-        .iter()
-        .map(|&v| v as i64)
-        .collect();
+    let n_args_u = n_args as usize;
+    let n_rets_u = n_rets as usize;
+    let arg_data: Vec<i64> = if n_args_u == 0 {
+        vec![]
+    } else {
+        std::slice::from_raw_parts(sp.add(n_rets_u), n_args_u)
+            .iter()
+            .map(|&v| v as i64)
+            .collect()
+    };
     if env.set_long_array_region(&arg_array, 0, &arg_data).is_err() {
         return b"host trampoline: failed to set arg array\0".as_ptr()
             as *mut ::std::os::raw::c_void;

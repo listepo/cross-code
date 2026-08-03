@@ -544,25 +544,28 @@ unsafe extern "C" fn wamr_host_trampoline(
 
     // Build arguments as Java LongArray
     let n_args_u = n_args as usize;
-    let arg_slice = std::slice::from_raw_parts(_args, n_args_u.max(1));
-    let arg_array = match env.new_long_array(n_args.max(1) as i32) {
+    let arg_data: Vec<i64> = if n_args_u == 0 {
+        // No arguments — don't touch _args (may be null)
+        vec![]
+    } else {
+        let arg_slice = std::slice::from_raw_parts(_args, n_args_u);
+        arg_slice.iter().map(|&v| v as i64).collect()
+    };
+    let arg_array = match env.new_long_array(n_args_u as i32) {
         Ok(arr) => arr,
         Err(_) => {
             return b"host trampoline: failed to allocate arg array\0".as_ptr()
                 as *mut std::os::raw::c_void;
         }
     };
-    let arg_data: Vec<i64> = arg_slice
-        .iter()
-        .take(n_args_u)
-        .map(|&v| v as i64)
-        .collect();
-    if env
-        .set_long_array_region(&arg_array, 0, &arg_data)
-        .is_err()
-    {
-        return b"host trampoline: failed to set arg array\0".as_ptr()
-            as *mut std::os::raw::c_void;
+    if !arg_data.is_empty() {
+        if env
+            .set_long_array_region(&arg_array, 0, &arg_data)
+            .is_err()
+        {
+            return b"host trampoline: failed to set arg array\0".as_ptr()
+                as *mut std::os::raw::c_void;
+        }
     }
 
     // Call HostTrampoline.invoke([J) → [J
