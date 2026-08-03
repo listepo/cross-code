@@ -30,6 +30,7 @@ const excludedDirs = new Set([
   '.git',
   '.DS_Store',
   'build-scripts',
+  'compilation',
   'doc',
   'language-bindings',
   'samples',

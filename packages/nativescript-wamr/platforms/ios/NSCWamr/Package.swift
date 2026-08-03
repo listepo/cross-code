@@ -25,6 +25,7 @@ let package = Package(
                 .headerSearchPath("."),
                 .headerSearchPath("core/iwasm/include"),
                 .headerSearchPath("core/shared/platform/include"),
+                .headerSearchPath("core/shared/platform/darwin"),
             ]
         ),
         // Swift wrapper using native Swift/C interoperability, exposed to the
