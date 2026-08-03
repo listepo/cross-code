@@ -37,7 +37,7 @@ pub unsafe extern "C" fn nsc_wamr_from_simple_type(simple_type: i32) -> i32 {
 
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_version() -> *const std::os::raw::c_char {
-    static mut VERSION_BUF: [c_char; 64] = [0; 64];
+    static mut VERSION_BUF: [std::os::raw::c_char; 64] = [0; 64];
     let v = shim::version();
     let bytes = v.as_bytes();
     let len = bytes.len().min(63);
@@ -129,21 +129,55 @@ pub unsafe extern "C" fn nsc_wamr_function_ret_type(func: wasm_function_inst_t, 
 
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_call(
-    _func: wasm_function_inst_t,
-    _n_args: i32,
-    _arg_ptrs: *mut *mut u64,
+    func: wasm_function_inst_t,
+    n_args: i32,
+    arg_ptrs: *mut *mut u64,
 ) -> *const std::os::raw::c_char {
-    // Stub: wamr-jni uses the two-phase API through the Rust shim directly
-    b"call: use Rust shim API\0".as_ptr() as *const std::os::raw::c_char
+    if func.is_null() {
+        return b"null function\0".as_ptr() as *const std::os::raw::c_char;
+    }
+    // Convert arg_ptrs to Rust &[u64]
+    let n = n_args as usize;
+    let mut args = Vec::with_capacity(n.max(1));
+    for i in 0..n {
+        let ptr = unsafe { *arg_ptrs.add(i) };
+        args.push(if ptr.is_null() { 0 } else { unsafe { *ptr } });
+    }
+    match shim::call(func, &args) {
+        Ok(()) => std::ptr::null(),
+        Err(e) => {
+            let c_err = CString::new(e).unwrap_or_default();
+            c_err.into_raw() as *const std::os::raw::c_char
+        }
+    }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_get_results(
-    _func: wasm_function_inst_t,
-    _n_rets: i32,
-    _ret_ptrs: *mut *mut u64,
+    func: wasm_function_inst_t,
+    n_rets: i32,
+    ret_ptrs: *mut *mut u64,
 ) -> *const std::os::raw::c_char {
-    b"get_results: use Rust shim API\0".as_ptr() as *const std::os::raw::c_char
+    if func.is_null() {
+        return b"null function\0".as_ptr() as *const std::os::raw::c_char;
+    }
+    let n = n_rets as usize;
+    let mut buf = vec![0u64; n.max(1)];
+    match shim::get_results(func, &mut buf) {
+        Ok(()) => {
+            for i in 0..n {
+                let ptr = unsafe { *ret_ptrs.add(i) };
+                if !ptr.is_null() {
+                    unsafe { *ptr = buf[i] };
+                }
+            }
+            std::ptr::null()
+        }
+        Err(e) => {
+            let c_err = CString::new(e).unwrap_or_default();
+            c_err.into_raw() as *const std::os::raw::c_char
+        }
+    }
 }
 
 #[no_mangle]

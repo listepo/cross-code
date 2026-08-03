@@ -1,15 +1,19 @@
 //! NSC WAMR shim — pure Rust replacement for `nsc_wamr_shim.c/h`.
 //!
-//! Provides flat helpers over WAMR's public C API that are awkward for
-//! automatic binding generators.  The shim defines its own runtime
-//! abstraction (`NscWamrRuntime`) because the current WAMR API is
-//! module-centric (no `wasm_runtime_t`).
+//! Provides flat helpers over WAMR's public C API.  Uses a global
+//! function→instance mapping so that `nsc_wamr_call` and
+//! `nsc_wamr_get_results` can find the owning instance without
+//! receiving a runtime pointer (matching the original C shim API).
 
 use std::collections::HashMap;
 use std::ffi::{c_char, CStr, CString};
 use std::ptr;
 use std::sync::Mutex;
 use wamr_sys::*;
+
+// Global function → instance mapping (mimics the C shim's g_ctx_list)
+static GLOBAL_FUNC_MAP: Mutex<Option<HashMap<usize, (wasm_module_inst_t, wasm_exec_env_t)>>> = Mutex::new(None);
+static GLOBAL_LAST_RESULTS: Mutex<Option<(wasm_function_inst_t, Vec<u32>)>> = Mutex::new(None);
 
 // ---------------------------------------------------------------------------
 // Simplified type codes
@@ -60,11 +64,6 @@ struct InstanceEntry {
 pub struct NscWamrRuntime {
     instances: Vec<InstanceEntry>,
     default_stack_size: i32,
-    /// func → (inst_index, inst) mapping for call dispatch
-    func_map: HashMap<usize, (usize, wasm_module_inst_t)>,
-    /// last-call result buffer
-    last_func: Option<wasm_function_inst_t>,
-    last_results: Vec<u32>,
 }
 
 impl NscWamrRuntime {
@@ -77,9 +76,6 @@ impl NscWamrRuntime {
         Ok(Box::new(NscWamrRuntime {
             instances: Vec::new(),
             default_stack_size: stack_size,
-            func_map: HashMap::new(),
-            last_func: None,
-            last_results: Vec::new(),
         }))
     }
 
@@ -234,8 +230,9 @@ pub fn find_function(
     for (idx, entry) in rt.instances.iter().enumerate() {
         let f = unsafe { wasm_runtime_lookup_function(entry.inst, name) };
         if !f.is_null() {
-            // Store mapping for later call dispatch
-            rt.func_map.insert(f as usize, (idx, entry.inst));
+            // Store in global map for call dispatch (matching C shim's g_ctx_list)
+            let mut map = GLOBAL_FUNC_MAP.lock().unwrap();
+            map.get_or_insert_with(HashMap::new).insert(f as usize, (entry.inst, entry.exec_env));
             return f;
         }
     }
@@ -303,18 +300,20 @@ unsafe fn build_u32_args(
 
 pub fn call(
     func: wasm_function_inst_t,
-    runtime: *mut NscWamrRuntime,
     args: &[u64],
 ) -> Result<(), String> {
-    if func.is_null() || runtime.is_null() {
+    if func.is_null() {
         return Err("null argument".into());
     }
-    let rt = unsafe { &mut *runtime };
 
-    // Look up the owning instance
-    let &(inst_idx, inst) = rt.func_map.get(&(func as usize))
-        .ok_or("function not found in any module instance")?;
-    let env = rt.instances[inst_idx].exec_env;
+    // Look up the owning instance from global map
+    let (inst, env) = {
+        let map = GLOBAL_FUNC_MAP.lock().unwrap();
+        match map.as_ref().and_then(|m| m.get(&(func as usize))) {
+            Some(&(inst, env)) => (inst, env),
+            None => return Err("function not found in any module instance".into()),
+        }
+    };
     if env.is_null() {
         return Err("no execution environment".into());
     }
@@ -339,8 +338,11 @@ pub fn call(
     let mut arg_buf = vec![0u32; total_arg_slots.max(1)];
     unsafe { build_u32_args(func, inst, args, &mut arg_buf)? };
 
-    rt.last_func = Some(func);
-    rt.last_results.clear();
+    // Init result buffer in global state
+    {
+        let mut last = GLOBAL_LAST_RESULTS.lock().unwrap();
+        *last = Some((func, Vec::new()));
+    }
 
     let ok;
     if rcount > 0 {
@@ -375,14 +377,17 @@ pub fn call(
         };
 
         if ok {
-            for i in 0..rcount as usize {
-                let sw = slot_width(rtypes[i] as u8);
-                if sw == 1 {
-                    rt.last_results.push(result_vals[i].i32 as u32);
-                } else {
-                    let v = result_vals[i].i64 as u64;
-                    rt.last_results.push(v as u32);
-                    rt.last_results.push((v >> 32) as u32);
+            let mut last = GLOBAL_LAST_RESULTS.lock().unwrap();
+            if let Some((_, ref mut results)) = *last {
+                for i in 0..rcount as usize {
+                    let sw = slot_width(rtypes[i] as u8);
+                    if sw == 1 {
+                        results.push(result_vals[i].i32 as u32);
+                    } else {
+                        let v = result_vals[i].i64 as u64;
+                        results.push(v as u32);
+                        results.push((v >> 32) as u32);
+                    }
                 }
             }
         }
@@ -403,21 +408,32 @@ pub fn call(
 
 pub fn get_results(
     func: wasm_function_inst_t,
-    runtime: *mut NscWamrRuntime,
     ret_buf: &mut [u64],
 ) -> Result<(), String> {
-    if func.is_null() || runtime.is_null() {
+    if func.is_null() {
         return Err("null argument".into());
     }
-    let rt = unsafe { &mut *runtime };
 
-    if rt.last_func != Some(func) || rt.last_results.is_empty() {
+    let (last_func, results) = {
+        let last = GLOBAL_LAST_RESULTS.lock().unwrap();
+        match last.as_ref() {
+            Some((f, r)) => (*f, r.clone()),
+            None => return Err("no results available".into()),
+        }
+    };
+
+    if last_func != func || results.is_empty() {
         return Err("no results available".into());
     }
 
-    // Decode uint32 slots into i64
-    let &(_, inst) = rt.func_map.get(&(func as usize))
-        .ok_or("function not found")?;
+    // Look up inst for type info
+    let inst = {
+        let map = GLOBAL_FUNC_MAP.lock().unwrap();
+        match map.as_ref().and_then(|m| m.get(&(func as usize))) {
+            Some(&(inst, _)) => inst,
+            None => return Err("function not found".into()),
+        }
+    };
 
     let mut rtypes: [wasm_valkind_t; 32] = [0; 32];
     unsafe { wasm_func_get_result_types(func, inst, rtypes.as_mut_ptr()) };
@@ -428,12 +444,12 @@ pub fn get_results(
     for i in 0..rcount as usize {
         if i >= ret_buf.len() { break; }
         let sw = slot_width(rtypes[i] as u8);
-        if sw == 0 || slot_idx + sw > rt.last_results.len() { break; }
+        if sw == 0 || slot_idx + sw > results.len() { break; }
 
         ret_buf[i] = if sw == 1 {
-            rt.last_results[slot_idx] as u64
+            results[slot_idx] as u64
         } else {
-            (rt.last_results[slot_idx] as u64) | ((rt.last_results[slot_idx + 1] as u64) << 32)
+            (results[slot_idx] as u64) | ((results[slot_idx + 1] as u64) << 32)
         };
         slot_idx += sw;
     }
