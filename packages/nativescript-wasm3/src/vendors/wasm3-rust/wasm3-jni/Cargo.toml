@@ -1,0 +1,14 @@
+[package]
+name = "wasm3-jni"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "JNI bindings for wasm3 — replaces JavaCPP auto-generated JNI with hand-written Rust JNI calling the wasm3 C API + nsc_wasm3_shim"
+
+[lib]
+crate-type = ["cdylib"]
+name = "wasm3_jni"
+
+[dependencies]
+wasm3-sys = { path = "../wasm3-sys" }
+jni = { version = "0.21" }

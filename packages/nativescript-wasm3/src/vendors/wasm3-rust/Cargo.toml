@@ -1,5 +1,5 @@
 [workspace]
-members = ["wamr-sys", "wamr-ffi", "wamr-jni"]
+members = ["wasm3-sys", "wasm3-jni"]
 resolver = "2"
 
 [workspace.package]

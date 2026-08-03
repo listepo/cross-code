@@ -1,26 +1,16 @@
 package org.nativescript.wasm3
 
 import java.io.File
-import org.bytedeco.javacpp.BytePointer
-import org.bytedeco.javacpp.IntPointer
-import org.bytedeco.javacpp.LongPointer
-import org.bytedeco.javacpp.Pointer
-import org.bytedeco.javacpp.PointerPointer
-import org.wasm3.M3ErrorInfo
-import org.wasm3.M3Function
-import org.wasm3.M3ImportContext
-import org.wasm3.M3Module
-import org.wasm3.M3RawCall
-import org.wasm3.M3Runtime
-import org.wasm3.global.wasm3 as m3
 
-// NSCWasm3 — Kotlin wrapper around the JavaCPP-generated wasm3 bindings,
+// NSCWasm3 — Kotlin wrapper around the wasm3 native library (libwasm3_jni.so),
 // consumed by the NativeScript Android runtime.
 //
-// Wire protocol shared with the iOS implementation (see the plugin's
-// TypeScript layer):
+// Opaque wasm3 handles (IM3Runtime, IM3Module, IM3Function, IM3Global) are
+// stored as `Long` and passed through to the JNI layer unchanged.
+//
+// Wire protocol (shared with iOS / TypeScript):
 //   i32        -> Int
-//   i64        -> String (decimal, signed) on output; Number or String in
+//   i64        -> String (decimal, signed)
 //   f32 / f64  -> Double
 
 class NSCWasm3Exception(message: String) : RuntimeException(message)
@@ -32,28 +22,28 @@ fun interface NSCWasm3HostFunction {
 
 private object Wire {
     fun typeName(type: Int): String = when (type) {
-        m3.c_m3Type_i32 -> "i32"
-        m3.c_m3Type_i64 -> "i64"
-        m3.c_m3Type_f32 -> "f32"
-        m3.c_m3Type_f64 -> "f64"
+        NativeWasm3.cM3TypeI32() -> "i32"
+        NativeWasm3.cM3TypeI64() -> "i64"
+        NativeWasm3.cM3TypeF32() -> "f32"
+        NativeWasm3.cM3TypeF64() -> "f64"
         else -> "unknown"
     }
 
     /** Decodes a raw 64-bit wasm3 slot into the wire value for `type`. */
     fun decode(type: Int, bits: Long): Any = when (type) {
-        m3.c_m3Type_i32 -> bits.toInt()
-        m3.c_m3Type_i64 -> bits.toString()
-        m3.c_m3Type_f32 -> Float.fromBits(bits.toInt()).toDouble()
-        m3.c_m3Type_f64 -> Double.fromBits(bits)
+        NativeWasm3.cM3TypeI32() -> bits.toInt()
+        NativeWasm3.cM3TypeI64() -> bits.toString()
+        NativeWasm3.cM3TypeF32() -> Float.fromBits(bits.toInt()).toDouble()
+        NativeWasm3.cM3TypeF64() -> Double.fromBits(bits)
         else -> throw NSCWasm3Exception("unsupported wasm value type: $type")
     }
 
     /** Encodes a JS-provided value into a raw 64-bit slot, or null if not coercible. */
     fun encode(type: Int, value: Any?): Long? = when (type) {
-        m3.c_m3Type_i32 -> asLong(value)?.let { it.toInt().toLong() and 0xFFFF_FFFFL }
-        m3.c_m3Type_i64 -> asLong(value)
-        m3.c_m3Type_f32 -> asDouble(value)?.let { it.toFloat().toRawBits().toLong() and 0xFFFF_FFFFL }
-        m3.c_m3Type_f64 -> asDouble(value)?.toRawBits()
+        NativeWasm3.cM3TypeI32() -> asLong(value)?.let { it.toInt().toLong() and 0xFFFF_FFFFL }
+        NativeWasm3.cM3TypeI64() -> asLong(value)
+        NativeWasm3.cM3TypeF32() -> asDouble(value)?.let { it.toFloat().toRawBits().toLong() and 0xFFFF_FFFFL }
+        NativeWasm3.cM3TypeF64() -> asDouble(value)?.toRawBits()
         else -> null
     }
 
@@ -70,50 +60,26 @@ private object Wire {
     }
 }
 
-private fun checkResult(result: BytePointer?, runtime: NSCWasm3Runtime?) {
-    if (result == null || result.isNull) return
-    var message = result.string
-    if (runtime != null) {
-        val info = M3ErrorInfo()
-        try {
-            m3.m3_GetErrorInfo(runtime.runtime, info)
-            val detailPtr = info.message()
-            val detail = if (detailPtr != null && !detailPtr.isNull) detailPtr.string else null
-            if (!detail.isNullOrEmpty() && detail != message) message += ": $detail"
-            m3.m3_ResetErrorInfo(runtime.runtime)
-        } finally {
-            info.deallocate()
-        }
-    }
-    throw NSCWasm3Exception(message)
+private fun checkJniError(err: String?) {
+    if (err != null) throw NSCWasm3Exception(err)
 }
 
-/** One trampoline instance per linked import; wasm3 dispatches back here. */
-private class HostTrampoline(private val callback: NSCWasm3HostFunction) : M3RawCall() {
-    companion object {
-        // Trap messages must outlive the call — allocated once, never freed.
-        private val TRAP_BAD_RETURN = BytePointer("NSCWasm3: host function returned invalid values")
-        private val TRAP_THREW = BytePointer("NSCWasm3: host function threw an exception")
-    }
-
-    override fun call(
-        runtime: M3Runtime?,
-        ctx: M3ImportContext?,
-        sp: LongPointer?,
-        mem: Pointer?,
-    ): Pointer? {
-        val function = ctx?.function() ?: return TRAP_BAD_RETURN
-        val nArgs = m3.m3_GetArgCount(function)
-        val nRets = m3.m3_GetRetCount(function)
-
-        val args = Array<Any>(nArgs) { i ->
-            Wire.decode(m3.m3_GetArgType(function, i), sp!!.get((nRets + i).toLong()))
+/** One trampoline instance per linked import; wasm3 dispatches back here via JNI. */
+class HostTrampoline(
+    private val callback: NSCWasm3HostFunction,
+    private val paramTypes: IntArray,
+    private val returnTypes: IntArray,
+) {
+    @Suppress("unused") // called from JNI
+    fun invoke(argsRaw: LongArray): LongArray? {
+        val args = Array(paramTypes.size) { i ->
+            Wire.decode(paramTypes[i], argsRaw[i])
         }
 
-        val result = try {
+        val result: Any? = try {
             callback.invoke(args)
-        } catch (t: Throwable) {
-            return TRAP_THREW
+        } catch (_: Throwable) {
+            return null
         }
 
         val returned: List<Any?> = when (result) {
@@ -122,220 +88,233 @@ private class HostTrampoline(private val callback: NSCWasm3HostFunction) : M3Raw
             is List<*> -> result
             else -> listOf(result)
         }
-        if (returned.size != nRets) return TRAP_BAD_RETURN
-        for (i in 0 until nRets) {
-            val slot = Wire.encode(m3.m3_GetRetType(function, i), returned[i])
-                ?: return TRAP_BAD_RETURN
-            sp!!.put(i.toLong(), slot)
+        if (returned.size != returnTypes.size) return null
+        val out = LongArray(returned.size)
+        for (i in returned.indices) {
+            val slot = Wire.encode(returnTypes[i], returned[i]) ?: return null
+            out[i] = slot
         }
-        return null
+        return out
     }
 }
 
-class NSCWasm3Runtime @JvmOverloads constructor(stackSizeInBytes: Int = 64 * 1024) : AutoCloseable {
-    internal val environment: org.wasm3.M3Environment =
-        m3.m3_NewEnvironment() ?: throw NSCWasm3Exception("failed to create wasm3 environment")
-    internal val runtime: M3Runtime =
-        m3.m3_NewRuntime(environment, stackSizeInBytes, null)
-            ?: throw NSCWasm3Exception("failed to create wasm3 runtime")
+// ---------------------------------------------------------------------------
+// Runtime
+// ---------------------------------------------------------------------------
 
-    // wasm3 references module bytes for the lifetime of the module, and the
-    // callback thunks for the lifetime of the runtime — both are owned here.
-    private val moduleBytes = mutableListOf<BytePointer>()
-    internal val hostFunctions = mutableListOf<M3RawCall>()
+class NSCWasm3Runtime @JvmOverloads constructor(stackSizeInBytes: Int = 64 * 1024) : AutoCloseable {
+    internal var envHandle: Long = 0
+        private set
+    internal var runtimeHandle: Long = 0
+        private set
+
+    // wasm3 references module bytes for the lifetime of the module.
+    private val moduleBytes = mutableListOf<ByteArray>()
+    internal val hostTrampolines = mutableListOf<HostTrampoline>()
     private var closed = false
 
     companion object {
         @JvmStatic
-        fun wasm3Version(): String = m3.M3_VERSION
+        fun wasm3Version(): String = NativeWasm3.version()
+    }
+
+    init {
+        envHandle = NativeWasm3.newEnvironment()
+        if (envHandle == 0L) throw NSCWasm3Exception("failed to create wasm3 environment")
+        runtimeHandle = NativeWasm3.newRuntime(envHandle, stackSizeInBytes)
+        if (runtimeHandle == 0L) throw NSCWasm3Exception("failed to create wasm3 runtime")
     }
 
     /** Parses, loads and compiles-on-demand a WebAssembly binary. */
     fun loadModule(bytes: ByteArray): NSCWasm3Module {
-        // Copy into native memory that outlives the call — wasm3 references
-        // the binary for the module's lifetime.
-        val buffer = BytePointer(*bytes)
-        val out = PointerPointer<M3Module>(1)
-        try {
-            val parseResult = m3.m3_ParseModule(environment, out, buffer, bytes.size)
-            if (parseResult != null && !parseResult.isNull) {
-                buffer.deallocate()
-                checkResult(parseResult, null)
-            }
-            val module = M3Module(out.get(0))
-            val loadResult = m3.m3_LoadModule(runtime, module)
-            if (loadResult != null && !loadResult.isNull) {
-                m3.m3_FreeModule(module)
-                buffer.deallocate()
-                checkResult(loadResult, this)
-            }
-            moduleBytes.add(buffer)
-            return NSCWasm3Module(module, this)
-        } finally {
-            out.deallocate()
+        val copy = bytes.copyOf()
+        val moduleHandle = NativeWasm3.parseModule(envHandle, copy)
+        if (moduleHandle == 0L) {
+            throw NSCWasm3Exception("failed to parse module")
         }
+        if (!NativeWasm3.loadModule(runtimeHandle, moduleHandle)) {
+            NativeWasm3.freeModule(moduleHandle)
+            throw NSCWasm3Exception("failed to load module")
+        }
+        moduleBytes.add(copy)
+        return NSCWasm3Module(moduleHandle, this)
     }
 
     fun loadModuleFromFile(path: String): NSCWasm3Module = loadModule(File(path).readBytes())
 
     /** Finds an exported function anywhere in the runtime. */
     fun findFunction(name: String): NSCWasm3Function {
-        val out = PointerPointer<M3Function>(1)
-        try {
-            checkResult(m3.m3_FindFunction(out, runtime, name), this)
-            return NSCWasm3Function(M3Function(out.get(0)), this)
-        } finally {
-            out.deallocate()
+        val funcHandle = NativeWasm3.findFunction(runtimeHandle, name)
+        if (funcHandle == 0L) {
+            throw NSCWasm3Exception("function not found: $name")
         }
+        return NSCWasm3Function(funcHandle, this)
     }
 
     // ------------------------------------------------------------------ memory
 
-    fun memorySize(): Int = m3.m3_GetMemorySize(runtime)
+    fun memorySize(): Int = NativeWasm3.memorySize(runtimeHandle)
 
     fun readMemory(offset: Int, length: Int): ByteArray {
-        val memory = memoryPointer()
-        val size = memorySize().toLong()
+        val memory = NativeWasm3.getMemory(runtimeHandle)
+            ?: throw NSCWasm3Exception("module has no linear memory")
+        val size = NativeWasm3.memorySize(runtimeHandle).toLong()
         if (offset < 0 || length < 0 || offset + length.toLong() > size) {
             throw NSCWasm3Exception("memory read out of bounds (offset $offset, length $length, size $size)")
         }
         val data = ByteArray(length)
-        memory.position(offset.toLong()).get(data, 0, length)
+        memory.position(offset).get(data)
         return data
     }
 
     fun writeMemory(offset: Int, data: ByteArray) {
-        val memory = memoryPointer()
-        val size = memorySize().toLong()
+        val memory = NativeWasm3.getMemory(runtimeHandle)
+            ?: throw NSCWasm3Exception("module has no linear memory")
+        val size = NativeWasm3.memorySize(runtimeHandle).toLong()
         if (offset < 0 || offset + data.size.toLong() > size) {
             throw NSCWasm3Exception("memory write out of bounds (offset $offset, length ${data.size}, size $size)")
         }
-        memory.position(offset.toLong()).put(data, 0, data.size)
-    }
-
-    private fun memoryPointer(): BytePointer {
-        val sizeOut = IntPointer(1)
-        try {
-            return m3.m3_GetMemory(runtime, sizeOut, 0)
-                ?: throw NSCWasm3Exception("module has no linear memory")
-        } finally {
-            sizeOut.deallocate()
-        }
+        memory.position(offset).put(data)
     }
 
     override fun close() {
         if (closed) return
         closed = true
-        m3.m3_FreeRuntime(runtime)
-        m3.m3_FreeEnvironment(environment)
-        moduleBytes.forEach { it.deallocate() }
+        if (runtimeHandle != 0L) {
+            NativeWasm3.freeRuntime(runtimeHandle)
+            runtimeHandle = 0
+        }
+        if (envHandle != 0L) {
+            NativeWasm3.freeEnvironment(envHandle)
+            envHandle = 0
+        }
         moduleBytes.clear()
-        hostFunctions.forEach { it.deallocate() }
-        hostFunctions.clear()
+        hostTrampolines.clear()
     }
 }
 
+// ---------------------------------------------------------------------------
+// Module
+// ---------------------------------------------------------------------------
+
 class NSCWasm3Module internal constructor(
-    private val module: M3Module,
+    private val moduleHandle: Long,
     val runtime: NSCWasm3Runtime,
 ) {
     val name: String
-        get() = m3.m3_GetModuleName(module)?.string ?: ""
+        get() = NativeWasm3.moduleName(moduleHandle)
 
     fun findFunction(name: String): NSCWasm3Function = runtime.findFunction(name)
 
-    /**
-     * Links a callback as a WebAssembly import. `signature` uses wasm3
-     * notation, e.g. "i(ii)", "F(FF)", "v(I)" — i:i32 I:i64 f:f32 F:f64 v:void.
-     */
     fun linkHostFunction(
         moduleName: String,
         name: String,
         signature: String,
         callback: NSCWasm3HostFunction,
     ) {
-        val trampoline = HostTrampoline(callback)
-        checkResult(
-            m3.m3_LinkRawFunctionEx(module, moduleName, name, signature, trampoline, null),
-            runtime,
+        val (paramTypes, returnTypes) = parseSignature(signature)
+        val trampoline = HostTrampoline(callback, paramTypes, returnTypes)
+        val ok = NativeWasm3.linkRawFunctionEx(
+            moduleHandle, moduleName, name, signature, trampoline
         )
-        runtime.hostFunctions.add(trampoline)
+        if (!ok) {
+            throw NSCWasm3Exception("failed to link host function: $moduleName.$name")
+        }
+        runtime.hostTrampolines.add(trampoline)
     }
 
     // ------------------------------------------------------------------ globals
 
     fun getGlobal(name: String): Any {
-        val global = m3.m3_FindGlobal(module, name)
-        if (global == null || global.isNull) throw NSCWasm3Exception("global not found: $name")
-        val typeOut = IntPointer(1)
-        val bitsOut = LongPointer(1)
-        try {
-            checkResult(m3.nsc_global_get(global, typeOut, bitsOut), runtime)
-            return Wire.decode(typeOut.get(), bitsOut.get())
-        } finally {
-            typeOut.deallocate()
-            bitsOut.deallocate()
-        }
+        val globalHandle = NativeWasm3.findGlobal(moduleHandle, name)
+        if (globalHandle == 0L) throw NSCWasm3Exception("global not found: $name")
+        val result = NativeWasm3.globalGet(globalHandle)
+            ?: throw NSCWasm3Exception("failed to read global: $name")
+        val type = result[0].toInt()
+        val bits = result[1]
+        return Wire.decode(type, bits)
     }
 
     fun setGlobal(name: String, value: Any?) {
-        val global = m3.m3_FindGlobal(module, name)
-        if (global == null || global.isNull) throw NSCWasm3Exception("global not found: $name")
-        val type = m3.m3_GetGlobalType(global)
+        val globalHandle = NativeWasm3.findGlobal(moduleHandle, name)
+        if (globalHandle == 0L) throw NSCWasm3Exception("global not found: $name")
+        val type = NativeWasm3.globalType(globalHandle)
         val bits = Wire.encode(type, value)
             ?: throw NSCWasm3Exception("cannot convert value to ${Wire.typeName(type)} for global: $name")
-        checkResult(m3.nsc_global_set(global, type, bits), runtime)
+        if (!NativeWasm3.globalSet(globalHandle, type, bits)) {
+            throw NSCWasm3Exception("failed to set global: $name")
+        }
+    }
+
+    private companion object {
+        /** Parses a wasm3-style signature into type-kind arrays. */
+        fun parseSignature(signature: String): Pair<IntArray, IntArray> {
+            val compact = signature.replace("\\s+".toRegex(), "")
+            val match = Regex("^([vifIF]*)\\(([vifIF]*)\\)\$").find(compact)
+                ?: throw NSCWasm3Exception("invalid wasm signature: \"$signature\"")
+            val toTypes: (String) -> IntArray = { chars ->
+                chars.filter { it != 'v' }.map { c ->
+                    when (c) {
+                        'i' -> NativeWasm3.cM3TypeI32()
+                        'I' -> NativeWasm3.cM3TypeI64()
+                        'f' -> NativeWasm3.cM3TypeF32()
+                        'F' -> NativeWasm3.cM3TypeF64()
+                        else -> throw NSCWasm3Exception("invalid signature character: $c")
+                    }
+                }.toIntArray()
+            }
+            return Pair(toTypes(match.groupValues[2]), toTypes(match.groupValues[1]))
+        }
     }
 }
 
+// ---------------------------------------------------------------------------
+// Function
+// ---------------------------------------------------------------------------
+
 class NSCWasm3Function internal constructor(
-    private val function: M3Function,
+    private val funcHandle: Long,
     private val runtime: NSCWasm3Runtime,
 ) {
     val name: String
-        get() = m3.m3_GetFunctionName(function)?.string ?: ""
+        get() = NativeWasm3.functionName(funcHandle)
 
     val paramTypes: Array<String>
-        get() = Array(m3.m3_GetArgCount(function)) { Wire.typeName(m3.m3_GetArgType(function, it)) }
+        get() = Array(NativeWasm3.argCount(funcHandle)) {
+            Wire.typeName(NativeWasm3.argType(funcHandle, it))
+        }
 
     val returnTypes: Array<String>
-        get() = Array(m3.m3_GetRetCount(function)) { Wire.typeName(m3.m3_GetRetType(function, it)) }
+        get() = Array(NativeWasm3.retCount(funcHandle)) {
+            Wire.typeName(NativeWasm3.retType(funcHandle, it))
+        }
 
     /** Calls the function. Returns one wire-encoded value per result. */
     fun call(args: Array<Any?>): Array<Any> {
-        val nArgs = m3.m3_GetArgCount(function)
-        val nRets = m3.m3_GetRetCount(function)
+        val nArgs = NativeWasm3.argCount(funcHandle)
+        val nRets = NativeWasm3.retCount(funcHandle)
         if (args.size != nArgs) {
             throw NSCWasm3Exception("expected $nArgs arguments, got ${args.size}")
         }
 
-        val slots = LongPointer(maxOf(1, nArgs).toLong())
-        val argPtrs = PointerPointer<Pointer>(maxOf(1, nArgs).toLong())
-        val retSlots = LongPointer(maxOf(1, nRets).toLong())
-        val retPtrs = PointerPointer<Pointer>(maxOf(1, nRets).toLong())
-        try {
-            for (i in 0 until nArgs) {
-                val type = m3.m3_GetArgType(function, i)
-                val bits = Wire.encode(type, args[i])
-                    ?: throw NSCWasm3Exception("argument $i is not convertible to ${Wire.typeName(type)}")
-                slots.put(i.toLong(), bits)
-                argPtrs.put(i.toLong(), slots.getPointer(i.toLong()))
-            }
-            checkResult(m3.m3_Call(function, nArgs, argPtrs), runtime)
+        val slots = LongArray(maxOf(1, nArgs))
+        for (i in 0 until nArgs) {
+            val type = NativeWasm3.argType(funcHandle, i)
+            val bits = Wire.encode(type, args[i])
+                ?: throw NSCWasm3Exception("argument $i is not convertible to ${Wire.typeName(type)}")
+            slots[i] = bits
+        }
 
-            if (nRets == 0) return emptyArray()
-            for (i in 0 until nRets) {
-                retPtrs.put(i.toLong(), retSlots.getPointer(i.toLong()))
-            }
-            checkResult(m3.m3_GetResults(function, nRets, retPtrs), runtime)
-            return Array(nRets) { i ->
-                Wire.decode(m3.m3_GetRetType(function, i), retSlots.get(i.toLong()))
-            }
-        } finally {
-            slots.deallocate()
-            argPtrs.deallocate()
-            retSlots.deallocate()
-            retPtrs.deallocate()
+        val err = NativeWasm3.call(funcHandle, nArgs, slots)
+        checkJniError(err)
+
+        if (nRets == 0) return emptyArray()
+
+        val results = NativeWasm3.getResults(funcHandle, nRets)
+            ?: throw NSCWasm3Exception("failed to get results")
+
+        return Array(nRets) { i ->
+            Wire.decode(NativeWasm3.retType(funcHandle, i), results[i])
         }
     }
 }

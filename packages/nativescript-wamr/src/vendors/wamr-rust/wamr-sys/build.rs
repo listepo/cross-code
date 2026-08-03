@@ -220,13 +220,40 @@ fn main() {
     // Use the portable C version to avoid platform-specific assembly issues.
     build.file(common_dir.join("arch").join("invokeNative_general.c"));
 
+    // ── NSC WAMR shim (src/native/shim/nsc_wamr_shim.c) ──────────────────
+    // Flat helpers that wrap awkward WAMR APIs for JNI binding.
+    // Path relative to wamr-sys: ../../../../native/shim/
+    let shim_dir = manifest_dir
+        .parent()  // wamr-rust
+        .unwrap()
+        .parent()  // vendors
+        .unwrap()
+        .parent()  // src
+        .unwrap()
+        .parent()  // plugin root
+        .unwrap()
+        .join("src")
+        .join("native")
+        .join("shim");
+
+    build.file(shim_dir.join("nsc_wamr_shim.c"));
+    // The shim needs bh_platform.h — add the platform include dirs
+    // (already in include_dirs).  The shim also includes "nsc_wamr_shim.h"
+    // which includes "wasm_export.h" — all covered.
+
     build.compile("wamr");
 
     // Tell cargo to link against system libraries that WAMR needs
-    println!("cargo:rustc-link-lib=framework=Foundation");
-    println!("cargo:rustc-link-lib=framework=CoreFoundation");
-
-    if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "macos" {
-        println!("cargo:rustc-link-lib=framework=Security");
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    if target_os == "macos" || target_os == "ios" {
+        println!("cargo:rustc-link-lib=framework=Foundation");
+        println!("cargo:rustc-link-lib=framework=CoreFoundation");
+        if target_os == "macos" {
+            println!("cargo:rustc-link-lib=framework=Security");
+        }
+    }
+    if target_os == "android" {
+        println!("cargo:rustc-link-lib=dylib=log");
+        println!("cargo:rustc-link-lib=dylib=m");
     }
 }
