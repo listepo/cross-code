@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::ffi::{c_char, CStr, CString};
 use std::ptr;
 use std::sync::Mutex;
-use wamr_sys::*;
+use super::*;
 
 // Global function → instance mapping (mimics the C shim's g_ctx_list)
 static GLOBAL_FUNC_MAP: Mutex<Option<HashMap<usize, (wasm_module_inst_t, wasm_exec_env_t)>>> = Mutex::new(None);
@@ -92,7 +92,7 @@ impl NscWamrRuntime {
 // Global runtime registry — for cleanup
 // ---------------------------------------------------------------------------
 
-static RUNTIME_REGISTRY: Mutex<Option<Vec<*mut NscWamrRuntime>>> = Mutex::new(None);
+static RUNTIME_REGISTRY: Mutex<Option<Vec<usize>>> = Mutex::new(None);
 
 // ---------------------------------------------------------------------------
 // version
@@ -115,7 +115,7 @@ pub fn create_runtime(stack_size: i32, error_buf: &mut [c_char; 256]) -> *mut Ns
         Ok(rt) => {
             let ptr = Box::into_raw(rt);
             let mut reg = RUNTIME_REGISTRY.lock().unwrap();
-            reg.get_or_insert_with(Vec::new).push(ptr);
+            reg.get_or_insert_with(Vec::new).push(ptr as usize);
             ptr
         }
         Err(e) => {
@@ -146,7 +146,7 @@ pub fn destroy_runtime(ptr: *mut NscWamrRuntime) {
     // Remove from registry
     let mut reg = RUNTIME_REGISTRY.lock().unwrap();
     if let Some(ref mut v) = *reg {
-        v.retain(|&p| p != ptr);
+        v.retain(|&p| p != ptr as usize);
     }
 }
 

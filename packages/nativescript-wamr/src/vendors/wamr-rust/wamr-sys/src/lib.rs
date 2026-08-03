@@ -88,7 +88,7 @@ pub unsafe extern "C" fn nsc_wamr_instantiate(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_module_name(module: wasm_module_t) -> *const std::os::raw::c_char {
+pub unsafe extern "C" fn nsc_wamr_module_name(_module: wasm_module_t) -> *const std::os::raw::c_char {
     // Returns a static empty string — same as before
     b"\0".as_ptr() as *const std::os::raw::c_char
 }
@@ -103,7 +103,7 @@ pub unsafe extern "C" fn nsc_wamr_find_function(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_function_name(func: wasm_function_inst_t) -> *const std::os::raw::c_char {
+pub unsafe extern "C" fn nsc_wamr_function_name(_func: wasm_function_inst_t) -> *const std::os::raw::c_char {
     b"\0".as_ptr() as *const std::os::raw::c_char
 }
 
