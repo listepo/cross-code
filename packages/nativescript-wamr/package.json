@@ -33,6 +33,10 @@
         "executor": "nx:run-script",
         "options": { "script": "download.wamr" }
       },
+      "bindings": {
+        "executor": "nx:run-script",
+        "options": { "script": "bindings" }
+      },
       "test.ios": {
         "executor": "nx:run-script",
         "options": { "script": "test.ios" }
@@ -53,6 +57,7 @@
   },
   "scripts": {
     "download.wamr": "node tools/download-wamr.mjs",
+    "bindings": "cd src/vendors/wamr-rust && WAMR_BINDGEN_COMMIT=1 cargo build",
     "fixtures": "node tools/gen-fixtures.mjs && node tools/sync-wamr.mjs",
     "sync.vendors": "node tools/sync-wamr.mjs",
     "test.ios": "cd platforms/ios/NSCWamr && swift test --disable-sandbox",
