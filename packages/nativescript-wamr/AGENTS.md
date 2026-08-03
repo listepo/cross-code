@@ -545,10 +545,11 @@ npm run typings.android
 
 These commands invoke `npx ns typings ios` and `npx ns typings android` respectively. The generated `.d.ts` files are written to the `typings/` directory and should be **committed** — they are the source-of-truth for native API types consumed by TypeScript platform adapters.
 
-**If `ns typings` fails with an EPERM error on macOS**, the `~/.local/share/.nativescript-cli/` directory may have restrictive permissions. Workaround:
-```bash
-chmod -R u+w ~/.local/share/.nativescript-cli/
-```
+**If `ns typings` fails with an EPERM error on macOS**, the `~/.local/share/.nativescript-cli/` directory may be write-protected by a macOS process sandbox (common in sandboxed terminals/IDEs). To resolve:
+1. Run the commands in a non-sandboxed terminal (Terminal.app, iTerm2 without sandbox)
+2. Or disable the sandbox for your terminal/IDE
+
+The `chmod` workaround is typically insufficient — the restriction is at the sandbox level, not Unix permissions.
 
 ### Build/test commands
 
