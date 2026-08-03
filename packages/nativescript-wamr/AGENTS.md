@@ -562,13 +562,18 @@ Then run `ns` commands normally. The `--profile-dir` flag exists but is applied 
 
 ### Build/test commands
 
-The `ns` CLI is a local devDependency — always invoke it with `npx ns` so it
-resolves to `node_modules/.bin/ns` and never hits macOS permission issues on
-`~/.local/share/.nativescript-cli`.
+**Two test layers, both required:**
+
+| Layer | Command | What it tests |
+|-------|---------|---------------|
+| **vitest unit** | `npm exec nx run nativescript-wamr:test` | TS adapters against mocked native globals. Runs in CI. |
+| **Device (mocha)** | `ns test ios\|android --emulator` | Real WAMR runtime on device/emulator. Requires Xcode/Android SDK. |
+
+The vitest specs mock `globalThis.NSCWamrRuntime`, `org.nativescript.wamr.*`, etc. and exercise the full JS→native bridge without a device. The device specs (`app/tests/wamr/*.spec.ts`) run the same API surface against a real WAMR build. Both must pass before merging.
 
 ```bash
-# TypeScript + unit tests (no native required)
-npm exec nx run-many -t build test -p nativescript-wamr
+# TypeScript + unit tests (no native required, CI-safe)
+npm exec nx run nativescript-wamr:test
 
 # The test app: type-check off-device, then the mocha suite on a simulator and
 # an emulator (macOS needs LANG set to a UTF-8 locale — see the app's README).
