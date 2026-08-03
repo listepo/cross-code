@@ -85,28 +85,28 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_version(
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_cM3TypeI32(
     _env: JNIEnv, _class: JClass,
 ) -> jint {
-    c_m3Type_i32 as jint
+    M3ValueType_c_m3Type_i32 as jint
 }
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_cM3TypeI64(
     _env: JNIEnv, _class: JClass,
 ) -> jint {
-    c_m3Type_i64 as jint
+    M3ValueType_c_m3Type_i64 as jint
 }
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_cM3TypeF32(
     _env: JNIEnv, _class: JClass,
 ) -> jint {
-    c_m3Type_f32 as jint
+    M3ValueType_c_m3Type_f32 as jint
 }
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_cM3TypeF64(
     _env: JNIEnv, _class: JClass,
 ) -> jint {
-    c_m3Type_f64 as jint
+    M3ValueType_c_m3Type_f64 as jint
 }
 
 // ---------------------------------------------------------------------------

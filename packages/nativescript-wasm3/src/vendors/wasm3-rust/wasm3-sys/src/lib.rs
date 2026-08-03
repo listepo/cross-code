@@ -39,16 +39,16 @@ pub unsafe fn nsc_global_get(
     }
 
     unsafe {
-        *o_type = tagged.type as i32;
+        *o_type = tagged.type_ as i32;
         *o_bits = 0;
-        match tagged.type {
-            M3ValueType::c_m3Type_i32 => *o_bits = unsafe { tagged.value.i32 } as u64,
-            M3ValueType::c_m3Type_i64 => *o_bits = unsafe { tagged.value.i64 },
-            M3ValueType::c_m3Type_f32 => {
-                *o_bits = unsafe { tagged.value.f32.to_bits() } as u64;
+        match tagged.type_ {
+            M3ValueType_c_m3Type_i32 => *o_bits = unsafe { tagged.value.i32_ } as u64,
+            M3ValueType_c_m3Type_i64 => *o_bits = unsafe { tagged.value.i64_ },
+            M3ValueType_c_m3Type_f32 => {
+                *o_bits = unsafe { tagged.value.f32_.to_bits() } as u64;
             }
-            M3ValueType::c_m3Type_f64 => {
-                *o_bits = unsafe { tagged.value.f64.to_bits() };
+            M3ValueType_c_m3Type_f64 => {
+                *o_bits = unsafe { tagged.value.f64_.to_bits() };
             }
             _ => return b"global type mismatch\0".as_ptr() as *const c_char,
         }
@@ -67,21 +67,21 @@ pub unsafe fn nsc_global_set(
     i_bits: u64,
 ) -> *const c_char {
     let mut tagged: M3TaggedValue = unsafe { std::mem::zeroed() };
-    tagged.type = unsafe { std::mem::transmute::<i32, M3ValueType>(i_type) };
+    tagged.type_ = i_type as M3ValueType;
 
     unsafe {
-        match tagged.type {
-            M3ValueType::c_m3Type_i32 => tagged.value.i32 = i_bits as u32,
-            M3ValueType::c_m3Type_i64 => tagged.value.i64 = i_bits,
-            M3ValueType::c_m3Type_f32 => {
-                tagged.value.f32 = f32::from_bits(i_bits as u32);
+        match tagged.type_ {
+            M3ValueType_c_m3Type_i32 => tagged.value.i32_ = i_bits as u32,
+            M3ValueType_c_m3Type_i64 => tagged.value.i64_ = i_bits,
+            M3ValueType_c_m3Type_f32 => {
+                tagged.value.f32_ = f32::from_bits(i_bits as u32);
             }
-            M3ValueType::c_m3Type_f64 => {
-                tagged.value.f64 = f64::from_bits(i_bits);
+            M3ValueType_c_m3Type_f64 => {
+                tagged.value.f64_ = f64::from_bits(i_bits);
             }
             _ => return b"global type mismatch\0".as_ptr() as *const c_char,
         }
     }
 
-    m3_SetGlobal(global, &tagged as *const M3TaggedValue)
+    m3_SetGlobal(global, &mut tagged as IM3TaggedValue)
 }
