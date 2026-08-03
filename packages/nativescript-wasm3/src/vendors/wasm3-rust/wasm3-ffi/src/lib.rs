@@ -50,10 +50,10 @@ impl WasmValueType {
 
     fn from_m3_type(code: i32) -> Option<Self> {
         match code {
-            x if x == c_m3Type_i32 as i32 => Some(WasmValueType::I32),
-            x if x == c_m3Type_i64 as i32 => Some(WasmValueType::I64),
-            x if x == c_m3Type_f32 as i32 => Some(WasmValueType::F32),
-            x if x == c_m3Type_f64 as i32 => Some(WasmValueType::F64),
+            x if x == M3ValueType::c_m3Type_i32 as i32 => Some(WasmValueType::I32),
+            x if x == M3ValueType::c_m3Type_i64 as i32 => Some(WasmValueType::I64),
+            x if x == M3ValueType::c_m3Type_f32 as i32 => Some(WasmValueType::F32),
+            x if x == M3ValueType::c_m3Type_f64 as i32 => Some(WasmValueType::F64),
             _ => None,
         }
     }
@@ -369,10 +369,10 @@ impl Wasm3ModuleInstance {
         }
 
         let m3_type = match value.kind {
-            WasmValueType::I32 => c_m3Type_i32 as i32,
-            WasmValueType::I64 => c_m3Type_i64 as i32,
-            WasmValueType::F32 => c_m3Type_f32 as i32,
-            WasmValueType::F64 => c_m3Type_f64 as i32,
+            WasmValueType::I32 => M3ValueType::c_m3Type_i32 as i32,
+            WasmValueType::I64 => M3ValueType::c_m3Type_i64 as i32,
+            WasmValueType::F32 => M3ValueType::c_m3Type_f32 as i32,
+            WasmValueType::F64 => M3ValueType::c_m3Type_f64 as i32,
         };
 
         let result = unsafe { nsc_global_set(global, m3_type, value.to_u64()) };
