@@ -151,6 +151,21 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_destroyRuntime(
 // JNI: module loading & instantiation
 // ---------------------------------------------------------------------------
 
+// wasm_runtime_load does not copy the bytes it is given — WAMR keeps reading
+// them for as long as the module is loaded. The Kotlin wrapper holds its own
+// ByteArray, but that is a different buffer from the native copy made here, so
+// this layer has to own one per module and release it in unloadModule.
+static MODULE_BUFFERS: std::sync::Mutex<
+    Option<std::collections::HashMap<usize, Box<[u8]>>>,
+> = std::sync::Mutex::new(None);
+
+fn module_buffers<R>(
+    f: impl FnOnce(&mut std::collections::HashMap<usize, Box<[u8]>>) -> R,
+) -> R {
+    let mut guard = MODULE_BUFFERS.lock().unwrap_or_else(|e| e.into_inner());
+    f(guard.get_or_insert_with(std::collections::HashMap::new))
+}
+
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
     mut env: JNIEnv,
@@ -173,9 +188,12 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
 
     let mut error_buf: [c_char; 256] = [0; 256];
 
-    // Read bytes into local buffer
-    let mut buf = vec![0u8; len];
-    if let Err(e) = env.get_byte_array_region(&wasm_bytes_ref, 0, &mut buf) {
+    // Read bytes into a buffer this layer keeps alive for the module's lifetime
+    // (see MODULE_BUFFERS).
+    let mut buf = vec![0u8; len].into_boxed_slice();
+    if let Err(e) = env.get_byte_array_region(&wasm_bytes_ref, 0, unsafe {
+        std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut i8, len)
+    }) {
         throw(&mut env, &format!("failed to read byte array: {}", e));
         return 0;
     }
@@ -188,10 +206,13 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
             error_buf.as_mut_ptr(),
         )
     };
+    if module.is_null() {
         let msg = unsafe { ptr_to_str(error_buf.as_ptr()) };
         throw(&mut env, if msg.is_empty() { "failed to load module" } else { msg });
         return 0;
     }
+
+    module_buffers(|buffers| buffers.insert(module as usize, buf));
 
     module as jlong
 }
@@ -803,5 +824,6 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_unloadModule(
     if !module.is_null() && !rt.is_null() {
         // WAMR's wasm_runtime_unload is available in bindings
         unsafe { wasm_runtime_unload(module) };
+        module_buffers(|buffers| buffers.remove(&(module as usize)));
     }
 }

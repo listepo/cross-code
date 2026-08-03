@@ -495,7 +495,7 @@ impl Wasm3Function {
         let n_rets = self.signature.results.len() as u32;
 
         // Build arg pointers (uint64_t* each)
-        let arg_ptrs: Vec<*const std::os::raw::c_void> = args
+        let mut arg_ptrs: Vec<*const std::os::raw::c_void> = args
             .iter()
             .map(|v| v as *const u64 as *const std::os::raw::c_void)
             .collect();
@@ -504,7 +504,7 @@ impl Wasm3Function {
             m3_Call(
                 self.ptr,
                 n_args,
-                arg_ptrs.as_ptr(),
+                arg_ptrs.as_mut_ptr() as *mut *const std::os::raw::c_void,
             )
         };
 
@@ -517,7 +517,7 @@ impl Wasm3Function {
         }
 
         let mut ret_vals: Vec<u64> = vec![0u64; n_rets as usize];
-        let ret_ptrs: Vec<*const std::os::raw::c_void> = ret_vals
+        let mut ret_ptrs: Vec<*const std::os::raw::c_void> = ret_vals
             .iter_mut()
             .map(|v| v as *mut u64 as *const std::os::raw::c_void)
             .collect();
@@ -526,7 +526,7 @@ impl Wasm3Function {
             m3_GetResults(
                 self.ptr,
                 n_rets,
-                ret_ptrs.as_ptr(),
+                ret_ptrs.as_mut_ptr() as *mut *const std::os::raw::c_void,
             )
         };
 

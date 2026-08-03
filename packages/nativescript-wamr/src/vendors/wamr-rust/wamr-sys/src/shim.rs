@@ -11,9 +11,11 @@ use std::ptr;
 use std::sync::Mutex;
 use super::*;
 
-// Global function → instance mapping (mimics the C shim's g_ctx_list)
-static GLOBAL_FUNC_MAP: Mutex<Option<HashMap<usize, (wasm_module_inst_t, wasm_exec_env_t)>>> = Mutex::new(None);
-static GLOBAL_LAST_RESULTS: Mutex<Option<(wasm_function_inst_t, Vec<u32>)>> = Mutex::new(None);
+// Global function → instance mapping (mimics the C shim's g_ctx_list).
+// WAMR's opaque handles are raw pointers, which are not Send; they are held as
+// usize so the maps can live in a static, and cast back at the use site.
+static GLOBAL_FUNC_MAP: Mutex<Option<HashMap<usize, (usize, usize)>>> = Mutex::new(None);
+static GLOBAL_LAST_RESULTS: Mutex<Option<(usize, Vec<u32>)>> = Mutex::new(None);
 
 // ---------------------------------------------------------------------------
 // Simplified type codes
@@ -232,7 +234,8 @@ pub fn find_function(
         if !f.is_null() {
             // Store in global map for call dispatch (matching C shim's g_ctx_list)
             let mut map = GLOBAL_FUNC_MAP.lock().unwrap();
-            map.get_or_insert_with(HashMap::new).insert(f as usize, (entry.inst, entry.exec_env));
+            map.get_or_insert_with(HashMap::new)
+                .insert(f as usize, (entry.inst as usize, entry.exec_env as usize));
             return f;
         }
     }
@@ -310,7 +313,7 @@ pub fn call(
     let (inst, env) = {
         let map = GLOBAL_FUNC_MAP.lock().unwrap();
         match map.as_ref().and_then(|m| m.get(&(func as usize))) {
-            Some(&(inst, env)) => (inst, env),
+            Some(&(inst, env)) => (inst as wasm_module_inst_t, env as wasm_exec_env_t),
             None => return Err("function not found in any module instance".into()),
         }
     };
@@ -341,7 +344,7 @@ pub fn call(
     // Init result buffer in global state
     {
         let mut last = GLOBAL_LAST_RESULTS.lock().unwrap();
-        *last = Some((func, Vec::new()));
+        *last = Some((func as usize, Vec::new()));
     }
 
     let ok;
@@ -356,13 +359,13 @@ pub fn call(
             let mut val: wasm_val_t = unsafe { std::mem::zeroed() };
             val.kind = ptypes[i];
             if sw == 1 {
-                val.i32 = arg_buf[slot_pos] as i32;
+                val.of.i32_ = arg_buf[slot_pos] as i32;
                 arg_vals.push(val);
                 slot_pos += 1;
             } else {
                 let lo = arg_buf[slot_pos] as u64;
                 let hi = (arg_buf[slot_pos + 1] as u64) << 32;
-                val.i64 = (lo | hi) as i64;
+                val.of.i64_ = (lo | hi) as i64;
                 arg_vals.push(val);
                 slot_pos += 2;
             }
@@ -382,9 +385,9 @@ pub fn call(
                 for i in 0..rcount as usize {
                     let sw = slot_width(rtypes[i] as u8);
                     if sw == 1 {
-                        results.push(result_vals[i].i32 as u32);
+                        results.push(unsafe { result_vals[i].of.i32_ } as u32);
                     } else {
-                        let v = result_vals[i].i64 as u64;
+                        let v = unsafe { result_vals[i].of.i64_ } as u64;
                         results.push(v as u32);
                         results.push((v >> 32) as u32);
                     }
@@ -422,7 +425,7 @@ pub fn get_results(
         }
     };
 
-    if last_func != func || results.is_empty() {
+    if last_func != func as usize || results.is_empty() {
         return Err("no results available".into());
     }
 
@@ -430,7 +433,7 @@ pub fn get_results(
     let inst = {
         let map = GLOBAL_FUNC_MAP.lock().unwrap();
         match map.as_ref().and_then(|m| m.get(&(func as usize))) {
-            Some(&(inst, _)) => inst,
+            Some(&(inst, _)) => inst as wasm_module_inst_t,
             None => return Err("function not found".into()),
         }
     };
