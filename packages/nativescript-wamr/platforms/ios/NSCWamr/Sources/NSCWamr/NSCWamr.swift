@@ -558,6 +558,7 @@ public final class NSCWamrModule: NSObject {
     }
 
     fileprivate func teardown() {
+        guard !tornDown else { return }
         if let moduleExecEnv { wasm_runtime_destroy_exec_env(moduleExecEnv) }
         if let moduleInst { wasm_runtime_deinstantiate(moduleInst) }
         moduleExecEnv = nil
