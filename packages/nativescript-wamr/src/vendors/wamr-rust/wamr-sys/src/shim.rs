@@ -319,7 +319,9 @@ pub fn function_ret_type(func: wasm_function_inst_t, index: i32) -> i32 {
     kind_at(&signature_kinds(func, true), index)
 }
 
-/// WAMR valkinds are the wire's simple type codes, so this is a bounds check.
+/// Returns the simple type code (WASM_I32..WASM_F64) for the WAMR valkind at
+/// `index`, or -1 when out of range or unsupported.  `wasm_func_get_*_types`
+/// already return simple codes, so no conversion is needed.
 fn kind_at(kinds: &[wasm_valkind_t], index: i32) -> i32 {
     if index < 0 {
         return -1;
@@ -713,11 +715,12 @@ mod tests {
 
     #[test]
     fn test_slot_width() {
-        assert_eq!(slot_width(0x7F), 1); // i32
-        assert_eq!(slot_width(0x7E), 2); // i64
-        assert_eq!(slot_width(0x7D), 1); // f32
-        assert_eq!(slot_width(0x7C), 2); // f64
-        assert_eq!(slot_width(0x00), 0);
+        // wasm_func_get_*_types returns simple codes (wasm_c_api.h enum)
+        assert_eq!(slot_width(WASM_I32 as wasm_valkind_t), 1); // i32
+        assert_eq!(slot_width(WASM_I64 as wasm_valkind_t), 2); // i64
+        assert_eq!(slot_width(WASM_F32 as wasm_valkind_t), 1); // f32
+        assert_eq!(slot_width(WASM_F64 as wasm_valkind_t), 2); // f64
+        assert_eq!(slot_width(0x7F), 0); // raw WAMR byte — not a valkind here
         assert_eq!(slot_width(0xFF), 0);
     }
 
