@@ -521,15 +521,18 @@ public final class NSCWamrModule: NSObject {
     /// Instantiates on first use, so imports linked after loadModule are bound.
     fileprivate func instance() throws -> wasm_module_inst_t {
         if let moduleInst { return moduleInst }
+        guard let runtime else {
+            throw makeError(1, "runtime deallocated")
+        }
+        guard !tornDown else {
+            throw makeError(1, "module was torn down")
+        }
 
         // WAMR binds a module's imports while loading it, so a host function
         // registered afterwards is still unlinked. Re-resolving picks those up
         // and is a no-op for imports that already resolved.
         resolveSymbolsIfNeeded()
 
-        guard let runtime else {
-            throw makeError(1, "runtime deallocated")
-        }
         var errorBuf = [CChar](repeating: 0, count: 256)
         guard let inst = errorBuf.withUnsafeMutableBufferPointer({ errBuf in
             wasm_runtime_instantiate(module, runtime.moduleStackSize, 256 * 1024,
@@ -560,7 +563,10 @@ public final class NSCWamrModule: NSObject {
         moduleExecEnv = nil
         moduleInst = nil
         wasm_runtime_unload(module)
+        tornDown = true
     }
+
+    private var tornDown = false
 
     @objc public var name: String { "" }
 
