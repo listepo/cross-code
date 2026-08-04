@@ -162,6 +162,11 @@ export class IosRuntime implements NativeRuntimeAdapter {
   private hostCallbacks: any[] = [];
   constructor(stackSizeInBytes: number) {
     const RuntimeClass = (globalThis as any).NSCWasm3Runtime;
+    if (!RuntimeClass) {
+      throw new Wasm3Error(
+        'nativescript-wasm3 native runtime not found — is the plugin installed and the app rebuilt?',
+      );
+    }
     this.runtime = RuntimeClass.alloc().initWithStackSize(stackSizeInBytes);
   }
   loadModuleFromBytes(bytes: Uint8Array): NativeModuleAdapter {
