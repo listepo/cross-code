@@ -13,7 +13,8 @@
     "@nativescript/theme": "^3.1.0",
     "@nativescript/unit-test-runner": "^4.0.1",
     "@org/nativescript-wasm-fixture": "file:../../packages/nativescript-wasm-fixture",
-    "@org/nativescript-wasm3": "file:../../packages/nativescript-wasm3"
+    "@cross-code/nativescript-wasm3": "file:../../packages/nativescript-wasm3",
+    "@cross-code/nativescript-wamr": "file:../../packages/nativescript-wamr"
   },
   "devDependencies": {
     "@jsdevtools/coverage-istanbul-loader": "3.0.5",
