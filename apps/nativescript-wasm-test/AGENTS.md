@@ -160,9 +160,9 @@ From the workspace root:
 
 ```bash
 # Via Nx (preferred — auto-builds dependencies)
-npm exec nx run nativescript-wasm-test:test.ios
-npm exec nx run nativescript-wasm-test:test.android
-npm exec nx run nativescript-wasm-test:typecheck
+pnpm exec nx run nativescript-wasm-test:test.ios
+pnpm exec nx run nativescript-wasm-test:test.android
+pnpm exec nx run nativescript-wasm-test:typecheck
 
 # Or with the CLI directly (from this directory)
 npx ns test ios --emulator
@@ -185,11 +185,11 @@ npx ns test ios --device 73F3C71E-982C-4C2A-9AE3-CE75BC8FA2A2
   aborts before building. Export `LANG=en_US.UTF-8`. (The plugin itself needs no
   pods — it ships a Swift package.)
 - **The `.wasm` fixtures are committed build outputs.** They only need rebuilding
-  if the Rust source changed: `npm run build.wasm` in
+  if the Rust source changed: `pnpm run build.wasm` in
   `packages/nativescript-wasm-fixture` (needs Rust + wasm-pack).
 - **`hooks/` is generated and git-ignored.** `@nativescript/unit-test-runner`'s
   postinstall injects the CLI hooks it needs there. If `ns test` behaves as
-  though the runner is not installed, re-run `npm install` in this directory and
+  though the runner is not installed, re-run `pnpm install` in this directory and
   check that `hooks/after-prepare/` exists.
 - **Android needs an SDK platform ≤ 36.** The CLI's compatible-target list stops
   at `android-36`; an SDK with only `android-37` installed fails `ns doctor` with
@@ -222,5 +222,5 @@ visibility". The specs themselves are fine; they fail in `beforeEach`.
    up with no further change.
 2. Only write a new `it(...)` when the case needs its own assertions (a specific
    error, a type, a native entry point the suite does not reach).
-3. `npm exec nx run nativescript-wasm-test:typecheck`, then run the suite on both
+3. `pnpm exec nx run nativescript-wasm-test:typecheck`, then run the suite on both
    platforms — the two adapters are different code and fail differently.

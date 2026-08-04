@@ -63,3 +63,7 @@ vitest.config.*.timestamp*
 
 # DeepSeek CR local config (contains API token)
 .deepseek-cr.config.json
+reasonix.toml
+
+# pnpm local package store (created during resolution)
+.pnpm-store

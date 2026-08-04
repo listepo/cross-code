@@ -1,0 +1,5 @@
+# This app is intentionally NOT part of the root monorepo workspace
+# (packages/*): the ns CLI needs its own node_modules. Declaring the app
+# directory as its own pnpm workspace root gives it a separate install and
+# its own pnpm-lock.yaml.
+packages: []

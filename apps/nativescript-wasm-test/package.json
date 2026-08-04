@@ -3,6 +3,7 @@
   "main": "app/app.ts",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@11.20.0",
   "description": "NativeScript test app for @cross-code/nativescript-wasm3 — runs the @cross-code/nativescript-wasm-fixture WebAssembly module on a simulator/emulator, both from a demo page and under mocha.",
   "scripts": {
     "test.ios": "ns test ios --emulator",

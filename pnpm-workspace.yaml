@@ -1,0 +1,17 @@
+# pnpm workspace — pnpm is the default package manager for this monorepo
+# (see "packageManager" in package.json).
+#
+# Only the publishable packages are workspace members, mirroring the npm
+# "workspaces" entry in package.json. The NativeScript test app
+# (apps/nativescript-wasm-test) is intentionally NOT a member: the ns CLI
+# needs its own node_modules, so it keeps a separate install (see
+# .github/workflows/ci.yml).
+packages:
+  - 'packages/*'
+
+# pnpm 10+ blocks dependency build scripts by default. These packages need
+# theirs to run (native binaries / CLI setup).
+onlyBuiltDependencies:
+  - '@swc/core'
+  - 'nativescript'
+  - 'nx'

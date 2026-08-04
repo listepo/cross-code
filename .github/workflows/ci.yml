@@ -28,13 +28,17 @@ jobs:
       # Learn more at https://nx.dev/docs/reference/nx-cloud-cli#npx-nxcloud-startcirun
       - run: npx nx start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="e2e"
 
+      # pnpm is the default package manager (packageManager in package.json);
+      # pnpm/action-setup installs the pinned version from there.
+      - uses: pnpm/action-setup@v4
+
       # Cache node_modules
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: 'npm'
+          cache: 'pnpm'
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       # Prepend any command with "nx record --" to record its logs to Nx Cloud
       # - run: npx nx record -- npx nx format:check --base="remotes/origin/main"
@@ -56,22 +60,25 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: 'npm'
+          cache: 'pnpm'
           cache-dependency-path: |
-            package-lock.json
-            apps/nativescript-wasm-test/package-lock.json
+            pnpm-lock.yaml
+            apps/nativescript-wasm-test/pnpm-lock.yaml
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
-      # The NativeScript app is not an npm workspace member — the CLI needs its
-      # own node_modules — and its typecheck resolves @nativescript/types,
-      # @types/mocha and TypeScript from there.
+      # The NativeScript app is not a pnpm workspace member (it has its own
+      # pnpm-workspace.yaml) — the CLI needs its own node_modules — and its
+      # typecheck resolves @nativescript/types, @types/mocha and TypeScript
+      # from there.
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # nativescript-wasm3: 26 vitest specs, plus the typecheck of all three
       # projects — including the test app's mocha specs, which are type-checked
@@ -104,7 +111,7 @@ jobs:
             --bin gen_globals -- "$RUNNER_TEMP/globals"
           cmp "$RUNNER_TEMP/globals/globals.wasm" \
             packages/nativescript-wasm-fixture/src/test-types/pkg/globals.wasm || {
-            echo "::error::globals.wasm is stale — run 'npm run build.wasm' in packages/nativescript-wasm-fixture and commit the result."
+            echo "::error::globals.wasm is stale — run 'pnpm run build.wasm' in packages/nativescript-wasm-fixture and commit the result."
             exit 1
           }
 
@@ -179,7 +186,7 @@ jobs:
         run: |
           node tools/sync-wasm3.mjs
           git diff --exit-code -- . || {
-            echo "::error::platforms/ios/NSCWasm3/Sources/CWasm3 is stale — run 'npm run sync.vendors' and commit the result."
+            echo "::error::platforms/ios/NSCWasm3/Sources/CWasm3 is stale — run 'pnpm run sync.vendors' and commit the result."
             exit 1
           }
 
@@ -205,12 +212,14 @@ jobs:
 
       # Gradle shells out to build-native.mjs (zx) to generate the bindings and
       # compile wasm3, so the native build needs Node and the root node_modules.
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: 'npm'
+          cache: 'pnpm'
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - uses: actions/setup-java@v4.9.0
         with:
@@ -276,7 +285,7 @@ jobs:
         run: |
           node tools/sync-wamr.mjs
           git diff --exit-code -- . || {
-            echo "::error::platforms/ios/NSCWamr/Sources/CWamr is stale — run 'npm run sync.vendors' and commit the result."
+            echo "::error::platforms/ios/NSCWamr/Sources/CWamr is stale — run 'pnpm run sync.vendors' and commit the result."
             exit 1
           }
 
@@ -302,12 +311,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: 'npm'
+          cache: 'pnpm'
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Check for WAMR C sources
         id: sources
@@ -359,15 +370,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: 'npm'
+          cache: 'pnpm'
           cache-dependency-path: |
-            package-lock.json
-            apps/nativescript-wasm-test/package-lock.json
+            pnpm-lock.yaml
+            apps/nativescript-wasm-test/pnpm-lock.yaml
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       # The app resolves the plugin through a file: dependency and imports its
       # built dist/, so the TypeScript has to exist before the app is bundled.
@@ -376,7 +389,7 @@ jobs:
 
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - run: npm install -g nativescript
 
@@ -397,22 +410,24 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: 'npm'
+          cache: 'pnpm'
           cache-dependency-path: |
-            package-lock.json
-            apps/nativescript-wasm-test/package-lock.json
+            pnpm-lock.yaml
+            apps/nativescript-wasm-test/pnpm-lock.yaml
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Build the plugin
         run: npx nx run nativescript-wasm3:build
 
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - uses: actions/setup-java@v4.9.0
         with:
