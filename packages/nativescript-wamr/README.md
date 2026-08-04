@@ -1,4 +1,4 @@
-# @org/nativescript-wamr
+# @cross-code/nativescript-wamr
 
 NativeScript plugin that loads and executes WebAssembly modules with the
 [WAMR (WebAssembly Micro Runtime)](https://github.com/bytecodealliance/wasm-micro-runtime) interpreter/JIT.
@@ -21,7 +21,7 @@ NativeScript plugin that loads and executes WebAssembly modules with the
 ## Install
 
 ```bash
-ns plugin add @org/nativescript-wamr
+ns plugin add @cross-code/nativescript-wamr
 ```
 
 The plugin ships its own `nativescript.config.ts` declaring the local Swift
@@ -33,7 +33,7 @@ bundled `.aar` and `include.gradle` are picked up automatically.
 
 ```ts
 import { knownFolders, path } from '@nativescript/core';
-import { WamrRuntime, WamrExecutionTier } from '@org/nativescript-wamr';
+import { WamrRuntime, WamrExecutionTier } from '@cross-code/nativescript-wamr';
 
 const runtime = new WamrRuntime();              // default configuration
 // const runtime = new WamrRuntime({ stackSizeInBytes: 128 * 1024 });
@@ -141,7 +141,7 @@ not when the module is loaded.
 | `AOT` | `3` | `Mode_AOT` | Ahead-of-time compiled module (loads `.aot` files) |
 
 ```ts
-import { WamrRuntime, WamrExecutionTier } from '@org/nativescript-wamr';
+import { WamrRuntime, WamrExecutionTier } from '@cross-code/nativescript-wamr';
 
 new WamrRuntime();                                           // interpreter (default)
 new WamrRuntime({ executionTier: WamrExecutionTier.FastJIT });

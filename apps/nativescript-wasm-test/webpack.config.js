@@ -1,13 +1,13 @@
 const { dirname } = require("node:path");
 const webpack = require("@nativescript/webpack");
 
-// The fixture .wasm binaries are build outputs of @org/nativescript-wasm-fixture
+// The fixture .wasm binaries are build outputs of @cross-code/nativescript-wasm-fixture
 // (wasm-pack + the gen_globals binary). Copy them into the bundle so wasm3 can
 // load them from the app folder at runtime — see app/wasm/wasm-assets.ts.
 // Resolve via the package's own exports so this stays correct if the fixture's
 // internal folder layout changes.
 const fixturePkgDir = dirname(
-	require.resolve("@org/nativescript-wasm-fixture/types.wasm"),
+	require.resolve("@cross-code/nativescript-wasm-fixture/types.wasm"),
 );
 
 module.exports = (env) => {

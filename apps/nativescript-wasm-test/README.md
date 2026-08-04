@@ -1,8 +1,8 @@
 # nativescript-wasm-test
 
-The test app for [`@org/nativescript-wasm3`](../../packages/nativescript-wasm3).
+The test app for [`@cross-code/nativescript-wasm3`](../../packages/nativescript-wasm3).
 It runs the WebAssembly fixture from
-[`@org/nativescript-wasm-fixture`](../../packages/nativescript-wasm-fixture)
+[`@cross-code/nativescript-wasm-fixture`](../../packages/nativescript-wasm-fixture)
 two ways, both on the device's own wasm3 interpreter:
 
 - **from the demo page** — tap **RUN** for a per-check pass/fail report;
@@ -54,7 +54,7 @@ through `Wasm3Runtime` / `Wasm3Module` / `Wasm3Function`. What they cover:
 
 Calls into the fixture go through `callFixture()`, which types its arguments
 and result from the `.d.ts` wasm-pack generates from the Rust source
-(`@org/nativescript-wasm-fixture/types`) — so passing a `number` where the Rust
+(`@cross-code/nativescript-wasm-fixture/types`) — so passing a `number` where the Rust
 function takes an `i64` is a compile error, not a runtime surprise.
 
 This is the only suite where the plugin's TypeScript adapters meet the real

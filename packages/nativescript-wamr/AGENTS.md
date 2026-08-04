@@ -1,6 +1,6 @@
 # AGENTS.md — nativescript-wamr
 
-AI-agent guidance for working on the `@org/nativescript-wamr` plugin.
+AI-agent guidance for working on the `@cross-code/nativescript-wamr` plugin.
 
 ---
 
@@ -87,7 +87,7 @@ the numeric `WamrExecutionTier` const enum (exported from `src/lib/wamr.ts` and
 `src/index.ts`):
 
 ```ts
-import { WamrRuntime, WamrExecutionTier } from '@org/nativescript-wamr';
+import { WamrRuntime, WamrExecutionTier } from '@cross-code/nativescript-wamr';
 
 const runtime = new WamrRuntime({ executionTier: WamrExecutionTier.FastJIT });
 ```
@@ -518,7 +518,7 @@ The fixtures are committed. Don't regenerate unless you changed what they test.
 ## Test app
 
 `apps/nativescript-wasm-test` drives this plugin's public API against the Rust
-fixture in `@org/nativescript-wasm-fixture`, on the device's own WAMR build —
+fixture in `@cross-code/nativescript-wasm-fixture`, on the device's own WAMR build —
 from a demo page, and as a mocha suite under `ns test ios` / `ns test android`.
 Both run the same list of checks.
 

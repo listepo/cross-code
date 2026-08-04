@@ -1,5 +1,5 @@
 {
-  "name": "@org/nativescript-wasm3",
+  "name": "@cross-code/nativescript-wasm3",
   "version": "0.1.0",
   "description": "NativeScript plugin that runs WebAssembly modules with the wasm3 interpreter — Swift Package (C interop) on iOS, Kotlin + JavaCPP-generated JNI bindings on Android.",
   "type": "module",
@@ -9,7 +9,7 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "@org/source": "./src/index.ts",
+      "@cross-code/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"

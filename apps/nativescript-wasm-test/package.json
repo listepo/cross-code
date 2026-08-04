@@ -3,7 +3,7 @@
   "main": "app/app.ts",
   "version": "1.0.0",
   "private": true,
-  "description": "NativeScript test app for @org/nativescript-wasm3 — runs the @org/nativescript-wasm-fixture WebAssembly module on a simulator/emulator, both from a demo page and under mocha.",
+  "description": "NativeScript test app for @cross-code/nativescript-wasm3 — runs the @cross-code/nativescript-wasm-fixture WebAssembly module on a simulator/emulator, both from a demo page and under mocha.",
   "scripts": {
     "test.ios": "ns test ios --emulator",
     "test.android": "ns test android --emulator"
@@ -12,7 +12,7 @@
     "@nativescript/core": "~9.0.0",
     "@nativescript/theme": "^3.1.0",
     "@nativescript/unit-test-runner": "^4.0.1",
-    "@org/nativescript-wasm-fixture": "file:../../packages/nativescript-wasm-fixture",
+    "@cross-code/nativescript-wasm-fixture": "file:../../packages/nativescript-wasm-fixture",
     "@cross-code/nativescript-wasm3": "file:../../packages/nativescript-wasm3",
     "@cross-code/nativescript-wamr": "file:../../packages/nativescript-wamr"
   },

@@ -1,6 +1,6 @@
 # AGENTS.md — nativescript-wasm3
 
-AI-agent guidance for working on the `@org/nativescript-wasm3` plugin.
+AI-agent guidance for working on the `@cross-code/nativescript-wasm3` plugin.
 
 ---
 
@@ -407,7 +407,7 @@ The fixtures are committed. Don't regenerate unless you changed what they test.
 ## Test app
 
 `apps/nativescript-wasm-test` drives this plugin's public API against the Rust
-fixture in `@org/nativescript-wasm-fixture`, on the device's own wasm3 build —
+fixture in `@cross-code/nativescript-wasm-fixture`, on the device's own wasm3 build —
 from a demo page, and as a mocha suite under `ns test ios` / `ns test android`.
 Both run the same list of checks (`app/wasm/fixture-suite.ts`).
 

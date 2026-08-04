@@ -5,11 +5,11 @@
  * Both run on the device's own wasm3 interpreter: the demo page renders the
  * checks, `ns test` asserts on them.
  *
- * The module under test is `@org/nativescript-wasm-fixture` (Rust, built with
+ * The module under test is `@cross-code/nativescript-wasm-fixture` (Rust, built with
  * wasm-pack); its generated `.d.ts` is what types `callFixture` below.
  */
-import type { Wasm3Imports, Wasm3Module, WasmArg, WasmValue } from '@org/nativescript-wasm3';
-import type * as FixtureExports from '@org/nativescript-wasm-fixture/types';
+import type { Wasm3Imports, Wasm3Module, WasmArg, WasmValue } from '@cross-code/nativescript-wasm3';
+import type * as FixtureExports from '@cross-code/nativescript-wasm-fixture/types';
 
 // ---------------------------------------------------------------------------
 // Typed calls into the fixture

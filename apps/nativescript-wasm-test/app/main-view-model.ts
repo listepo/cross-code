@@ -1,5 +1,5 @@
 import { Observable } from '@nativescript/core'
-import { Wasm3Runtime } from '@org/nativescript-wasm3'
+import { Wasm3Runtime } from '@cross-code/nativescript-wasm3'
 
 import {
   createHostImports,

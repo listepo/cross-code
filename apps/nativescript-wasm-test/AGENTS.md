@@ -6,7 +6,7 @@ AI-agent guidance for working on the `nativescript-wasm-test` app.
 
 ## What this app is
 
-A NativeScript app that exercises `@org/nativescript-wasm3` against the real
+A NativeScript app that exercises `@cross-code/nativescript-wasm3` against the real
 wasm3 interpreter, two ways:
 
 - **A demo page** (`app/main-view-model.ts`) that runs the shared check suite and
@@ -103,7 +103,7 @@ wasm3 compiles lazily, so a missing import surfaces at `findFunction` — not at
 ### 5. `fixture-suite.ts` is the canonical correctness specification
 
 `app/wasm/fixture-suite.ts` holds the check list that both the demo page and the
-specs run. When you add an export to `@org/nativescript-wasm-fixture`, add the
+specs run. When you add an export to `@cross-code/nativescript-wasm-fixture`, add the
 check there — both pick it up. Do not add plugin-level marshalling checks
 directly in the spec files; the specs delegate to
 `summarize(runFixtureChecks(...))` and only add cases that need their own
@@ -117,7 +117,7 @@ callFixture(module, 'add_f64', 0.1, 0.2)               // ✓ number required
 callFixture(module, 'add_i64', 2)                      // ✗ TS error: not bigint
 ```
 
-The types come from `@org/nativescript-wasm-fixture/types`, the wasm-pack
+The types come from `@cross-code/nativescript-wasm-fixture/types`, the wasm-pack
 generated `.d.ts` — so an argument-type mismatch is a compile error rather than a
 silent truncation at the bridge.
 

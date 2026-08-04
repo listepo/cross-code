@@ -11,7 +11,7 @@
  * their own assertions: declared signatures, i64 precision, host-import
  * round trips, and the error paths.
  */
-import { Wasm3Error, Wasm3Runtime, type Wasm3Module } from '@org/nativescript-wasm3';
+import { Wasm3Error, Wasm3Runtime, type Wasm3Module } from '@cross-code/nativescript-wasm3';
 
 import {
   callFixture,
@@ -22,7 +22,7 @@ import {
 } from '../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM, readAppFile } from '../wasm/wasm-assets';
 
-describe('the fixture module through @org/nativescript-wasm3', () => {
+describe('the fixture module through @cross-code/nativescript-wasm3', () => {
   let runtime: Wasm3Runtime;
   let module: Wasm3Module;
   let log: HostCall[];
