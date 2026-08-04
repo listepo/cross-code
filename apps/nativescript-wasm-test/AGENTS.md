@@ -21,6 +21,17 @@ handling on Android, i64-as-decimal-string on both. The plugin's own vitest spec
 stub the native layer out; its Swift and Kotlin suites test the native side
 without the TypeScript. Only this app joins the two halves.
 
+> **TypeScript platform types** (`references.d.ts`): composed with
+> https://types.nativescript.org/agents — the iOS default `common.d.ts` bundle
+> plus the opt-in frameworks the app's code touches (`objc!UIKit.d.ts`), and the
+> Android API level the app compiles against (`android-35.d.ts`, matching
+> `App_Resources/Android/app.gradle`). When new native types are needed, add the
+> corresponding `/// <reference path="./node_modules/@nativescript/types-*…" />`
+> line from that page instead of going back to the umbrella
+> `@nativescript/types/index.d.ts`. (Note: `skipLibCheck` means `tsc` won't fail
+> if a referenced `.d.ts` is missing — the file mainly serves editors and the
+> `ns` toolchain.)
+
 There is no off-device test run. An earlier version of this app ran the same
 checks on Node's `WebAssembly` engine through a fake of the Android native
 surface; that was removed when the suite moved to mocha-on-device.
