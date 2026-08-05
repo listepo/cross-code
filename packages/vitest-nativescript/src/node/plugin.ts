@@ -1,7 +1,10 @@
 import type { PoolRunnerInitializer, VitestPluginContext } from 'vitest/node';
 import { defaultInclude } from 'vitest/config';
 import type { NativeScriptUnitPluginOptions } from './options.js';
-import { resolveNativeScriptUnitPluginOptions } from './options.js';
+import {
+  resolveNativeScriptUnitPluginOptions,
+  withNativeScriptCoverageLaunchCommand,
+} from './options.js';
 import { NativeScriptPoolWorker } from './pool-worker.js';
 import { WebSocketNativeScriptPoolSession } from './session.js';
 
@@ -25,7 +28,13 @@ export function nativeScriptUnitPlugin(
   return {
     name: 'vitest-nativescript',
     configureVitest({ project }: VitestPluginContext): void {
-      const session = new WebSocketNativeScriptPoolSession(resolved);
+      const session = new WebSocketNativeScriptPoolSession({
+        ...resolved,
+        launchCommand:
+          project.config.coverage?.enabled === true
+            ? withNativeScriptCoverageLaunchCommand(resolved.launchCommand)
+            : resolved.launchCommand,
+      });
       let nextSlot = 0;
 
       const poolRunner: PoolRunnerInitializer = {

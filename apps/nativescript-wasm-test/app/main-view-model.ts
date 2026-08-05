@@ -1,6 +1,6 @@
-import { Observable } from '@nativescript/core'
-import { WamrExecutionTier, WamrRuntime } from '@cross-code/nativescript-wamr'
-import { Wasm3Runtime } from '@cross-code/nativescript-wasm3'
+import { Observable } from '@nativescript/core';
+import { WamrExecutionTier, WamrRuntime } from '@cross-code/nativescript-wamr';
+import { Wasm3Runtime } from '@cross-code/nativescript-wasm3';
 
 import {
   createHostImports,
@@ -11,70 +11,70 @@ import {
   type HostCall,
   type HostImports,
   type WasmModuleLike,
-} from './wasm/fixture-suite'
-import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM } from './wasm/wasm-assets'
+} from './wasm/fixture-suite';
+import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM } from './wasm/wasm-assets';
 
 /**
  * Runs the fixture suite on both of the device's runtimes — wasm3 and WAMR —
  * so the demo page shows the same module behaving identically on each. The
- * checks themselves live in `wasm/fixture-suite.ts`; the mocha specs in
+ * checks themselves live in `wasm/fixture-suite.ts`; the Vitest specs in
  * `app/tests/wasm3/` and `app/tests/wamr/` assert on the same list under
- * `ns test`.
+ * the `vitest-nativescript` worker.
  *
  * WAMR runs on its Interpreter tier here, the one tier available in every
  * build; the specs cover Fast JIT, LLVM JIT and AOT where they are compiled in.
  */
 export class WasmDemoModel extends Observable {
-  private _status: string
-  private _report: string
+  private _status: string;
+  private _report: string;
 
   constructor() {
-    super()
+    super();
 
-    this._status = 'Tap RUN to execute the fixture suite'
-    this._report = ''
+    this._status = 'Tap RUN to execute the fixture suite';
+    this._report = '';
   }
 
   get status(): string {
-    return this._status
+    return this._status;
   }
 
   set status(value: string) {
     if (this._status !== value) {
-      this._status = value
-      this.notifyPropertyChange('status', value)
+      this._status = value;
+      this.notifyPropertyChange('status', value);
     }
   }
 
   get report(): string {
-    return this._report
+    return this._report;
   }
 
   set report(value: string) {
     if (this._report !== value) {
-      this._report = value
-      this.notifyPropertyChange('report', value)
+      this._report = value;
+      this.notifyPropertyChange('report', value);
     }
   }
 
   onRun() {
-    const sections = [runWasm3(), runWamr()]
-    const checks = sections.flatMap((s) => s.checks)
-    const summary = summarize(checks)
+    const sections = [runWasm3(), runWamr()];
+    const checks = sections.flatMap((s) => s.checks);
+    const summary = summarize(checks);
 
     this.status =
       summary.failed === 0
         ? `${summary.passed}/${summary.total} checks passed on both runtimes`
-        : `${summary.failed} of ${summary.total} checks FAILED`
+        : `${summary.failed} of ${summary.total} checks FAILED`;
     this.report = sections
       .map((s) => [s.title, ...s.checks.map(formatCheck)].join('\n'))
-      .join('\n\n')
+      .join('\n\n');
   }
 }
 
 interface Section {
-  title: string
-  checks: Check[]
+  title: string;
+  checks: Check[];
 }
 
 /**
@@ -83,8 +83,8 @@ interface Section {
  * stay runtime-agnostic.
  */
 interface LoaderLike {
-  loadModule(source: string, imports?: HostImports): WasmModuleLike
-  dispose(): void
+  loadModule(source: string, imports?: HostImports): WasmModuleLike;
+  dispose(): void;
 }
 
 /**
@@ -92,38 +92,59 @@ interface LoaderLike {
  * so a runtime whose native layer is missing reports as a failure instead of
  * hiding the other runtime's results.
  */
-function runSection(label: string, version: () => string, create: () => LoaderLike): Section {
-  let title = label
-  const checks: Check[] = []
+function runSection(
+  label: string,
+  version: () => string,
+  create: () => LoaderLike,
+): Section {
+  let title = label;
+  const checks: Check[] = [];
 
   try {
-    title = `── ${label} ${version()} ──`
+    title = `── ${label} ${version()} ──`;
 
-    const fixture = create()
+    const fixture = create();
     try {
-      const log: HostCall[] = []
-      const module = fixture.loadModule(appWasmPath(FIXTURE_WASM), createHostImports(log))
-      checks.push(...runFixtureChecks(module, log))
+      const log: HostCall[] = [];
+      const module = fixture.loadModule(
+        appWasmPath(FIXTURE_WASM),
+        createHostImports(log),
+      );
+      checks.push(...runFixtureChecks(module, log));
     } finally {
-      fixture.dispose()
+      fixture.dispose();
     }
 
-    const globals = create()
+    const globals = create();
     try {
-      checks.push(...runGlobalsChecks(globals.loadModule(appWasmPath(GLOBALS_WASM))))
+      checks.push(
+        ...runGlobalsChecks(globals.loadModule(appWasmPath(GLOBALS_WASM))),
+      );
     } finally {
-      globals.dispose()
+      globals.dispose();
     }
   } catch (error) {
-    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
-    checks.push({ name: `${label} runtime`, expected: 'ran', actual: message, ok: false })
+    const message =
+      error instanceof Error
+        ? `${error.name}: ${error.message}`
+        : String(error);
+    checks.push({
+      name: `${label} runtime`,
+      expected: 'ran',
+      actual: message,
+      ok: false,
+    });
   }
 
-  return { title, checks }
+  return { title, checks };
 }
 
 function runWasm3(): Section {
-  return runSection('wasm3', () => Wasm3Runtime.version(), () => new Wasm3Runtime())
+  return runSection(
+    'wasm3',
+    () => Wasm3Runtime.version(),
+    () => new Wasm3Runtime(),
+  );
 }
 
 function runWamr(): Section {
@@ -136,11 +157,11 @@ function runWamr(): Section {
         wasiEnabled: false,
         executionTier: WamrExecutionTier.Interpreter,
       }),
-  )
+  );
 }
 
 function formatCheck(check: Check): string {
   return check.ok
     ? `✓ ${check.name}`
-    : `✗ ${check.name} — expected ${check.expected}, got ${check.actual}`
+    : `✗ ${check.name} — expected ${check.expected}, got ${check.actual}`;
 }

@@ -36,10 +36,10 @@ Vitest runs. The UI package is optional:
 
 ```bash
 # NativeScript app
-pnpm add @cross-code/vitest-nativescript @nativescript/core
+pnpm add @cross-code/vitest-nativescript @nativescript/core @valor/nativescript-websockets
 
 # Vitest workspace
-pnpm add -D @cross-code/vitest-nativescript vitest @vitest/runner
+pnpm add -D @cross-code/vitest-nativescript vitest @vitest/runner @vitest/coverage-istanbul
 
 # Only when the app displays the optional results page
 pnpm add @cross-code/vitest-nativescript-ui
@@ -91,6 +91,7 @@ Create `app/vitest-nativescript.ts`. Keeping `new Worker()` in application
 source gives the NativeScript bundler a static worker entry to bundle:
 
 ```ts
+import '@valor/nativescript-websockets';
 import { Application } from '@nativescript/core';
 import { NativeScriptVitestCoordinator } from '@cross-code/vitest-nativescript/runtime';
 import { createVitestResultsPage } from '@cross-code/vitest-nativescript-ui';
@@ -107,6 +108,7 @@ void coordinator.start();
 Create `app/vitest-nativescript.worker.ts`:
 
 ```ts
+import '@nativescript/core/globals';
 import {
   createWebpackTestRegistry,
   registerNativeScriptVitestWorker,
@@ -126,6 +128,11 @@ registerNativeScriptVitestWorker({
   registry: createWebpackTestRegistry(tests),
 });
 ```
+
+The WebSocket import must run before the coordinator, and Worker timer globals
+must load before worker registration. Because emulator/simulator transport uses
+local `ws://` URLs, allow cleartext traffic in this test app's Android manifest
+and local networking in its iOS App Transport Security settings.
 
 Then run Vitest normally:
 
@@ -148,6 +155,34 @@ The same test file is selected by Vitest in Node and by the webpack registry in
 the app. Make sure every file matched by `include` is also matched by
 `require.context`; otherwise Vitest can schedule a file that the device cannot
 load. Native test files conventionally use the `.native.test.ts` suffix.
+
+## Code coverage
+
+Use Vitest's Istanbul provider for on-device coverage. NativeScript JavaScript
+runtimes do not expose the V8 coverage APIs, so the webpack helper instruments
+the application bundle only when coverage is enabled. The Worker forwards the
+resulting `globalThis.__VITEST_COVERAGE__` map through Vitest's normal RPC, so
+standard Vitest reporters and thresholds continue to work.
+
+```ts
+export default defineConfig({
+  // plugins: [nativeScriptUnitPlugin(...)],
+  test: {
+    coverage: {
+      provider: 'istanbul',
+      reporter: ['text', 'html', 'lcov'],
+      include: ['app/**/*.ts'],
+      exclude: ['app/**/*.native.spec.ts', 'app/vitest-nativescript*.ts'],
+      // The device bundle can report only modules it loads.
+      all: false,
+    },
+  },
+});
+```
+
+Run `pnpm exec vitest run --coverage`. The plugin automatically adds the
+coverage build flag to the NativeScript launch command. Do not use the `v8`
+coverage provider for a NativeScript device target.
 
 ## Threading guidance
 

@@ -1,143 +1,135 @@
 # nativescript-wasm-test
 
-The test app for [`@cross-code/nativescript-wasm3`](../../packages/nativescript-wasm3)
-and [`@cross-code/nativescript-wamr`](../../packages/nativescript-wamr). It runs the
-WebAssembly fixture from
-[`@cross-code/nativescript-wasm-fixture`](../../packages/nativescript-wasm-fixture)
-two ways, on both of the device's own runtimes — the wasm3 interpreter and WAMR:
+On-device Vitest coverage for
+[`@cross-code/nativescript-wasm3`](../../packages/nativescript-wasm3) and
+[`@cross-code/nativescript-wamr`](../../packages/nativescript-wamr). The app
+runs the shared WebAssembly fixture against the real native runtimes on iOS
+and Android.
 
-- **from the demo page** — tap **RUN** for a per-check pass/fail report;
-- **under mocha** — `ns test ios` / `ns test android`, on a simulator or emulator.
+There are two app modes:
 
-Both execute the *same* checks, from `app/wasm/fixture-suite.ts` — which is
-typed against structural interfaces rather than either plugin, so one suite
-drives both runtimes.
+- The normal demo entry (`app/app.ts`) renders the shared WASM checks when you
+  tap **RUN**.
+- The test entry (`app/vitest-nativescript.ts`) displays the optional
+  `@cross-code/vitest-nativescript-ui` results page while Vitest executes the
+  specs in a NativeScript Worker.
 
+Vitest remains in Node for discovery, scheduling, and CLI reporting. The
+`@cross-code/vitest-nativescript` custom pool sends each selected file over a
+WebSocket to the NativeScript app, where the Worker loads and executes it.
+The test entry imports `@valor/nativescript-websockets` first because
+NativeScript Core does not provide the browser-compatible `WebSocket` global
+used by that host/device connection.
+
+## Layout
+
+```text
+app/vitest-nativescript.ts          test-only app entry and results UI
+app/vitest-nativescript.worker.ts   Worker registry for app/tests/**/*.spec.ts
+app/tests/wasm3/*.spec.ts           Vitest specs for wasm3
+app/tests/wamr/*.spec.ts            Vitest specs for WAMR
+app/wasm/fixture-suite.ts           checks shared by specs and demo page
+app/wasm/wasm-assets.ts             device paths and platform-aware byte reader
+vitest.ios.config.mts               iOS simulator custom-pool config
+vitest.android.config.mts           Android emulator custom-pool config
+webpack.config.js                   fixture copies and test-entry/shim setup
 ```
-app/wasm/fixture-suite.ts   the checks, shared by the demo page and the specs
-app/wasm/wasm-assets.ts     where webpack puts the .wasm files in the bundle
-app/main-view-model.ts      the demo page: runs the suite on both runtimes
-app/test.ts                 unit-test entry point (require.context over **/*.spec.ts)
-app/tests/wasm3/*.spec.ts   the mocha specs for @cross-code/nativescript-wasm3
-app/tests/wamr/*.spec.ts    the mocha specs for @cross-code/nativescript-wamr
-karma.conf.js               mocha + chai frameworks, NativeScript launchers
-```
 
-## Unit tests
+The webpack helper changes the bundle entry and aliases bare `vitest` imports
+only when `--env.vitestNativeScript` is present. Production/demo builds still
+start from `app/app.ts` and do not include the specs.
+
+## Run tests
+
+From the repository root:
 
 ```bash
-npm run test.ios
+pnpm exec nx run nativescript-wasm-test:typecheck
+pnpm exec nx run nativescript-wasm-test:test.ios
+pnpm exec nx run nativescript-wasm-test:test.android
+pnpm exec nx run nativescript-wasm-test:test.ios.coverage
+pnpm exec nx run nativescript-wasm-test:test.android.coverage
 ```
 
+Or from this directory:
+
 ```bash
-npm run test.android
+pnpm run test.ios
+pnpm run test.android
+pnpm run test.ios:coverage
+pnpm run test.android:coverage
 ```
 
-or, from the workspace root, `npx nx test.ios nativescript-wasm-test`.
+Both Vitest configs launch an emulator/simulator through the project-local
+NativeScript CLI. They currently use one NativeScript Worker, which keeps
+native runtime state isolated from the UI thread and avoids concurrent access
+to plugin/native singletons. Increase `workers` only for tests known to be
+thread-safe.
 
-Both use `--emulator`. To pick a specific simulator or device, call the CLI
-directly — `--device` and `--emulator` cannot be combined:
+To select a physical device, replace the `launchCommand` in the relevant
+Vitest config with the normal `npx ns run <platform> --device <id>` arguments
+and set the coordinator `url` to a WebSocket address reachable from that
+device.
 
-```bash
-ns test ios --device 73F3C71E-982C-4C2A-9AE3-CE75BC8FA2A2
-```
+## Code coverage
 
-The specs load the real `test_types_bg.wasm` and `globals.wasm` and drive them
-through each plugin's public API — `Wasm3Runtime` / `Wasm3Module` /
-`Wasm3Function` under `app/tests/wasm3/`, and `WamrRuntime` / `WamrModule` /
-`WamrFunction` under `app/tests/wamr/`.
+Coverage runs execute the same device suite and use Istanbul instrumentation,
+because NativeScript's JavaScript runtimes do not provide V8 coverage. Passing
+`--coverage` automatically adds the coverage-only webpack flag; ordinary test
+runs stay uninstrumented.
 
-Covered by both:
+The reports are written separately by platform:
 
-- every value type in both directions, including i64 values past 2^53 that only
-  survive because the bridge carries them as decimal strings;
-- host imports — arguments arrive as the JS type the signature declares, and
-  host return values flow back into wasm;
-- exported globals of all four types, read and written;
-- linear memory shared between wasm and the host;
-- loading a module from a path *and* from bytes;
-- error mapping (`Wasm3Error` / `WamrError`, with the Java exception prefix
-  stripped), missing exports, and imports left unlinked — which wasm3 reports at
-  `findFunction`, because it compiles lazily.
+- `test-output/vitest/coverage/ios/index.html`
+- `test-output/vitest/coverage/android/index.html`
 
-WAMR adds, on top of that:
+Each report covers executed application sources under `app/`, excluding test
+files and the NativeScript Vitest bootstrap files. `all` is deliberately
+disabled: the device bundle supplies runtime coverage only for files it loads.
 
-- **execution tiers**: Interpreter (default), Fast JIT, LLVM JIT, and AOT —
-  selectable via `WamrExecutionTier` in `WamrRuntimeOptions`. Tiers that are not
-  compiled into the native build are skipped rather than failed;
-- **WASI support** — the `wasiEnabled` runtime option, on its own and combined
-  with each tier;
-- **custom stack sizes** — `stackSizeInBytes`.
+## Behavioral coverage
 
-Calls into the fixture go through `callFixture()`, which types its arguments
-and result from the `.d.ts` wasm-pack generates from the Rust source
-(`@cross-code/nativescript-wasm-fixture/types`) — so passing a `number` where the Rust
-function takes an `i64` is a compile error, not a runtime surprise.
+Both plugins are tested for:
 
-This is the only suite where either plugin's TypeScript adapters meet the real
-native layer. The native code on its own is covered by each plugin's XCTest and
-JUnit suites; the marshalling logic on its own by each plugin's vitest specs.
+- all WebAssembly value types, including lossless i64 values beyond 2^53;
+- host imports and host return values;
+- mutable exported globals;
+- shared linear memory;
+- loading modules from paths and bytes;
+- native error mapping, missing exports, and unlinked imports;
+- repeat-safe runtime disposal.
 
-Type-check without a device:
+WAMR adds execution-tier, WASI, stack-size, and input-shape coverage. Optional
+tiers are exercised when available in the native build.
 
-```bash
-npx nx typecheck nativescript-wasm-test
-```
+Calls into the fixture go through `callFixture()`, whose parameters and return
+values come from the wasm-pack-generated
+`@cross-code/nativescript-wasm-fixture/types` declarations.
 
-## Running the demo page
+## Local package wiring
 
-```bash
-npm install                       # in this directory — links the three @cross-code packages
-ns run ios
-ns run android
-```
-
-`webpack.config.js` copies the fixture binaries into the bundle as
-`wasm/test_types.wasm` and `wasm/globals.wasm`.
-
-If the fixture binaries are missing, rebuild them:
+This app intentionally has its own pnpm workspace and `node_modules`. The five
+local `@cross-code/*` dependencies use `file:` references. If a local package's
+compiled `dist` changes, rebuild it through Nx and refresh this app install:
 
 ```bash
-npm run build.wasm --prefix ../../packages/nativescript-wasm-fixture
+pnpm install --force
 ```
 
 ## Troubleshooting
 
-**macOS: "Your environment is not configured properly"** — `ns doctor` runs
-`pod --version`, which prints a locale warning when `LANG` is unset that the CLI
-reports as a broken CocoaPods install. Export `LANG=en_US.UTF-8`. (The plugin
-ships a Swift package and needs no pods.)
-
-**iOS: "the package at … `platforms/ios/NSCWasm3` cannot be accessed"** (or
-`NSCWamr`) — a stale `platforms/ios` from before the plugin's SPM path was made
-absolute. Delete `platforms/` and re-run.
-
-**Android: "Cannot find a compatible Android SDK for compilation"** — the CLI
-supports up to `android-36`. Install it:
-`sdkmanager "platforms;android-36"`.
-
-**Android: `Could not find :library-release:`** — the CLI scanned the plugin's
-Gradle intermediates. Clean them and this app's generated project:
-
-```bash
-rm -rf ../../packages/nativescript-wasm3/platforms/android/wasm3-android/{,*/}build platforms/android
-rm -rf ../../packages/nativescript-wamr/platforms/android/wamr-android/{,*/}build platforms/android
-```
-
-**Android: "native runtime not found — is the plugin installed and the app
-rebuilt?"** — known failure, and rebuilding will not help. NativeScript's
-metadata generator skips the plugin's Kotlin classes because they are compiled
-with a newer Kotlin than it supports, so they never become visible to
-JavaScript. Check `platforms/android/build-tools/buildMetadata.log` for
-`Skip org.nativescript.wasm3.*`, and see the plugin's AGENTS.md.
-
-**WAMR specs fail with "native runtime not found"** — the WAMR plugin was not
-previously shipped in a state the CLI could consume: it lacked the
-`"nativescript"` field (added in commit 812d7da), so the CLI did not recognise
-it as a plugin and did not add its `NSCWamr` Swift package to the Xcode
-project. If the error persists, rebuild the app from a clean `platforms/`
-directory and see `packages/nativescript-wamr/AGENTS.md`.
+- Export `LANG=en_US.UTF-8` if NativeScript reports a broken CocoaPods setup on
+  macOS.
+- Install Android SDK platform 36 if `ns doctor` cannot find a compatible SDK.
+- If an old generated native project contains stale plugin metadata, remove
+  this app's generated `platforms/<platform>` directory and rerun the target.
+- The host and device communicate on port `17878`. Do not run the iOS and
+  Android targets concurrently unless they use different ports.
+- `vitest-nativescript` currently supports one-shot `vitest run`; watch/HMR,
+  `vi` mocks/fake timers, snapshots, and component testing are not implemented.
 
 ## See also
 
-- [top-level README](../../README.md) — monorepo overview, test commands, and the shared plugin API.
+- [`@cross-code/vitest-nativescript`](../../packages/vitest-nativescript/README.md)
+- [`@cross-code/vitest-nativescript-ui`](../../packages/vitest-nativescript-ui/README.md)
+- [Workspace README](../../README.md)

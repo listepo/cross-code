@@ -4,38 +4,33 @@
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@11.20.0",
-  "description": "NativeScript test app for @cross-code/nativescript-wasm3 and @cross-code/nativescript-wamr — runs the @cross-code/nativescript-wasm-fixture WebAssembly module on a simulator/emulator against both runtimes, from a demo page and under mocha.",
+  "description": "NativeScript test app for @cross-code/nativescript-wasm3 and @cross-code/nativescript-wamr — runs the shared WebAssembly fixture on-device with Vitest.",
   "scripts": {
-    "test.ios": "ns test ios --emulator",
-    "test.android": "ns test android --emulator"
+    "test.ios": "vitest run --config vitest.ios.config.mts",
+    "test.android": "vitest run --config vitest.android.config.mts",
+    "test.ios:coverage": "vitest run --coverage --config vitest.ios.config.mts",
+    "test.android:coverage": "vitest run --coverage --config vitest.android.config.mts"
   },
   "dependencies": {
-    "@nativescript/core": "~9.0.0",
-    "@nativescript/theme": "^3.1.0",
-    "@nativescript/unit-test-runner": "^4.0.1",
+    "@cross-code/nativescript-wamr": "file:../../packages/nativescript-wamr",
     "@cross-code/nativescript-wasm-fixture": "file:../../packages/nativescript-wasm-fixture",
     "@cross-code/nativescript-wasm3": "file:../../packages/nativescript-wasm3",
-    "@cross-code/nativescript-wamr": "file:../../packages/nativescript-wamr"
+    "@cross-code/vitest-nativescript": "file:../../packages/vitest-nativescript",
+    "@cross-code/vitest-nativescript-ui": "file:../../packages/vitest-nativescript-ui",
+    "@nativescript/core": "~9.0.0",
+    "@nativescript/theme": "^3.1.0",
+    "@valor/nativescript-websockets": "2.0.3"
   },
   "devDependencies": {
-    "@jsdevtools/coverage-istanbul-loader": "3.0.5",
     "@nativescript/android": "9.0.5",
     "@nativescript/ios": "9.0.3",
     "@nativescript/types": "~9.0.0",
     "@nativescript/webpack": "~5.0.25",
-    "@types/chai": "^4.3.20",
-    "@types/karma-chai": "0.1.8",
-    "@types/mocha": "^10.0.10",
-    "chai": "^4.5.0",
-    "karma": "6.4.4",
-    "karma-chai": "0.1.0",
-    "karma-coverage": "2.2.1",
-    "karma-mocha": "2.0.1",
-    "karma-nativescript-launcher": "1.0.0",
-    "mocha": "11.7.5",
-    "nyc": "18.0.0",
+    "@vitest/coverage-istanbul": "~4.1.10",
+    "@vitest/runner": "~4.1.10",
     "postcss-loader": "8.2.1",
     "ts-loader": "9.6.2",
-    "typescript": "~6.0.0"
+    "typescript": "~6.0.0",
+    "vitest": "~4.1.10"
   }
 }

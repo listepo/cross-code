@@ -73,14 +73,14 @@ jobs:
 
       # The NativeScript app is not a pnpm workspace member (it has its own
       # pnpm-workspace.yaml) — the CLI needs its own node_modules — and its
-      # typecheck resolves @nativescript/types, @types/mocha and TypeScript
+      # typecheck resolves @nativescript/types, Vitest and TypeScript
       # from there.
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
         run: pnpm install --frozen-lockfile
 
-      # nativescript-wasm3: 26 vitest specs, plus the typecheck of all three
-      # projects — including the test app's mocha specs, which are type-checked
+      # Vitest specs plus the typecheck of all projects — including the test
+      # app's NativeScript specs, which are type-checked
       # here even though they can only run on a device.
       - name: Vitest + typecheck
         run: pnpm exec nx run-many -t test typecheck
@@ -176,6 +176,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -213,7 +215,6 @@ jobs:
       # compile wasm3, so the native build needs Node and the root node_modules.
       - uses: pnpm/action-setup@v4
 
-
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -248,7 +249,7 @@ jobs:
           name: wasm3-android-test-report
           path: packages/nativescript-wasm3/platforms/android/wasm3-android/hosttest/build/reports/tests/test
 
-  # The test app's mocha suite, on a simulator and an emulator. This is the only
+  # The test app's Vitest suite, on a simulator and an emulator. This is the only
   # place the plugin's TypeScript adapters run against the real native layer —
   # the NSData/NSArray marshalling on iOS, the signed byte[] handling on Android
   # — so it covers what neither the Swift/Kotlin suites nor a Node runner can.
@@ -260,6 +261,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v5
         with:
@@ -357,7 +360,7 @@ jobs:
           name: wamr-android-test-report
           path: packages/nativescript-wamr/platforms/android/wamr-android/hosttest/build/reports/tests/test
 
-  # The test app's mocha suite, on a simulator and an emulator. This is the only
+  # The test app's Vitest suite, on a simulator and an emulator. This is the only
   # place the plugin's TypeScript adapters run against the real native layer —
   # the NSData/NSArray marshalling on iOS, the signed byte[] handling on Android
   # — so it covers what neither the Swift/Kotlin suites nor a Node runner can.
@@ -392,11 +395,11 @@ jobs:
       # `ns doctor` shells out to `pod --version`, which prints a locale warning
       # the CLI treats as a failed CocoaPods check unless LANG is a UTF-8 one.
       # The plugin itself needs no pods — it ships a Swift package.
-      - name: Mocha specs on the iOS Simulator
+      - name: Vitest specs on the iOS Simulator
         working-directory: .
         env:
           LANG: en_US.UTF-8
-        run: pnpm exec sh -c 'cd apps/nativescript-wasm-test && ns test ios --emulator'
+        run: pnpm exec nx run nativescript-wasm-test:test.ios
 
   wasm-test-android:
     needs: changes
@@ -419,7 +422,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build the plugin
-        run: pnpm exec nx run nativescript-wasm3:build
+        run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr
 
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
@@ -428,7 +431,7 @@ jobs:
       - uses: actions/setup-java@v4.9.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       # Lets the emulator use hardware acceleration on the GitHub runner.
       - name: Enable KVM
@@ -438,12 +441,11 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # The wasm3 plugin ships a prebuilt .aar with its .so files.
-      # WAMR tests will fail at runtime without it (known: continue-on-error).
-      - name: Mocha specs on the Android emulator
+      # Both plugins ship prebuilt .aar files with their .so files.
+      - name: Vitest specs on the Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
           arch: x86_64
           working-directory: .
-          script: pnpm exec sh -c 'cd apps/nativescript-wasm-test && ns test android --emulator'
+          script: pnpm exec nx run nativescript-wasm-test:test.android

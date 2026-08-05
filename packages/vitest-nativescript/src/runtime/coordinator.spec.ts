@@ -7,6 +7,7 @@ import {
 } from './coordinator.js';
 
 class FakeSocket implements NativeScriptWebSocketHandle {
+  readyState = 0;
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: unknown }) => void) | null = null;
   onerror: ((event: { message?: string }) => void) | null = null;
@@ -22,6 +23,7 @@ class FakeSocket implements NativeScriptWebSocketHandle {
   }
 
   open(): void {
+    this.readyState = 1;
     this.onopen?.();
   }
 
@@ -46,6 +48,39 @@ class FakeWorker implements NativeScriptWorkerHandle {
 }
 
 describe('NativeScriptVitestCoordinator', () => {
+  it('starts when a NativeScript socket opened during construction', async () => {
+    const socket = new FakeSocket();
+    socket.readyState = 1;
+    const coordinator = new NativeScriptVitestCoordinator({
+      createSocket: () => socket,
+      createWorker: () => new FakeWorker(),
+    });
+
+    await coordinator.start();
+
+    expect(flatParse(socket.sent[0] ?? '')).toMatchObject({ kind: 'hello' });
+  });
+
+  it('detects a polyfill that changes readyState without firing onopen', async () => {
+    vi.useFakeTimers();
+    try {
+      const socket = new FakeSocket();
+      const coordinator = new NativeScriptVitestCoordinator({
+        createSocket: () => socket,
+        createWorker: () => new FakeWorker(),
+      });
+
+      const started = coordinator.start();
+      socket.readyState = 1;
+      await vi.advanceTimersByTimeAsync(25);
+      await started;
+
+      expect(flatParse(socket.sent[0] ?? '')).toMatchObject({ kind: 'hello' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('multiplexes pool traffic across isolated worker slots', async () => {
     const socket = new FakeSocket();
     const workers: FakeWorker[] = [];
@@ -65,6 +100,9 @@ describe('NativeScriptVitestCoordinator', () => {
 
     socket.receive({ kind: 'configure', protocol: 1, workers: 2 });
     expect(workers).toHaveLength(2);
+    expect(workers[1]?.messages).toEqual([]);
+
+    workers[1]?.emit({ kind: 'runtime-ready' });
     expect(workers[1]?.messages).toEqual([{ kind: 'start', slot: 1 }]);
 
     workers[1]?.emit({ kind: 'worker-ready', slot: 1 });

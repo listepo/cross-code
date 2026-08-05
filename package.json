@@ -2,7 +2,10 @@
   "name": "@cross-code/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "clean.cache": "node tools/clean.mjs",
+    "clean.cache:all": "node tools/clean.mjs --all"
+  },
   "private": true,
   "packageManager": "pnpm@11.20.0",
   "devDependencies": {

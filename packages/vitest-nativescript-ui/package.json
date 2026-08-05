@@ -29,13 +29,14 @@
     "name": "vitest-nativescript-ui"
   },
   "dependencies": {
-    "@cross-code/vitest-nativescript": "workspace:*",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
+    "@cross-code/vitest-nativescript": "workspace:*",
     "@nativescript/core": "^9.0.20"
   },
   "peerDependencies": {
+    "@cross-code/vitest-nativescript": "^0.0.1",
     "@nativescript/core": "^9.0.20"
   }
 }

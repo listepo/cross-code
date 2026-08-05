@@ -1,9 +1,11 @@
-import { Color } from '@nativescript/core/color/index.js';
-import { GridLayout } from '@nativescript/core/ui/layouts/grid-layout/index.js';
-import { StackLayout } from '@nativescript/core/ui/layouts/stack-layout/index.js';
-import { Label } from '@nativescript/core/ui/label/index.js';
-import { Page } from '@nativescript/core/ui/page/index.js';
-import { ScrollView } from '@nativescript/core/ui/scroll-view/index.js';
+import {
+  Color,
+  GridLayout,
+  Label,
+  Page,
+  ScrollView,
+  StackLayout,
+} from '@nativescript/core';
 import type { NativeScriptTestEventSource } from '@cross-code/vitest-nativescript/protocol';
 import {
   NativeScriptTestResultModel,

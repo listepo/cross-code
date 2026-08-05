@@ -17,14 +17,19 @@ interface ErrorEventLike {
   message?: string;
 }
 
+type EventHandler<Event> = {
+  bivarianceHack(event: Event): void;
+}['bivarianceHack'];
+
 export interface NativeScriptWorkerHandle {
-  onmessage: ((event: MessageEventLike) => void) | null;
-  onerror: ((event: ErrorEventLike) => void) | null;
+  onmessage: EventHandler<MessageEventLike> | null;
+  onerror: EventHandler<ErrorEventLike> | null;
   postMessage(message: unknown): void;
   terminate(): void;
 }
 
 export interface NativeScriptWebSocketHandle {
+  readonly readyState?: number;
   onopen: (() => void) | null;
   onmessage: ((event: MessageEventLike) => void) | null;
   onerror: ((event: ErrorEventLike) => void) | null;
@@ -99,22 +104,44 @@ export class NativeScriptVitestCoordinator implements NativeScriptTestEventSourc
     this.socket = socket;
 
     return new Promise<void>((resolve, reject) => {
-      socket.onopen = () => {
+      let opened = false;
+      let openPoll: ReturnType<typeof setInterval> | undefined;
+      const clearOpenPoll = (): void => {
+        if (openPoll !== undefined) clearInterval(openPoll);
+        openPoll = undefined;
+      };
+      const handleOpen = (): void => {
+        if (opened) return;
+        opened = true;
+        clearOpenPoll();
         this.sendWire({
           kind: 'hello',
           protocol: NATIVE_SCRIPT_VITEST_PROTOCOL_VERSION,
         });
         resolve();
       };
+      socket.onopen = handleOpen;
       socket.onmessage = (event) => this.onSocketMessage(event.data);
       socket.onerror = (event) => {
+        clearOpenPoll();
         const message = event.message ?? 'NativeScript Vitest socket failed';
         this.emit({ type: 'worker-error', worker: 0, message });
         reject(new Error(message));
       };
       socket.onclose = () => {
+        clearOpenPoll();
         this.socket = undefined;
+        if (!opened) reject(new Error('NativeScript Vitest socket closed'));
       };
+      // Browser WebSockets always dispatch `open` asynchronously, but some
+      // NativeScript polyfills can finish a loopback connection in their
+      // constructor before the coordinator assigns `onopen`.
+      if (socket.readyState === 1) handleOpen();
+      else if (socket.readyState !== undefined) {
+        openPoll = setInterval(() => {
+          if (socket.readyState === 1) handleOpen();
+        }, 25);
+      }
     });
   }
 
@@ -152,13 +179,16 @@ export class NativeScriptVitestCoordinator implements NativeScriptTestEventSourc
         });
       };
       this.workers.set(slot, worker);
-      worker.postMessage({ kind: 'start', slot });
     }
   }
 
   private onWorkerMessage(slot: number, message: unknown): void {
     if (!isRecord(message) || typeof message.kind !== 'string') return;
 
+    if (message.kind === 'runtime-ready') {
+      this.workers.get(slot)?.postMessage({ kind: 'start', slot });
+      return;
+    }
     if (message.kind === 'worker-ready') {
       this.sendWire({ kind: 'worker-ready', slot });
       return;

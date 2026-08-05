@@ -19,7 +19,8 @@ locator, screenshot, and end-to-end features belong elsewhere.
 - `src/runtime/runner.ts` adapts `@vitest/runner`; `src/runtime/shim.ts` is the
   device-safe implementation behind bare `vitest` imports.
 - `webpack.cjs` adds the test entry and aliases only for the explicit
-  `vitestNativeScript` build.
+  `vitestNativeScript` build. It applies Istanbul instrumentation only when
+  Vitest enables coverage.
 
 ## Invariants
 
@@ -34,6 +35,9 @@ locator, screenshot, and end-to-end features belong elsewhere.
   session. Add focused protocol tests for new message types.
 - The runner supports unit-test APIs only. `vi` mocks/fake timers, watch/HMR,
   snapshots, and component testing are currently out of scope.
+- On-device coverage must use `@vitest/coverage-istanbul`, not the V8 provider.
+  The Worker sends `globalThis.__VITEST_COVERAGE__` using Vitest's
+  `onAfterSuiteRun` RPC after each device run.
 
 ## Verification
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveNativeScriptUnitPluginOptions } from './options.js';
+import {
+  resolveNativeScriptUnitPluginOptions,
+  withNativeScriptCoverageLaunchCommand,
+} from './options.js';
 
 describe('resolveNativeScriptUnitPluginOptions', () => {
   it('builds a supported local NativeScript CLI command', () => {
@@ -35,5 +38,20 @@ describe('resolveNativeScriptUnitPluginOptions', () => {
     expect(() =>
       resolveNativeScriptUnitPluginOptions({ platform: 'android', port: 0 }),
     ).toThrow(RangeError);
+  });
+
+  it('adds the coverage build flag without changing the original command', () => {
+    const command = { command: 'npx', args: ['ns', 'run', 'ios'] };
+
+    const coverageCommand = withNativeScriptCoverageLaunchCommand(command);
+
+    expect(coverageCommand).toEqual({
+      command: 'npx',
+      args: ['ns', 'run', 'ios', '--env.vitestNativeScriptCoverage'],
+    });
+    expect(command.args).toEqual(['ns', 'run', 'ios']);
+    expect(withNativeScriptCoverageLaunchCommand(coverageCommand)).toBe(
+      coverageCommand,
+    );
   });
 });
