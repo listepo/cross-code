@@ -6,6 +6,7 @@
  * cannot. The Rust unit tests in the fixture package check that encoding;
  * these check what the plugin makes of it.
  */
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   WamrError,
   WamrRuntime,
@@ -40,37 +41,39 @@ describe('globals.wasm through @cross-code/nativescript-wamr', () => {
     const summary = summarize(runGlobalsChecks(module));
 
     expect(
-      summary.failures.map((c) => `${c.name}: expected ${c.expected}, got ${c.actual}`),
-    ).to.eql([]);
-    expect(summary.total).to.equal(8);
+      summary.failures.map(
+        (c) => `${c.name}: expected ${c.expected}, got ${c.actual}`,
+      ),
+    ).toEqual([]);
+    expect(summary.total).toBe(8);
   });
 
   it('reads the initializers the generator wrote', () => {
-    expect(module.getGlobal('g_i32')).to.equal(42);
-    expect(module.getGlobal('g_i64')).to.equal(4294967296n);
-    expect(module.getGlobal('g_f32')).to.equal(1.5);
-    expect(module.getGlobal('g_f64')).to.equal(3.14);
+    expect(module.getGlobal('g_i32')).toBe(42);
+    expect(module.getGlobal('g_i64')).toBe(4294967296n);
+    expect(module.getGlobal('g_f32')).toBe(1.5);
+    expect(module.getGlobal('g_f64')).toBe(3.14);
   });
 
   it('returns i64 globals as bigint, everything else as number', () => {
-    expect(typeof module.getGlobal('g_i64')).to.equal('bigint');
-    expect(typeof module.getGlobal('g_i32')).to.equal('number');
-    expect(typeof module.getGlobal('g_f64')).to.equal('number');
+    expect(typeof module.getGlobal('g_i64')).toBe('bigint');
+    expect(typeof module.getGlobal('g_i32')).toBe('number');
+    expect(typeof module.getGlobal('g_f64')).toBe('number');
   });
 
   it('writes i64 globals without losing precision', () => {
     module.setGlobal('g_i64', 9223372036854775807n);
-    expect(module.getGlobal('g_i64')).to.equal(9223372036854775807n);
+    expect(module.getGlobal('g_i64')).toBe(9223372036854775807n);
 
     // A decimal string is accepted too — it is what crosses the bridge.
     module.setGlobal('g_i64', '-9223372036854775808');
-    expect(module.getGlobal('g_i64')).to.equal(-9223372036854775808n);
+    expect(module.getGlobal('g_i64')).toBe(-9223372036854775808n);
   });
 
   it('reports an unknown global as a WamrError', () => {
-    expect(() => module.getGlobal('nope')).to.throw(WamrError);
-    expect(() => module.getGlobal('nope')).to.throw(/global not found: nope/);
-    expect(() => module.setGlobal('nope', 1)).to.throw(WamrError);
+    expect(() => module.getGlobal('nope')).toThrow(WamrError);
+    expect(() => module.getGlobal('nope')).toThrow(/global not found: nope/);
+    expect(() => module.setGlobal('nope', 1)).toThrow(WamrError);
   });
 
   // ── Execution tier coverage for globals ────────────────────────────────
@@ -105,7 +108,9 @@ describe('globals.wasm through @cross-code/nativescript-wamr', () => {
 
           // Initial values
           if (m.getGlobal('g_i32') !== 42) {
-            failures.push(`${tierName}: g_i32 initial expected 42, got ${m.getGlobal('g_i32')}`);
+            failures.push(
+              `${tierName}: g_i32 initial expected 42, got ${m.getGlobal('g_i32')}`,
+            );
           }
           if (m.getGlobal('g_i64') !== 4294967296n) {
             failures.push(`${tierName}: g_i64 initial mismatch`);
@@ -126,7 +131,7 @@ describe('globals.wasm through @cross-code/nativescript-wamr', () => {
         }
       }
 
-      expect(failures, `tier failures:\n${failures.join('\n')}`).to.eql([]);
+      expect(failures, `tier failures:\n${failures.join('\n')}`).toEqual([]);
     });
   });
 
@@ -142,16 +147,16 @@ describe('globals.wasm through @cross-code/nativescript-wamr', () => {
       try {
         const m = rt.loadModule(appWasmPath(GLOBALS_WASM));
 
-        expect(m.getGlobal('g_i32')).to.equal(42);
-        expect(m.getGlobal('g_i64')).to.equal(4294967296n);
-        expect(m.getGlobal('g_f32')).to.equal(1.5);
-        expect(m.getGlobal('g_f64')).to.equal(3.14);
+        expect(m.getGlobal('g_i32')).toBe(42);
+        expect(m.getGlobal('g_i64')).toBe(4294967296n);
+        expect(m.getGlobal('g_f32')).toBe(1.5);
+        expect(m.getGlobal('g_f64')).toBe(3.14);
 
         m.setGlobal('g_i32', -7);
-        expect(m.getGlobal('g_i32')).to.equal(-7);
+        expect(m.getGlobal('g_i32')).toBe(-7);
 
         m.setGlobal('g_i64', 9007199254740993n);
-        expect(m.getGlobal('g_i64')).to.equal(9007199254740993n);
+        expect(m.getGlobal('g_i64')).toBe(9007199254740993n);
       } finally {
         rt.dispose();
       }
@@ -166,18 +171,20 @@ describe('globals.wasm through @cross-code/nativescript-wamr', () => {
           executionTier: WamrExecutionTier.FastJIT,
         });
       } catch (err) {
-        expect((err as Error).message).to.match(/not compiled|unsupported|tier/i);
+        expect((err as Error).message).toMatch(
+          /not compiled|unsupported|tier/i,
+        );
         return;
       }
 
       try {
         const m = rt.loadModule(appWasmPath(GLOBALS_WASM));
 
-        expect(m.getGlobal('g_i32')).to.equal(42);
-        expect(m.getGlobal('g_i64')).to.equal(4294967296n);
+        expect(m.getGlobal('g_i32')).toBe(42);
+        expect(m.getGlobal('g_i64')).toBe(4294967296n);
 
         m.setGlobal('g_i64', -1n);
-        expect(m.getGlobal('g_i64')).to.equal(-1n);
+        expect(m.getGlobal('g_i64')).toBe(-1n);
       } finally {
         rt.dispose();
       }

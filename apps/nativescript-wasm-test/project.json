@@ -16,11 +16,13 @@
         "{projectRoot}/references.d.ts",
         "{projectRoot}/tsconfig.json",
         "{projectRoot}/tsconfig.spec.json",
+        "{projectRoot}/vitest.*.config.mts",
+        "{projectRoot}/webpack.config.js",
         "^production"
       ]
     },
     "test.ios": {
-      "command": "ns test ios --emulator",
+      "command": "pnpm run test.ios",
       "options": {
         "cwd": "{projectRoot}"
       },
@@ -28,7 +30,7 @@
       "cache": false
     },
     "test.android": {
-      "command": "ns test android --emulator",
+      "command": "pnpm run test.android",
       "options": {
         "cwd": "{projectRoot}"
       },

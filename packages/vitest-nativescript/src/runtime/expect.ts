@@ -1,20 +1,21 @@
-import * as chaiModule from 'chai';
+import './web-event-polyfill.js';
+import { chai as assertionLibrary } from '@vitest/expect';
 import * as vitestExpectModule from '@vitest/expect';
 
-type ChaiPlugin = (chai: unknown, utils: unknown) => void;
+type AssertionPlugin = (library: unknown, utils: unknown) => void;
 
-interface ChaiRuntime {
+interface AssertionRuntime {
   config: { useProxy: boolean };
-  use(plugin: ChaiPlugin): void;
+  use(plugin: AssertionPlugin): void;
   expect: NativeScriptExpect & {
     extend(expect: unknown, matchers: Record<string, unknown>): void;
   };
 }
 
 interface VitestExpectRuntime {
-  JestChaiExpect: ChaiPlugin;
-  JestAsymmetricMatchers: ChaiPlugin;
-  JestExtend: ChaiPlugin;
+  JestChaiExpect: AssertionPlugin;
+  JestAsymmetricMatchers: AssertionPlugin;
+  JestExtend: AssertionPlugin;
   GLOBAL_EXPECT: symbol;
   JEST_MATCHERS_OBJECT: symbol;
   ASYMMETRIC_MATCHERS_OBJECT: symbol;
@@ -30,7 +31,7 @@ export interface NativeScriptExpect {
   [key: string]: unknown;
 }
 
-const chai = chaiModule as unknown as ChaiRuntime;
+const assertionRuntime = assertionLibrary as unknown as AssertionRuntime;
 const vitestExpect = vitestExpectModule as unknown as VitestExpectRuntime;
 let currentExpect: NativeScriptExpect | undefined;
 
@@ -48,26 +49,27 @@ export function setupNativeScriptExpect(): NativeScriptExpect {
     symbolGlobals[vitestExpect.ASYMMETRIC_MATCHERS_OBJECT] = {};
   }
 
-  chai.config.useProxy = false;
-  chai.use(vitestExpect.JestChaiExpect);
-  chai.use(vitestExpect.JestAsymmetricMatchers);
-  chai.use(vitestExpect.JestExtend);
+  assertionRuntime.config.useProxy = false;
+  assertionRuntime.use(vitestExpect.JestChaiExpect);
+  assertionRuntime.use(vitestExpect.JestAsymmetricMatchers);
+  assertionRuntime.use(vitestExpect.JestExtend);
 
   const expect = ((actual: unknown, message?: string): unknown => {
     const state = vitestExpect.getState(expect);
     const assertionCalls = Number(state.assertionCalls ?? 0);
     vitestExpect.setState({ assertionCalls: assertionCalls + 1 }, expect);
-    return chai.expect(actual, message);
+    return assertionRuntime.expect(actual, message);
   }) as NativeScriptExpect;
 
-  Object.assign(expect, chai.expect);
+  Object.assign(expect, assertionRuntime.expect);
   Object.assign(
     expect,
     symbolGlobals[vitestExpect.ASYMMETRIC_MATCHERS_OBJECT] as object,
   );
   expect.getState = () => vitestExpect.getState(expect);
   expect.setState = (state) => vitestExpect.setState(state, expect);
-  expect.extend = (matchers) => chai.expect.extend(expect, matchers);
+  expect.extend = (matchers) =>
+    assertionRuntime.expect.extend(expect, matchers);
   vitestExpect.setState(
     {
       assertionCalls: 0,

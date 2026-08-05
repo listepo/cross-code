@@ -58,13 +58,11 @@
   "dependencies": {
     "@vitest/expect": "~4.1.10",
     "birpc": "^2.9.0",
-    "chai": "^6.2.2",
     "flatted": "^3.4.4",
     "tslib": "^2.3.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@types/chai": "^5.2.3",
     "@types/ws": "^8.18.1",
     "@vitest/runner": "~4.1.10",
     "vitest": "~4.1.10"

@@ -79,9 +79,6 @@ importers:
       birpc:
         specifier: ^2.9.0
         version: 2.9.0
-      chai:
-        specifier: ^6.2.2
-        version: 6.2.2
       flatted:
         specifier: ^3.4.4
         version: 3.4.4
@@ -92,9 +89,6 @@ importers:
         specifier: ^8.18.3
         version: 8.18.3
     devDependencies:
-      '@types/chai':
-        specifier: ^5.2.3
-        version: 5.2.3
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -107,13 +101,13 @@ importers:
 
   packages/vitest-nativescript-ui:
     dependencies:
-      '@cross-code/vitest-nativescript':
-        specifier: workspace:*
-        version: link:../vitest-nativescript
       tslib:
         specifier: ^2.3.0
         version: 2.8.1
     devDependencies:
+      '@cross-code/vitest-nativescript':
+        specifier: workspace:*
+        version: link:../vitest-nativescript
       '@nativescript/core':
         specifier: ^9.0.20
         version: 9.0.20

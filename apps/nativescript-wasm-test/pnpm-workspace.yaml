@@ -5,10 +5,8 @@
 packages: []
 
 # pnpm 11 blocks dependency build scripts by default (ERR_PNPM_IGNORED_BUILDS).
-# @nativescript/unit-test-runner's postinstall generates the hooks/ dir the
-# mocha suite needs; the rest ship native binaries / CLI glue.
+# These packages ship native binaries or CLI glue used by the app build.
 allowBuilds:
   '@nativescript/core': true
-  '@nativescript/unit-test-runner': true
   '@parcel/watcher': true
   'core-js-pure': true

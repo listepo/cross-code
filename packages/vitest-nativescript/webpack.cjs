@@ -31,12 +31,19 @@ function configureNativeScriptVitestWebpack(webpack, options = {}) {
       );
     }
 
-    config
+    const bundleEntry = config
       .entry('bundle')
       .clear()
       .add('@nativescript/core/globals/index.js')
       .add('@nativescript/core/bundle-entry-points')
       .add(entryPath);
+    if (webpack.Utils.platform.getPlatformName() === 'android') {
+      // NativeScript's static binding generator needs these modules in the
+      // bundle to generate com.tns.NativeScriptActivity and its callbacks.
+      bundleEntry
+        .add('@nativescript/core/ui/frame')
+        .add('@nativescript/core/ui/frame/activity');
+    }
     config.resolve.alias.set('vitest$', shimPath);
   });
 }

@@ -36,7 +36,7 @@ Vitest runs. The UI package is optional:
 
 ```bash
 # NativeScript app
-pnpm add @cross-code/vitest-nativescript @nativescript/core
+pnpm add @cross-code/vitest-nativescript @nativescript/core @valor/nativescript-websockets
 
 # Vitest workspace
 pnpm add -D @cross-code/vitest-nativescript vitest @vitest/runner
@@ -91,6 +91,7 @@ Create `app/vitest-nativescript.ts`. Keeping `new Worker()` in application
 source gives the NativeScript bundler a static worker entry to bundle:
 
 ```ts
+import '@valor/nativescript-websockets';
 import { Application } from '@nativescript/core';
 import { NativeScriptVitestCoordinator } from '@cross-code/vitest-nativescript/runtime';
 import { createVitestResultsPage } from '@cross-code/vitest-nativescript-ui';
@@ -107,6 +108,7 @@ void coordinator.start();
 Create `app/vitest-nativescript.worker.ts`:
 
 ```ts
+import '@nativescript/core/globals';
 import {
   createWebpackTestRegistry,
   registerNativeScriptVitestWorker,
@@ -126,6 +128,11 @@ registerNativeScriptVitestWorker({
   registry: createWebpackTestRegistry(tests),
 });
 ```
+
+The WebSocket import must run before the coordinator, and Worker timer globals
+must load before worker registration. Because emulator/simulator transport uses
+local `ws://` URLs, allow cleartext traffic in this test app's Android manifest
+and local networking in its iOS App Transport Security settings.
 
 Then run Vitest normally:
 

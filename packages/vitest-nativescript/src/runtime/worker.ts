@@ -167,6 +167,7 @@ export function registerNativeScriptVitestWorker(
   let rpc: WorkerGlobalState['rpc'] | undefined;
   let runPromise: Promise<void> | undefined;
   let initialized = false;
+  let readinessPoll: ReturnType<typeof setInterval> | undefined;
 
   const emit = (event: NativeScriptTestEvent): void => {
     scope.postMessage({ kind: 'test-event', slot, event });
@@ -300,6 +301,8 @@ export function registerNativeScriptVitestWorker(
   const initialize = (workerSlot: number): void => {
     if (initialized) return;
     initialized = true;
+    if (readinessPoll !== undefined) clearInterval(readinessPoll);
+    readinessPoll = undefined;
     slot = workerSlot;
     rpc = createRuntimeRpc(workerSlot);
     scope.postMessage({ kind: 'worker-ready', slot: workerSlot });
@@ -324,4 +327,13 @@ export function registerNativeScriptVitestWorker(
     }
     if (message.kind === 'stop') scope.close?.();
   };
+
+  // NativeScript does not queue messages posted before a Worker installs its
+  // onmessage callback. Let the coordinator begin the slot handshake only
+  // after this runtime is listening. Repeat until acknowledged because the
+  // first worker-to-main message can race the main callback in the same way.
+  scope.postMessage({ kind: 'runtime-ready' });
+  readinessPoll = setInterval(() => {
+    scope.postMessage({ kind: 'runtime-ready' });
+  }, 25);
 }

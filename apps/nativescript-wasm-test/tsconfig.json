@@ -18,10 +18,15 @@
   },
   "include": ["app/**/*"],
   "files": ["./references.d.ts"],
-  // The mocha specs and their entry point are the app's *test* build — they need
-  // the mocha/chai globals, so tsconfig.spec.json owns them. Webpack does the
-  // same split: @nativescript/unit-test-runner ignores them unless env.unitTesting.
-  "exclude": ["node_modules", "platforms", "app/test.ts", "app/**/*.spec.ts"],
+  // Vitest specs and the test-only app/Worker entries are owned by
+  // tsconfig.spec.json and are only bundled for env.vitestNativeScript.
+  "exclude": [
+    "node_modules",
+    "platforms",
+    "app/vitest-nativescript.ts",
+    "app/vitest-nativescript.worker.ts",
+    "app/**/*.spec.ts"
+  ],
   "references": [
     {
       "path": "../../packages/nativescript-wamr"
@@ -31,6 +36,12 @@
     },
     {
       "path": "../../packages/nativescript-wasm-fixture"
+    },
+    {
+      "path": "../../packages/vitest-nativescript"
+    },
+    {
+      "path": "../../packages/vitest-nativescript-ui"
     }
   ]
 }

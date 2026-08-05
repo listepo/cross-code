@@ -44,6 +44,7 @@ describe('registerNativeScriptVitestWorker', () => {
   it('boots a slot and speaks the Vitest worker response protocol', async () => {
     const scope = new FakeWorkerScope();
     registerNativeScriptVitestWorker({ registry, scope });
+    expect(scope.posted).toContainEqual({ kind: 'runtime-ready' });
 
     scope.receive({ kind: 'start', slot: 2 });
     expect(scope.posted).toContainEqual({ kind: 'worker-ready', slot: 2 });
