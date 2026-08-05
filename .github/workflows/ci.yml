@@ -422,7 +422,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build the plugin
-        run: pnpm exec nx run nativescript-wasm3:build
+        run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr
 
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
@@ -431,7 +431,7 @@ jobs:
       - uses: actions/setup-java@v4.9.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       # Lets the emulator use hardware acceleration on the GitHub runner.
       - name: Enable KVM
@@ -441,8 +441,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # The wasm3 plugin ships a prebuilt .aar with its .so files.
-      # WAMR tests will fail at runtime without it (known: continue-on-error).
+      # Both plugins ship prebuilt .aar files with their .so files.
       - name: Vitest specs on the Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
