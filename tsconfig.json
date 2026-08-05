@@ -11,6 +11,12 @@
     },
     {
       "path": "./packages/nativescript-wamr"
+    },
+    {
+      "path": "./packages/vitest-nativescript"
+    },
+    {
+      "path": "./packages/vitest-nativescript-ui"
     }
   ],
   "compilerOptions": {}
