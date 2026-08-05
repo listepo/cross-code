@@ -1,8 +1,11 @@
 # nativescript-wasm-fixture
 
-The WebAssembly fixture used to test [`@cross-code/nativescript-wasm3`](../nativescript-wasm3).
+The WebAssembly fixture used to test the two NativeScript plugins —
+[`@cross-code/nativescript-wasm3`](../nativescript-wasm3) and
+[`@cross-code/nativescript-wamr`](../nativescript-wamr).
 A Rust crate (`src/test-types`) built with wasm-pack, plus the exports that let
-the rest of the workspace reach its build outputs.
+the rest of the workspace reach its build outputs. See the
+[top-level README](../../README.md) for the monorepo overview.
 
 ```
 src/test-types/src/lib.rs                the fixture exports + the globals.wasm generator

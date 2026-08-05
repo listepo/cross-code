@@ -131,11 +131,13 @@ with a newer Kotlin than it supports, so they never become visible to
 JavaScript. Check `platforms/android/build-tools/buildMetadata.log` for
 `Skip org.nativescript.wasm3.*`, and see the plugin's AGENTS.md.
 
-**WAMR specs fail with "native runtime not found"** — the WAMR plugin is not yet
-shipped in a state the CLI can consume: `packages/nativescript-wamr/package.json`
-has no `"nativescript"` field, so the CLI never recognises it as a plugin and
-never adds its `NSCWamr` Swift package to the Xcode project, and the WAMR C
-sources are not vendored (`npm run sync.vendors --prefix
-../../packages/nativescript-wamr` fetches them). Until both are fixed the app
-still builds and the wasm3 specs still pass — the WAMR specs are the ones that
-fail. See `packages/nativescript-wamr/AGENTS.md`.
+**WAMR specs fail with "native runtime not found"** — the WAMR plugin was not
+previously shipped in a state the CLI could consume: it lacked the
+`"nativescript"` field (added in commit 812d7da), so the CLI did not recognise
+it as a plugin and did not add its `NSCWamr` Swift package to the Xcode
+project. If the error persists, rebuild the app from a clean `platforms/`
+directory and see `packages/nativescript-wamr/AGENTS.md`.
+
+## See also
+
+- [top-level README](../../README.md) — monorepo overview, test commands, and the shared plugin API.

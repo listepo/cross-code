@@ -8,7 +8,7 @@
 //
 // After downloading, run:
 //   npm run sync.vendors     # copies sources to iOS CWamr target
-//   npm run build.android    # rebuilds the .aar with JavaCPP bindings
+//   npm run build.android    # rebuilds the .aar with cargo-ndk bindings
 
 import { execSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -146,7 +146,7 @@ async function main() {
     `Downloaded from https://github.com/${REPO}\n\n` +
     `After updating, run:\n` +
     `  npm run sync.vendors     # copies sources to iOS CWamr target\n` +
-    `  npm run build.android    # rebuilds the .aar with JavaCPP bindings\n`,
+    `  npm run build.android    # rebuilds the .aar with cargo-ndk bindings\n`,
   );
 
   // Clean up.
