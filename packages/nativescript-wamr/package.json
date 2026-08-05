@@ -18,9 +18,13 @@
   "files": [
     "dist",
     "src",
-    "platforms",
+    "platforms/ios/NSCWamr/Package.swift",
+    "platforms/ios/NSCWamr/Sources",
+    "platforms/android/include.gradle",
+    "platforms/android/nativescript-wamr.aar",
     "nativescript.config.ts",
-    "test-support"
+    "test-support",
+    "!**/*.tsbuildinfo"
   ],
   "nx": {
     "name": "nativescript-wamr",
