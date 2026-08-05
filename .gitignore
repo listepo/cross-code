@@ -63,7 +63,10 @@ vitest.config.*.timestamp*
 
 # DeepSeek CR local config (contains API token)
 .deepseek-cr.config.json
+
 reasonix.toml
+
+/packages/nativescript-wasm3/src/vendors/wasm3-rust/target/
 
 # pnpm local package store (created during resolution)
 .pnpm-store

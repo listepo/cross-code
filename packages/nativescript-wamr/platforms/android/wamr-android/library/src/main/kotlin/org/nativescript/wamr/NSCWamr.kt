@@ -1,27 +1,16 @@
 package org.nativescript.wamr
 
 import java.io.File
-import org.bytedeco.javacpp.BytePointer
-import org.bytedeco.javacpp.IntPointer
-import org.bytedeco.javacpp.LongPointer
-import org.bytedeco.javacpp.Pointer
-import org.bytedeco.javacpp.PointerPointer
-import org.wamr.RuntimeInitArgs
-import org.wamr.WasmExecEnv
-import org.wamr.WasmFunctionInst
-import org.wamr.WasmModule
-import org.wamr.WasmModuleInst
-import org.wamr.WasmRawCall
-import org.wamr.WasmRuntime
-import org.wamr.global.wamr as wamr
 
-// NSCWamr — Kotlin wrapper around the JavaCPP-generated WAMR bindings,
+// NSCWamr — Kotlin wrapper around the WAMR native library (libwamr_jni.so),
 // consumed by the NativeScript Android runtime.
 //
-// Wire protocol shared with the iOS implementation (see the plugin's
-// TypeScript layer):
+// Opaque WAMR handles (runtime, module, function) are stored as `Long` and
+// passed through to the JNI layer unchanged.
+//
+// Wire protocol (shared with iOS / TypeScript):
 //   i32        -> Int
-//   i64        -> String (decimal, signed) on output; Number or String in
+//   i64        -> String (decimal, signed)
 //   f32 / f64  -> Double
 
 class NSCWamrException(message: String) : RuntimeException(message)
@@ -32,7 +21,6 @@ fun interface NSCWamrHostFunction {
 }
 
 private object Wire {
-    // WAMR type-kind constants (mirrors the C definitions in nsc_wamr_shim.h).
     const val WASM_I32 = 0
     const val WASM_I64 = 1
     const val WASM_F32 = 2
@@ -77,43 +65,44 @@ private object Wire {
     }
 }
 
-private fun checkResult(result: BytePointer?, runtime: NSCWamrRuntime?) {
-    if (result == null || result.isNull) return
-    var message = result.string
-    throw NSCWamrException(message)
+private fun checkJniError(err: String?) {
+    if (err != null) throw NSCWamrException(err)
 }
 
 // ---------------------------------------------------------------------------
-// Host trampoline
+// Host trampoline — Rust calls back into Kotlin via this JNI-callable object
 // ---------------------------------------------------------------------------
 
-/** One trampoline instance per linked import; WAMR dispatches back here. */
-private class HostTrampoline(
-    private val callback: NSCWamrHostFunction,
-    private val paramTypes: IntArray,
-    private val returnTypes: IntArray,
-) : WasmRawCall() {
-    companion object {
-        // Trap messages must outlive the call — allocated once, never freed.
-        private val TRAP_BAD_RETURN = BytePointer("NSCWamr: host function returned invalid values")
-        private val TRAP_THREW = BytePointer("NSCWamr: host function threw an exception")
-    }
-
-    override fun call(
-        execEnv: WasmExecEnv?,
-        argsPtr: LongPointer?,
-        nArgs: Int,
-        resultsPtr: LongPointer?,
-        nRets: Int,
-    ): Pointer? {
-        val args = Array<Any>(nArgs) { i ->
-            Wire.decode(paramTypes[i], argsPtr!!.get(i.toLong()))
+/**
+ * One trampoline instance per linked import.  The Rust JNI layer stores a
+ * global reference to this object and invokes [invoke] via JNI when the
+ * WASM module calls the import.
+ *
+ * WARNING: This object MUST NOT be garbage-collected while the runtime is
+ * alive.  The [NSCWamrRuntime] keeps a strong reference in [hostTrampolines].
+ */
+class HostTrampoline(
+    val callback: NSCWamrHostFunction,
+    val paramTypes: IntArray,
+    val returnTypes: IntArray,
+) {
+    /**
+     * Called from Rust JNI (`wamr_jni_host_trampoline`) when WAMR invokes
+     * the host import.
+     *
+     * @param argsRaw array of i64-encoded arguments (one per param)
+     * @return array of i64-encoded results (one per return), or null on error
+     */
+    @Suppress("unused") // called from JNI
+    fun invoke(argsRaw: LongArray): LongArray? {
+        val args = Array(paramTypes.size) { i ->
+            Wire.decode(paramTypes[i], argsRaw[i])
         }
 
-        val result = try {
+        val result: Any? = try {
             callback.invoke(args)
-        } catch (t: Throwable) {
-            return TRAP_THREW
+        } catch (_: Throwable) {
+            return null
         }
 
         val returned: List<Any?> = when (result) {
@@ -122,12 +111,14 @@ private class HostTrampoline(
             is List<*> -> result
             else -> listOf(result)
         }
-        if (returned.size != nRets) return TRAP_BAD_RETURN
-        for (i in 0 until nRets) {
-            val slot = Wire.encode(returnTypes[i], returned[i]) ?: return TRAP_BAD_RETURN
-            resultsPtr!!.put(i.toLong(), slot)
+
+        if (returned.size != returnTypes.size) return null
+        val out = LongArray(returned.size)
+        for (i in returned.indices) {
+            val slot = Wire.encode(returnTypes[i], returned[i]) ?: return null
+            out[i] = slot
         }
-        return null
+        return out
     }
 }
 
@@ -139,124 +130,130 @@ class NSCWamrRuntime
 @JvmOverloads
 constructor(
     stackSizeInBytes: Int = 64 * 1024,
-    wasiEnabled: Boolean = true,
-    executionTier: String = "interpreter",
+    // NativeScript's Android bridge can marshal primitive booleans incorrectly
+    // when resolving Kotlin constructors. Keep the wire-facing flag numeric
+    // and convert it before it reaches the native layer.
+    wasiEnabled: Int = 1,
+    executionTier: Int = 0,
 ) : AutoCloseable {
 
-    internal val runtime: WasmRuntime
+    internal var runtimeHandle: Long = 0
+        private set
 
-    // WAMR references module bytes for the lifetime of the module, and the
-    // callback thunks for the lifetime of the runtime — both are owned here.
-    private val moduleBytes = mutableListOf<BytePointer>()
-    internal val hostFunctions = mutableListOf<WasmRawCall>()
+    // WAMR needs module bytes to stay alive.  The Kotlin wrapper copies them
+    // into ByteArrays; they are held here for the runtime's lifetime.
+    private val moduleBytes = mutableListOf<ByteArray>()
+    internal val hostTrampolines = mutableListOf<HostTrampoline>()
+    private val modules = mutableListOf<NSCWamrModule>()
     private var closed = false
 
     companion object {
         private var globalInitDone = false
 
         @JvmStatic
-        fun wamrVersion(): String = wamr.nsc_wamr_version()?.string ?: "unknown"
+        fun wamrVersion(): String = NativeWamr.version()
 
         private fun ensureGlobalInit() {
             if (globalInitDone) return
-            val args = RuntimeInitArgs()
-            try {
-                args.mem_alloc_type(0)      // pool
-                    .mem_alloc_option(0)    // default
-                    .max_thread_num(1)
-                if (!wamr.wasm_runtime_full_init(args)) {
-                    throw NSCWamrException("wasm_runtime_full_init failed")
-                }
-                globalInitDone = true
-            } finally {
-                args.deallocate()
+            if (!NativeWamr.wamrInit()) {
+                throw NSCWamrException("wasm_runtime_init failed")
             }
+            globalInitDone = true
         }
     }
 
     init {
         ensureGlobalInit()
-        val errPtr = BytePointer(256)
-        try {
-            this.runtime = wamr.nsc_wamr_create_runtime(stackSizeInBytes, errPtr)
-                ?: throw NSCWamrException(errPtr.string ?: "failed to create WAMR runtime")
-        } finally {
-            errPtr.deallocate()
+        runtimeHandle = NativeWamr.createRuntime(stackSizeInBytes)
+        if (runtimeHandle == 0L) {
+            throw NSCWamrException("failed to create WAMR runtime")
         }
     }
 
     /** Parses, loads and compiles-on-demand a WebAssembly binary. */
     fun loadModule(bytes: ByteArray): NSCWamrModule {
-        // Copy into native memory that outlives the call — WAMR may reference
-        // the binary for the module's lifetime.
-        val buffer = BytePointer(*bytes)
-        val errPtr = BytePointer(256)
-        try {
-            val module = wamr.nsc_wamr_load_module(runtime, buffer, bytes.size, errPtr)
-            if (module == null || module.isNull) {
-                buffer.deallocate()
-                throw NSCWamrException(errPtr.string ?: "failed to load module")
-            }
-            moduleBytes.add(buffer)
-            return NSCWamrModule(module, this)
-        } finally {
-            errPtr.deallocate()
+        // Copy the bytes — WAMR may retain a pointer to the buffer.
+        val copy = bytes.copyOf()
+        val moduleHandle = NativeWamr.loadModule(runtimeHandle, copy)
+        if (moduleHandle == 0L) {
+            throw NSCWamrException("failed to load module")
         }
+        moduleBytes.add(copy)
+        val module = NSCWamrModule(moduleHandle, this)
+        modules.add(module)
+        return module
     }
 
     fun loadModuleFromFile(path: String): NSCWamrModule = loadModule(File(path).readBytes())
 
+    /**
+     * Instantiates every loaded module that is still pending.
+     *
+     * Instantiation is deferred because WAMR resolves a module's imports when
+     * the instance is created: a host function linked afterwards would never be
+     * seen. So the module is loaded, callers get a chance to link their imports,
+     * and the instance is created on the first operation that needs one.
+     */
+    internal fun ensureInstantiated() {
+        for (module in modules) module.moduleInst()
+    }
+
     /** Finds an exported function anywhere in the runtime. */
     fun findFunction(name: String): NSCWamrFunction {
-        val errPtr = BytePointer(256)
-        try {
-            val func = wamr.nsc_wamr_find_function(runtime, name, errPtr)
-            if (func == null || func.isNull) {
-                throw NSCWamrException(errPtr.string ?: "function not found: $name")
-            }
-            return NSCWamrFunction(func)
-        } finally {
-            errPtr.deallocate()
+        ensureInstantiated()
+        val funcHandle = NativeWamr.findFunction(runtimeHandle, name)
+        if (funcHandle == 0L) {
+            throw NSCWamrException("function not found: $name")
         }
+        return NSCWamrFunction(funcHandle)
     }
 
     // ------------------------------------------------------------------ memory
 
-    fun memorySize(): Int = wamr.nsc_wamr_memory_size(runtime)
+    fun memorySize(): Int {
+        ensureInstantiated()
+        return NativeWamr.memorySize(runtimeHandle)
+    }
 
     fun readMemory(offset: Int, length: Int): ByteArray {
-        val memory = memoryPointer()
-        val size = memorySize().toLong()
+        ensureInstantiated()
+        val memory = NativeWamr.getMemory(runtimeHandle)
+            ?: throw NSCWamrException("module has no linear memory")
+        val size = NativeWamr.memorySize(runtimeHandle).toLong()
         if (offset < 0 || length < 0 || offset + length.toLong() > size) {
-            throw NSCWamrException("memory read out of bounds (offset $offset, length $length, size $size)")
+            throw NSCWamrException(
+                "memory read out of bounds (offset $offset, length $length, size $size)"
+            )
         }
         val data = ByteArray(length)
-        memory.position(offset.toLong()).get(data, 0, length)
+        memory.position(offset)
+        memory.get(data)
         return data
     }
 
     fun writeMemory(offset: Int, data: ByteArray) {
-        val memory = memoryPointer()
-        val size = memorySize().toLong()
-        if (offset < 0 || offset + data.size.toLong() > size) {
-            throw NSCWamrException("memory write out of bounds (offset $offset, length ${data.size}, size $size)")
-        }
-        memory.position(offset.toLong()).put(data, 0, data.size)
-    }
-
-    private fun memoryPointer(): BytePointer {
-        return wamr.nsc_wamr_get_memory(runtime)
+        ensureInstantiated()
+        val memory = NativeWamr.getMemory(runtimeHandle)
             ?: throw NSCWamrException("module has no linear memory")
+        val size = NativeWamr.memorySize(runtimeHandle).toLong()
+        if (offset < 0 || offset + data.size.toLong() > size) {
+            throw NSCWamrException(
+                "memory write out of bounds (offset $offset, length ${data.size}, size $size)"
+            )
+        }
+        memory.position(offset)
+        memory.put(data)
     }
 
     override fun close() {
         if (closed) return
         closed = true
-        wamr.nsc_wamr_destroy_runtime(runtime)
-        moduleBytes.forEach { it.deallocate() }
+        if (runtimeHandle != 0L) {
+            NativeWamr.destroyRuntime(runtimeHandle)
+            runtimeHandle = 0
+        }
         moduleBytes.clear()
-        hostFunctions.forEach { it.deallocate() }
-        hostFunctions.clear()
+        hostTrampolines.clear()
     }
 }
 
@@ -265,36 +262,33 @@ constructor(
 // ---------------------------------------------------------------------------
 
 class NSCWamrModule internal constructor(
-    private val module: WasmModule,
+    private val moduleHandle: Long,
     val runtime: NSCWamrRuntime,
 ) {
-    private var inst: WasmModuleInst? = null
+    private var instHandle: Long = 0
 
     val name: String
-        get() = wamr.nsc_wamr_module_name(module)?.string ?: ""
+        get() = NativeWamr.moduleName(moduleHandle)
 
     /** Ensures the module is instantiated (lazy, on first use). */
     private fun ensureInstantiated() {
-        if (inst != null) return
-        val errPtr = BytePointer(256)
-        try {
-            inst = wamr.nsc_wamr_instantiate(module, runtime.runtime, errPtr)
-                ?: throw NSCWamrException(errPtr.string ?: "failed to instantiate module")
-        } finally {
-            errPtr.deallocate()
+        if (instHandle != 0L) return
+        instHandle = NativeWamr.instantiate(moduleHandle, runtime.runtimeHandle)
+        if (instHandle == 0L) {
+            throw NSCWamrException("failed to instantiate module")
         }
     }
 
-    internal fun moduleInst(): WasmModuleInst {
+    internal fun moduleInst(): Long {
         ensureInstantiated()
-        return inst!!
+        return instHandle
     }
 
     fun findFunction(name: String): NSCWamrFunction = runtime.findFunction(name)
 
     /**
      * Links a callback as a WebAssembly import. `signature` uses wasm3
-     * notation, e.g. "i(ii)", "F(FF)", "v(I)" — i:i32 I:i64 f:f32 F:f64 v:void.
+     * notation, e.g. "i(ii)", "F(FF)", "v(I)".
      */
     fun linkHostFunction(
         moduleName: String,
@@ -302,37 +296,44 @@ class NSCWamrModule internal constructor(
         signature: String,
         callback: NSCWamrHostFunction,
     ) {
-        ensureInstantiated()
+        // Deliberately *not* instantiated first: WAMR binds imports when the
+        // instance is created, so the native has to be registered before that.
         val (paramTypes, returnTypes) = parseSignature(signature)
         val trampoline = HostTrampoline(callback, paramTypes, returnTypes)
-        checkResult(
-            wamr.nsc_wamr_link_host_function(inst, moduleName, name, signature, trampoline),
-            runtime,
+        runtime.hostTrampolines.add(trampoline)
+
+        val ok = NativeWamr.linkHostFunction(
+            runtime.runtimeHandle, moduleName, name, signature, trampoline
         )
-        runtime.hostFunctions.add(trampoline)
+        if (!ok) {
+            throw NSCWamrException("failed to link host function: $moduleName.$name")
+        }
     }
 
     // ------------------------------------------------------------------ globals
 
     fun getGlobal(name: String): Any {
         ensureInstantiated()
-        val typeOut = IntPointer(1)
-        val bitsOut = LongPointer(1)
-        try {
-            checkResult(wamr.nsc_wamr_get_global(inst, name, typeOut, bitsOut), runtime)
-            return Wire.decode(typeOut.get(), bitsOut.get())
-        } finally {
-            typeOut.deallocate()
-            bitsOut.deallocate()
-        }
+        val result = NativeWamr.getGlobal(instHandle, name)
+            ?: throw NSCWamrException("global not found: $name")
+        val type = result[0].toInt()
+        val bits = result[1]
+        return Wire.decode(type, bits)
     }
 
     fun setGlobal(name: String, value: Any?) {
         ensureInstantiated()
-        val globalType = wamr.nsc_wamr_get_global_type(inst, name)
+        val globalType = NativeWamr.getGlobalType(instHandle, name)
+        if (globalType < 0) {
+            throw NSCWamrException("global not found: $name")
+        }
         val bits = Wire.encode(globalType, value)
-            ?: throw NSCWamrException("cannot convert value to ${Wire.typeName(globalType)} for global: $name")
-        checkResult(wamr.nsc_wamr_set_global(inst, name, globalType, bits), runtime)
+            ?: throw NSCWamrException(
+                "cannot convert value to ${Wire.typeName(globalType)} for global: $name"
+            )
+        if (!NativeWamr.setGlobal(instHandle, name, globalType, bits)) {
+            throw NSCWamrException("failed to set global: $name")
+        }
     }
 
     private companion object {
@@ -362,59 +363,50 @@ class NSCWamrModule internal constructor(
 // ---------------------------------------------------------------------------
 
 class NSCWamrFunction internal constructor(
-    private val function: WasmFunctionInst,
+    private val funcHandle: Long,
 ) {
     val name: String
-        get() = wamr.nsc_wamr_function_name(function)?.string ?: ""
+        get() = NativeWamr.functionName(funcHandle)
 
     val paramTypes: Array<String>
-        get() = Array(wamr.nsc_wamr_function_arg_count(function)) {
-            Wire.typeName(wamr.nsc_wamr_function_arg_type(function, it))
+        get() = Array(NativeWamr.functionArgCount(funcHandle)) {
+            Wire.typeName(NativeWamr.functionArgType(funcHandle, it))
         }
 
     val returnTypes: Array<String>
-        get() = Array(wamr.nsc_wamr_function_ret_count(function)) {
-            Wire.typeName(wamr.nsc_wamr_function_ret_type(function, it))
+        get() = Array(NativeWamr.functionRetCount(funcHandle)) {
+            Wire.typeName(NativeWamr.functionRetType(funcHandle, it))
         }
 
     /** Calls the function. Returns one wire-encoded value per result. */
     fun call(args: Array<Any?>): Array<Any> {
-        val nArgs = wamr.nsc_wamr_function_arg_count(function)
-        val nRets = wamr.nsc_wamr_function_ret_count(function)
+        val nArgs = NativeWamr.functionArgCount(funcHandle)
+        val nRets = NativeWamr.functionRetCount(funcHandle)
         if (args.size != nArgs) {
             throw NSCWamrException("expected $nArgs arguments, got ${args.size}")
         }
 
-        val slots = LongPointer(maxOf(1, nArgs).toLong())
-        val argPtrs = PointerPointer<Pointer>(maxOf(1, nArgs).toLong())
-        val retSlots = LongPointer(maxOf(1, nRets).toLong())
-        val retPtrs = PointerPointer<Pointer>(maxOf(1, nRets).toLong())
-        try {
-            for (i in 0 until nArgs) {
-                val type = wamr.nsc_wamr_function_arg_type(function, i)
-                val bits = Wire.encode(type, args[i])
-                    ?: throw NSCWamrException("argument $i is not convertible to ${Wire.typeName(type)}")
-                slots.put(i.toLong(), bits)
-                argPtrs.put(i.toLong(), slots.getPointer(i.toLong()))
-            }
-            checkResult(wamr.nsc_wamr_call(function, nArgs, argPtrs), null)
-
-            if (nRets == 0) return emptyArray()
-            for (i in 0 until nRets) {
-                retPtrs.put(i.toLong(), retSlots.getPointer(i.toLong()))
-            }
-            checkResult(wamr.nsc_wamr_get_results(function, nRets, retPtrs), null)
-            return Array(nRets) { i ->
-                Wire.decode(
-                    wamr.nsc_wamr_function_ret_type(function, i),
-                    retSlots.get(i.toLong()),
+        // Encode arguments as i64
+        val argSlots = LongArray(maxOf(1, nArgs))
+        for (i in 0 until nArgs) {
+            val type = NativeWamr.functionArgType(funcHandle, i)
+            val bits = Wire.encode(type, args[i])
+                ?: throw NSCWamrException(
+                    "argument $i is not convertible to ${Wire.typeName(type)}"
                 )
-            }
-        } finally {
-            slots.deallocate()
-            argPtrs.deallocate()
-            retSlots.deallocate()
-            retPtrs.deallocate()
+            argSlots[i] = bits
+        }
+
+        val err = NativeWamr.call(funcHandle, nArgs, argSlots)
+        checkJniError(err)
+
+        if (nRets == 0) return emptyArray()
+
+        val results = NativeWamr.getResults(funcHandle, nRets)
+            ?: throw NSCWamrException("failed to get results")
+
+        return Array(nRets) { i ->
+            Wire.decode(NativeWamr.functionRetType(funcHandle, i), results[i])
         }
     }
 }

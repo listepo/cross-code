@@ -1,0 +1,7 @@
+module wasm3_ffiFFI {
+    header "wasm3_ffiFFI.h"
+    export *
+    use "Darwin"
+    use "_Builtin_stdbool"
+    use "_Builtin_stdint"
+}

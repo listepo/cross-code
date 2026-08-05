@@ -1,6 +1,7 @@
-// Flat helpers over WAMR APIs whose signatures are awkward for automatic
-// binding generators (tagged-value unions, varargs, etc.). Shared by the
-// Android JavaCPP bindings; iOS accesses WAMR directly via Swift C interop.
+// Flat helpers over WAMR APIs — updated for current WAMR public API.
+// The vendored WAMR version uses a module-centric API (no wasm_runtime_t).
+// This shim defines its own wasm_runtime_t abstraction that tracks module
+// instances and provides the same interface the Kotlin wrapper expects.
 #ifndef NSC_WAMR_SHIM_H
 #define NSC_WAMR_SHIM_H
 
@@ -19,6 +20,10 @@ extern "C" {
 #define WASM_F32 2
 #define WASM_F64 3
 
+// Opaque runtime handle.  The C file defines the actual struct; callers only
+// pass the pointer through to the shim functions.
+typedef struct nsc_wamr_runtime nsc_wamr_runtime_t;
+
 // Convert between WAMR's internal type byte (i32=0x7F, i64=0x7E, f32=0x7D,
 // f64=0x7C) and the simplified codes above.  Returns -1 on unrecognised input.
 int nsc_wamr_to_simple_type(int wamr_type_byte);
@@ -35,14 +40,14 @@ const char *nsc_wamr_version(void);
 // Runtime lifecycle
 // ---------------------------------------------------------------------------
 
-// Creates a WAMR runtime + execution environment.  On failure writes a
-// message into error_buf (at least 256 bytes) and returns NULL.
-wasm_runtime_t *nsc_wamr_create_runtime(int stack_size_in_bytes,
-                                         char *error_buf);
+// Creates a WAMR runtime context.  On failure writes a message into error_buf
+// (at least 256 bytes) and returns NULL.
+nsc_wamr_runtime_t *nsc_wamr_create_runtime(int stack_size_in_bytes,
+                                             char *error_buf);
 
 // Destroys a runtime previously created by nsc_wamr_create_runtime, including
-// all module instances and the associated execution environment.
-void nsc_wamr_destroy_runtime(wasm_runtime_t *runtime);
+// all module instances and the associated execution environments.
+void nsc_wamr_destroy_runtime(nsc_wamr_runtime_t *runtime);
 
 // ---------------------------------------------------------------------------
 // Module loading & instantiation
@@ -50,13 +55,13 @@ void nsc_wamr_destroy_runtime(wasm_runtime_t *runtime);
 
 // Parses + loads a WASM binary.  The caller must keep `bytes` alive for the
 // lifetime of the returned module.  Returns NULL on failure (error in buf).
-wasm_module_t *nsc_wamr_load_module(wasm_runtime_t *runtime,
+wasm_module_t *nsc_wamr_load_module(nsc_wamr_runtime_t *runtime,
                                      const uint8_t *bytes, int size,
                                      char *error_buf);
 
 // Instantiates a loaded module.  Returns NULL on failure (error in buf).
 wasm_module_inst_t *nsc_wamr_instantiate(wasm_module_t *module,
-                                          wasm_runtime_t *runtime,
+                                          nsc_wamr_runtime_t *runtime,
                                           char *error_buf);
 
 // Returns the module name embedded in the WASM binary, or "".
@@ -68,7 +73,7 @@ const char *nsc_wamr_module_name(wasm_module_t *module);
 
 // Looks up an exported function by name across all module instances of the
 // runtime.  Returns NULL when not found (error in buf).
-wasm_function_inst_t *nsc_wamr_find_function(wasm_runtime_t *runtime,
+wasm_function_inst_t *nsc_wamr_find_function(nsc_wamr_runtime_t *runtime,
                                               const char *name,
                                               char *error_buf);
 
@@ -102,10 +107,10 @@ const char *nsc_wamr_get_results(wasm_function_inst_t *func, int n_rets,
 // ---------------------------------------------------------------------------
 
 // Returns the current size (in bytes) of the default linear memory, or 0.
-int nsc_wamr_memory_size(wasm_runtime_t *runtime);
+int nsc_wamr_memory_size(nsc_wamr_runtime_t *runtime);
 
 // Returns a native pointer to address 0 of the default linear memory, or NULL.
-uint8_t *nsc_wamr_get_memory(wasm_runtime_t *runtime);
+uint8_t *nsc_wamr_get_memory(nsc_wamr_runtime_t *runtime);
 
 // ---------------------------------------------------------------------------
 // Host-function linking

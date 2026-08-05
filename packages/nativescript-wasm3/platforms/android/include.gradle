@@ -1,15 +1,14 @@
 // nativescript-wasm3: merged into the NativeScript app's build.gradle.
-// The bundled AAR (nativescript-wasm3.aar) carries the Kotlin wrapper, the
-// JavaCPP-generated wasm3 bindings and libjniwasm3.so for all ABIs; the
-// JavaCPP runtime classes come from Maven Central.
+// The bundled AAR (nativescript-wasm3.aar) carries the Kotlin wrapper and
+// libwasm3_jni.so for all ABIs (built via cargo-ndk from Rust).
 dependencies {
-    implementation "org.bytedeco:javacpp:1.5.13"
+    // No JavaCPP dependency required.
 }
 
 android {
     packagingOptions {
         jniLibs {
-            pickFirsts.add("**/libjniwasm3.so")
+            pickFirsts.add("**/libwasm3_jni.so")
         }
     }
 }

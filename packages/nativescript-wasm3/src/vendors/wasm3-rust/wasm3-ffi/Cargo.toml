@@ -1,0 +1,22 @@
+[package]
+name = "wasm3-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Safe Rust wrapper around wasm3 with UniFFI bindings for Swift and Kotlin"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "lib"]
+name = "wasm3_ffi"
+
+[dependencies]
+wasm3-sys = { path = "../wasm3-sys" }
+thiserror = "2"
+uniffi = { version = "0.32", features = ["cli"] }
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[build-dependencies]
+uniffi = { version = "0.32", features = ["build"] }

@@ -2,7 +2,7 @@
 
 The Rust crate behind `@cross-code/nativescript-wasm-fixture`. Scaffolded from
 [`wasm-pack-template`](https://rustwasm.github.io/docs/wasm-pack/), then filled
-with fixtures for the wasm3 NativeScript plugin.
+with fixtures for the NativeScript plugins (wasm3 and WAMR).
 
 ## Layout
 

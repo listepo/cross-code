@@ -172,7 +172,10 @@ export class IosRuntime implements NativeRuntimeAdapter {
     this.runtime = RuntimeClass.alloc().initWithStackSizeWasiEnabledExecutionTier(
       options.stackSizeInBytes,
       options.wasiEnabled,
-      options.executionTier,
+      // The Swift initializer exposes this parameter as String to ObjC. The
+      // public API keeps numeric enum values for parity with Android, so do
+      // the conversion at the platform boundary.
+      String(options.executionTier),
     );
   }
 

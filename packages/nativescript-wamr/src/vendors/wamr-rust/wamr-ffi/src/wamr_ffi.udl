@@ -1,0 +1,95 @@
+/// WAMR (WebAssembly Micro Runtime) FFI bindings for Swift via UniFFI.
+
+namespace wamr_ffi {};
+
+[Enum]
+interface WasmValueType {
+    I32();
+    I64();
+    F32();
+    F64();
+};
+
+dictionary WasmValue {
+    WasmValueType kind;
+    u32 bits_lo;
+    u32 bits_hi;
+};
+
+dictionary FunctionSignature {
+    string raw;
+    sequence<WasmValueType> params;
+    sequence<WasmValueType> results;
+};
+
+[Enum]
+interface ExecutionTier {
+    Interpreter();
+    FastJIT();
+    LLVMJIT();
+    AOT();
+};
+
+dictionary RuntimeConfig {
+    ExecutionTier execution_tier;
+    u32 default_stack_size;
+    u32 max_memory_pages;
+    boolean wasi_enabled;
+};
+
+[Error]
+interface WamrError {
+    InitFailed(string message);
+    ModuleLoadFailed(string message);
+    InstantiationFailed(string message);
+    FunctionNotFound(string message);
+    CallFailed(string message);
+    MemoryAccessFailed(string message);
+    GlobalAccessFailed(string message);
+    InvalidArgument(string message);
+};
+
+interface WamrRuntime {
+    [Throws=WamrError]
+    constructor(RuntimeConfig config);
+
+    [Throws=WamrError]
+    WamrModule load_module(sequence<u8> wasm_bytes);
+
+    string version();
+};
+
+interface WamrModule {
+    [Throws=WamrError]
+    WamrModuleInstance instantiate();
+
+    string? module_name();
+};
+
+interface WamrModuleInstance {
+    [Throws=WamrError]
+    WamrFunction find_function(string name);
+
+    [Throws=WamrError]
+    WasmValue get_global(string name);
+
+    [Throws=WamrError]
+    void set_global(string name, WasmValue value);
+
+    u32 memory_size();
+
+    [Throws=WamrError]
+    sequence<u8> read_memory(u32 offset, u32 length);
+
+    [Throws=WamrError]
+    void write_memory(u32 offset, sequence<u8> data);
+
+    string? module_name();
+};
+
+interface WamrFunction {
+    FunctionSignature signature();
+
+    [Throws=WamrError]
+    sequence<u32> call_raw(sequence<u32> args);
+};

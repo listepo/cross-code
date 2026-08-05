@@ -1,0 +1,14 @@
+[package]
+name = "wamr-jni"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "JNI bindings for WAMR — replaces JavaCPP auto-generated JNI with hand-written Rust JNI calling the nsc_wamr_shim C functions"
+
+[lib]
+crate-type = ["cdylib"]
+name = "wamr_jni"
+
+[dependencies]
+wamr-sys = { path = "../wamr-sys" }
+jni = { version = "0.21" }

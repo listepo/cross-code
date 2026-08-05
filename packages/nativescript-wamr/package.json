@@ -1,7 +1,7 @@
 {
   "name": "@cross-code/nativescript-wamr",
   "version": "0.1.0",
-  "description": "NativeScript plugin that runs WebAssembly modules with the WAMR (WebAssembly Micro Runtime) interpreter/JIT — Swift Package (C interop) on iOS, Kotlin + JavaCPP-generated JNI bindings on Android.",
+  "description": "NativeScript plugin that runs WebAssembly modules with the WAMR (WebAssembly Micro Runtime) interpreter/JIT — Swift Package (C interop) on iOS, Kotlin + Rust JNI (cargo-ndk) on Android.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -29,6 +29,14 @@
         "executor": "nx:run-script",
         "options": { "script": "sync.vendors" }
       },
+      "download.wamr": {
+        "executor": "nx:run-script",
+        "options": { "script": "download.wamr" }
+      },
+      "bindings": {
+        "executor": "nx:run-script",
+        "options": { "script": "bindings" }
+      },
       "test.ios": {
         "executor": "nx:run-script",
         "options": { "script": "test.ios" }
@@ -48,13 +56,23 @@
     }
   },
   "scripts": {
+    "download.wamr": "node tools/download-wamr.mjs",
+    "bindings": "cd src/vendors/wamr-rust && WAMR_BINDGEN_COMMIT=1 cargo build",
     "fixtures": "node tools/gen-fixtures.mjs && node tools/sync-wamr.mjs",
     "sync.vendors": "node tools/sync-wamr.mjs",
     "test.ios": "cd platforms/ios/NSCWamr && swift test --disable-sandbox",
     "test.android": "cd platforms/android/wamr-android && ./gradlew :hosttest:test",
-    "build.android": "cd platforms/android/wamr-android && ./gradlew :library:deployAar"
+    "build.android": "cd platforms/android/wamr-android && ./gradlew :library:deployAar",
+    "typings.ios": "cd ../../apps/nativescript-wasm-test && ns typings ios",
+    "typings.android": "cd ../../apps/nativescript-wasm-test && ns typings android"
   },
   "devDependencies": {
     "@nativescript/core": "^8.9.0"
+  },
+  "nativescript": {
+    "platforms": {
+      "ios": "8.6.0",
+      "android": "8.6.0"
+    }
   }
 }

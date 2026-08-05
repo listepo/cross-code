@@ -115,9 +115,9 @@ function installAndroidFake() {
   }
 
   class FakeRuntime {
-    constructor(public stackSize: number, public wasiEnabled: boolean, public executionTier: number) {
+    constructor(public stackSize: number, wasiEnabled: number, public executionTier: number) {
       state.stackSize = stackSize;
-      state.wasiEnabled = wasiEnabled;
+      state.wasiEnabled = wasiEnabled !== 0;
       state.executionTier = executionTier;
     }
     loadModule = (bytes: any) => {
@@ -468,7 +468,7 @@ describe('WamrRuntime on iOS', () => {
 
     expect(state.stackSize).toBe(32 * 1024);
     expect(state.wasiEnabled).toBe(false);
-    expect(state.executionTier).toBe(WamrExecutionTier.LLVMJIT);
+    expect(state.executionTier).toBe(String(WamrExecutionTier.LLVMJIT));
   });
 
   it('unwraps NSArray results and converts i64', () => {

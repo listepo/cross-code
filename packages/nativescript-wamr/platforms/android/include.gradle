@@ -1,15 +1,15 @@
 // nativescript-wamr: merged into the NativeScript app's build.gradle.
-// The bundled AAR (nativescript-wamr.aar) carries the Kotlin wrapper, the
-// JavaCPP-generated WAMR bindings and libjniwamr.so for all ABIs; the
-// JavaCPP runtime classes come from Maven Central.
+// The bundled AAR (nativescript-wamr.aar) carries the Kotlin wrapper and
+// libwamr_jni.so for all ABIs (built via cargo-ndk from Rust).  No external
+// dependencies needed — the JNI library is self-contained.
 dependencies {
-    implementation "org.bytedeco:javacpp:1.5.13"
+    // No JavaCPP dependency required.
 }
 
 android {
     packagingOptions {
         jniLibs {
-            pickFirsts.add("**/libjniwamr.so")
+            pickFirsts.add("**/libwamr_jni.so")
         }
     }
 }

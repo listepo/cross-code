@@ -140,7 +140,7 @@ export class AndroidRuntime implements NativeRuntimeAdapter {
     const wamrns = (globalThis as any).org.nativescript.wamr;
     this.runtime = new wamrns.NSCWamrRuntime(
       options.stackSizeInBytes,
-      options.wasiEnabled,
+      options.wasiEnabled ? 1 : 0,
       options.executionTier,
     );
   }

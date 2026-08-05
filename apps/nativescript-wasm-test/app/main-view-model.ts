@@ -1,4 +1,5 @@
 import { Observable } from '@nativescript/core'
+import { WamrExecutionTier, WamrRuntime } from '@cross-code/nativescript-wamr'
 import { Wasm3Runtime } from '@cross-code/nativescript-wasm3'
 
 import {
@@ -8,13 +9,20 @@ import {
   summarize,
   type Check,
   type HostCall,
+  type HostImports,
+  type WasmModuleLike,
 } from './wasm/fixture-suite'
 import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM } from './wasm/wasm-assets'
 
 /**
- * Runs the fixture suite on the device's wasm3 runtime. The checks themselves
- * live in `wasm/fixture-suite.ts`; the mocha specs in `app/tests/` assert on the
- * same list under `ns test`.
+ * Runs the fixture suite on both of the device's runtimes — wasm3 and WAMR —
+ * so the demo page shows the same module behaving identically on each. The
+ * checks themselves live in `wasm/fixture-suite.ts`; the mocha specs in
+ * `app/tests/wasm3/` and `app/tests/wamr/` assert on the same list under
+ * `ns test`.
+ *
+ * WAMR runs on its Interpreter tier here, the one tier available in every
+ * build; the specs cover Fast JIT, LLVM JIT and AOT where they are compiled in.
  */
 export class WasmDemoModel extends Observable {
   private _status: string
@@ -50,41 +58,85 @@ export class WasmDemoModel extends Observable {
   }
 
   onRun() {
-    try {
-      const version = Wasm3Runtime.version()
-      const checks = [...this.runFixture(), ...this.runGlobals()]
-      const summary = summarize(checks)
+    const sections = [runWasm3(), runWamr()]
+    const checks = sections.flatMap((s) => s.checks)
+    const summary = summarize(checks)
 
-      this.status =
-        summary.failed === 0
-          ? `wasm3 ${version} — ${summary.passed}/${summary.total} checks passed`
-          : `wasm3 ${version} — ${summary.failed} of ${summary.total} checks FAILED`
-      this.report = checks.map(formatCheck).join('\n')
-    } catch (error) {
-      this.status = 'Failed'
-      this.report = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
-    }
+    this.status =
+      summary.failed === 0
+        ? `${summary.passed}/${summary.total} checks passed on both runtimes`
+        : `${summary.failed} of ${summary.total} checks FAILED`
+    this.report = sections
+      .map((s) => [s.title, ...s.checks.map(formatCheck)].join('\n'))
+      .join('\n\n')
   }
+}
 
-  private runFixture(): Check[] {
-    const runtime = new Wasm3Runtime()
+interface Section {
+  title: string
+  checks: Check[]
+}
+
+/**
+ * What the demo needs of a runtime to load the fixtures. `Wasm3Runtime` and
+ * `WamrRuntime` both satisfy it — the same trick `fixture-suite.ts` uses to
+ * stay runtime-agnostic.
+ */
+interface LoaderLike {
+  loadModule(source: string, imports?: HostImports): WasmModuleLike
+  dispose(): void
+}
+
+/**
+ * Runs both fixture modules on one runtime. Each section is guarded on its own
+ * so a runtime whose native layer is missing reports as a failure instead of
+ * hiding the other runtime's results.
+ */
+function runSection(label: string, version: () => string, create: () => LoaderLike): Section {
+  let title = label
+  const checks: Check[] = []
+
+  try {
+    title = `── ${label} ${version()} ──`
+
+    const fixture = create()
     try {
       const log: HostCall[] = []
-      const module = runtime.loadModule(appWasmPath(FIXTURE_WASM), createHostImports(log))
-      return runFixtureChecks(module, log)
+      const module = fixture.loadModule(appWasmPath(FIXTURE_WASM), createHostImports(log))
+      checks.push(...runFixtureChecks(module, log))
     } finally {
-      runtime.dispose()
+      fixture.dispose()
     }
+
+    const globals = create()
+    try {
+      checks.push(...runGlobalsChecks(globals.loadModule(appWasmPath(GLOBALS_WASM))))
+    } finally {
+      globals.dispose()
+    }
+  } catch (error) {
+    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+    checks.push({ name: `${label} runtime`, expected: 'ran', actual: message, ok: false })
   }
 
-  private runGlobals(): Check[] {
-    const runtime = new Wasm3Runtime()
-    try {
-      return runGlobalsChecks(runtime.loadModule(appWasmPath(GLOBALS_WASM)))
-    } finally {
-      runtime.dispose()
-    }
-  }
+  return { title, checks }
+}
+
+function runWasm3(): Section {
+  return runSection('wasm3', () => Wasm3Runtime.version(), () => new Wasm3Runtime())
+}
+
+function runWamr(): Section {
+  return runSection(
+    `WAMR (${WamrExecutionTier[WamrExecutionTier.Interpreter]})`,
+    () => WamrRuntime.version(),
+    () =>
+      new WamrRuntime({
+        stackSizeInBytes: 128 * 1024,
+        wasiEnabled: false,
+        executionTier: WamrExecutionTier.Interpreter,
+      }),
+  )
 }
 
 function formatCheck(check: Check): string {

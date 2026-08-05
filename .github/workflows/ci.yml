@@ -200,8 +200,8 @@ jobs:
             -scheme NSCWasm3 \
             -destination 'generic/platform=iOS'
 
-  # Android: regenerates the JavaCPP bindings from wasm3.h and runs the Kotlin
-  # wrapper's JUnit suite against a host build of wasm3 — no emulator needed.
+  # Android: builds the wasm3-jni Rust crate via cargo and runs the Kotlin
+  # wrapper's JUnit hosttest suite — no emulator needed.
   wasm3-android:
     needs: changes
     if: needs.changes.outputs.wasm3 == 'true'
@@ -212,6 +212,7 @@ jobs:
       # Gradle shells out to build-native.mjs (zx) to generate the bindings and
       # compile wasm3, so the native build needs Node and the root node_modules.
       - uses: pnpm/action-setup@v4
+
 
       - uses: actions/setup-node@v5
         with:
@@ -227,21 +228,17 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4.4.4
         with:
-          # The built-in wrapper validation scans the entire workspace and
-          # flags every gradle-wrapper.jar it finds — including the one
-          # bundled inside node_modules/nativescript. That jar is an npm
-          # package dependency, not ours to validate. Our own wrapper is
-          # committed in the repo at platforms/android/wasm3-android/.
           validate-wrappers: false
 
-      # GitHub's ubuntu-latest runner ships clang; the slim act image does not.
-      - name: Install build tools (if missing)
+      # Rust is pre-installed on ubuntu-latest; install if missing (e.g. act).
+      - name: Install Rust (if missing)
         run: |
-          if ! command -v clang++ >/dev/null 2>&1; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq clang
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           fi
 
-      - name: JVM host tests (JavaCPP bindings + Kotlin wrapper)
+      - name: JVM host tests (cargo build + Kotlin wrapper)
         working-directory: packages/nativescript-wasm3/platforms/android/wasm3-android
         run: ./gradlew :hosttest:test
 
@@ -301,8 +298,8 @@ jobs:
             -scheme NSCWamr \
             -destination 'generic/platform=iOS'
 
-  # Android: regenerates the JavaCPP bindings from WAMR headers and runs the
-  # Kotlin wrapper's JUnit suite against a host build of WAMR — no emulator.
+  # Android: builds the wamr-jni Rust crate via cargo and runs the Kotlin
+  # wrapper's JUnit hosttest suite — no emulator.
   wamr-android:
     needs: changes
     if: needs.changes.outputs.wamr == 'true'
@@ -340,14 +337,16 @@ jobs:
         with:
           validate-wrappers: false
 
-      - name: Install build tools (if missing)
+      # Rust is pre-installed on ubuntu-latest; install if missing (e.g. act).
+      - name: Install Rust (if missing)
         if: steps.sources.outputs.present == 'true'
         run: |
-          if ! command -v clang++ >/dev/null 2>&1; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq clang
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           fi
 
-      - name: JVM host tests (JavaCPP bindings + Kotlin wrapper)
+      - name: JVM host tests (cargo build + Kotlin wrapper)
         if: steps.sources.outputs.present == 'true'
         working-directory: packages/nativescript-wamr/platforms/android/wamr-android
         run: ./gradlew :hosttest:test
@@ -381,10 +380,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The app resolves the plugin through a file: dependency and imports its
-      # built dist/, so the TypeScript has to exist before the app is bundled.
-      - name: Build the plugin
-        run: pnpm exec nx run nativescript-wasm3:build
+      # The app resolves both plugins through file: dependencies and imports
+      # their built dist/, so TypeScript must exist before bundling.
+      - name: Build the plugins
+        run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr
 
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
@@ -439,8 +438,8 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # The plugin ships a prebuilt .aar with the wasm3 .so files for every ABI,
-      # so this needs no NDK — just the SDK the emulator action installs.
+      # The wasm3 plugin ships a prebuilt .aar with its .so files.
+      # WAMR tests will fail at runtime without it (known: continue-on-error).
       - name: Mocha specs on the Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
