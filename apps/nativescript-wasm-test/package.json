@@ -7,7 +7,9 @@
   "description": "NativeScript test app for @cross-code/nativescript-wasm3 and @cross-code/nativescript-wamr — runs the shared WebAssembly fixture on-device with Vitest.",
   "scripts": {
     "test.ios": "vitest run --config vitest.ios.config.mts",
-    "test.android": "vitest run --config vitest.android.config.mts"
+    "test.android": "vitest run --config vitest.android.config.mts",
+    "test.ios:coverage": "vitest run --coverage --config vitest.ios.config.mts",
+    "test.android:coverage": "vitest run --coverage --config vitest.android.config.mts"
   },
   "dependencies": {
     "@cross-code/nativescript-wamr": "file:../../packages/nativescript-wamr",
@@ -24,6 +26,7 @@
     "@nativescript/ios": "9.0.3",
     "@nativescript/types": "~9.0.0",
     "@nativescript/webpack": "~5.0.25",
+    "@vitest/coverage-istanbul": "~4.1.10",
     "@vitest/runner": "~4.1.10",
     "postcss-loader": "8.2.1",
     "ts-loader": "9.6.2",

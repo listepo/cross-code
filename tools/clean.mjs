@@ -17,6 +17,8 @@ const dirs = [
   '.nx/cache',
 
   // ── TypeScript build outputs & incremental caches ─────────────────
+  'out-tsc',
+  'tmp',
   'packages/*/dist',
   'packages/*/out-tsc',
 
@@ -33,6 +35,9 @@ const dirs = [
   // ── NativeScript generated artifacts (test app) ───────────────────
   'apps/nativescript-wasm-test/platforms',
   'apps/nativescript-wasm-test/hooks',
+  'apps/nativescript-wasm-test/out-tsc',
+  'apps/nativescript-wasm-test/tmp',
+  'apps/nativescript-wasm-test/test-output',
 
   // ── Local tooling caches ──────────────────────────────────────────
   '.verdaccio',
@@ -52,12 +57,26 @@ echo``;
 
 let removed = 0;
 let skipped = 0;
+let failed = false;
 
 for (const pattern of dirs) {
-  const matches = await glob(pattern, { nodir: false, absolute: false });
+  const matches = await glob(pattern, {
+    cwd: ROOT,
+    expandDirectories: false,
+    onlyFiles: false,
+    followSymbolicLinks: false,
+  });
   for (const match of matches) {
     const full = path.join(ROOT, match);
     if (!(await fs.pathExists(full))) continue;
+
+    // Resolve real path to prevent symlink escapes outside ROOT.
+    const real = await fs.realpath(full);
+    if (!real.startsWith(ROOT + path.sep) && real !== ROOT) {
+      echo`SKIP  ${match} — symlink escapes outside workspace`;
+      skipped++;
+      continue;
+    }
 
     if (dryRun) {
       echo`DRY-RUN  rm -rf ${match}`;
@@ -70,10 +89,13 @@ for (const pattern of dirs) {
       } catch (err) {
         echo`FAIL  ${match} — ${err.message}`;
         skipped++;
+        failed = true;
       }
     }
   }
 }
+
+if (failed) process.exitCode = 1;
 
 echo``;
 echo`Done — ${removed} path(s) removed${skipped > 0 ? `, ${skipped} failed` : ''}.`;

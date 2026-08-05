@@ -45,6 +45,21 @@ const DEFAULT_INCLUDE = [
   '**/*.native.spec.tsx',
 ];
 
+const COVERAGE_ENVIRONMENT_FLAG = '--env.vitestNativeScriptCoverage';
+
+export function withNativeScriptCoverageLaunchCommand(
+  launchCommand: NativeScriptLaunchCommand,
+): NativeScriptLaunchCommand {
+  if (launchCommand.args.includes(COVERAGE_ENVIRONMENT_FLAG)) {
+    return launchCommand;
+  }
+
+  return {
+    ...launchCommand,
+    args: [...launchCommand.args, COVERAGE_ENVIRONMENT_FLAG],
+  };
+}
+
 export function resolveNativeScriptUnitPluginOptions(
   options: NativeScriptUnitPluginOptions,
   cwd = process.cwd(),

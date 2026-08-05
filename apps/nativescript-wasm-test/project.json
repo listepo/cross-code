@@ -36,6 +36,22 @@
       },
       "dependsOn": ["^build"],
       "cache": false
+    },
+    "test.ios.coverage": {
+      "command": "pnpm run test.ios:coverage",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test.android.coverage": {
+      "command": "pnpm run test.android:coverage",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": ["^build"],
+      "cache": false
     }
   }
 }

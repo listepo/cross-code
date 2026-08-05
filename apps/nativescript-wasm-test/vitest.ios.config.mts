@@ -27,5 +27,17 @@ export default defineConfig({
   ],
   test: {
     include: ['app/tests/**/*.spec.ts'],
+    coverage: {
+      provider: 'istanbul',
+      reportsDirectory: './test-output/vitest/coverage/ios',
+      reporter: ['text', 'json-summary', 'lcov', 'html'],
+      include: ['app/**/*.ts'],
+      exclude: [
+        'app/tests/**',
+        'app/vitest-nativescript.ts',
+        'app/vitest-nativescript.worker.ts',
+      ],
+      all: false,
+    },
   },
 });

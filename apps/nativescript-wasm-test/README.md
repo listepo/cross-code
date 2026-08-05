@@ -47,6 +47,8 @@ From the repository root:
 pnpm exec nx run nativescript-wasm-test:typecheck
 pnpm exec nx run nativescript-wasm-test:test.ios
 pnpm exec nx run nativescript-wasm-test:test.android
+pnpm exec nx run nativescript-wasm-test:test.ios.coverage
+pnpm exec nx run nativescript-wasm-test:test.android.coverage
 ```
 
 Or from this directory:
@@ -54,6 +56,8 @@ Or from this directory:
 ```bash
 pnpm run test.ios
 pnpm run test.android
+pnpm run test.ios:coverage
+pnpm run test.android:coverage
 ```
 
 Both Vitest configs launch an emulator/simulator through the project-local
@@ -67,7 +71,23 @@ Vitest config with the normal `npx ns run <platform> --device <id>` arguments
 and set the coordinator `url` to a WebSocket address reachable from that
 device.
 
-## Coverage
+## Code coverage
+
+Coverage runs execute the same device suite and use Istanbul instrumentation,
+because NativeScript's JavaScript runtimes do not provide V8 coverage. Passing
+`--coverage` automatically adds the coverage-only webpack flag; ordinary test
+runs stay uninstrumented.
+
+The reports are written separately by platform:
+
+- `test-output/vitest/coverage/ios/index.html`
+- `test-output/vitest/coverage/android/index.html`
+
+Each report covers executed application sources under `app/`, excluding test
+files and the NativeScript Vitest bootstrap files. `all` is deliberately
+disabled: the device bundle supplies runtime coverage only for files it loads.
+
+## Behavioral coverage
 
 Both plugins are tested for:
 

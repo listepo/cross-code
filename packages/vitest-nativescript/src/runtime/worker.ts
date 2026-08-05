@@ -126,6 +126,59 @@ function createWorkerState(
   };
 }
 
+type NativeScriptCoverage = Record<string, unknown>;
+
+const nativeScriptCoverageKey = '__VITEST_COVERAGE__';
+
+function takeCoverage(): NativeScriptCoverage | undefined {
+  const coverage = (
+    globalThis as typeof globalThis & {
+      __VITEST_COVERAGE__?: NativeScriptCoverage;
+    }
+  )[nativeScriptCoverageKey];
+
+  return coverage && Object.keys(coverage).length > 0 ? coverage : undefined;
+}
+
+function removeWebpackSourceMaps(
+  coverage: NativeScriptCoverage,
+): NativeScriptCoverage {
+  for (const fileCoverage of Object.values(coverage)) {
+    if (isRecord(fileCoverage)) delete fileCoverage.inputSourceMap;
+  }
+  return coverage;
+}
+
+function clearCoverage(): void {
+  delete (
+    globalThis as typeof globalThis & {
+      __VITEST_COVERAGE__?: NativeScriptCoverage;
+    }
+  )[nativeScriptCoverageKey];
+}
+
+async function reportCoverage(
+  state: WorkerGlobalState,
+  testFiles: string[],
+): Promise<void> {
+  const coverage = takeCoverage();
+  if (!coverage) return;
+
+  try {
+    await state.rpc.onAfterSuiteRun({
+      // NativeScript webpack emits loader-chain source-map paths that do not
+      // exist in the Node Vitest process. The Istanbul data already uses the
+      // original application file path, so preserve it and skip that remap.
+      coverage: removeWebpackSourceMaps(coverage),
+      testFiles: [...testFiles].sort(),
+      environment: state.environment.name,
+      projectName: state.ctx.projectName,
+    });
+  } finally {
+    clearCoverage();
+  }
+}
+
 async function runFiles(
   method: 'run' | 'collect',
   state: WorkerGlobalState,
@@ -134,23 +187,30 @@ async function runFiles(
   emit: (event: NativeScriptTestEvent) => void,
 ): Promise<void> {
   const workerState = provideWorkerState(state);
-  for (const specification of workerState.ctx.files) {
-    const runner = new NativeScriptDeviceRunner(
-      workerState.config as VitestRunnerConfig,
-      slot,
-      registry,
-      workerState,
-      emit,
-    );
-    try {
-      if (method === 'run') await startTests([specification], runner);
-      else await collectTests([specification], runner);
-    } finally {
-      // Vitest flushes its final task updates after onAfterRunFiles. Emit the
-      // device completion event only after startTests/collectTests resolves so
-      // the optional UI cannot mark a failed run as passed prematurely.
-      runner.finishRun();
+  try {
+    for (const specification of workerState.ctx.files) {
+      const runner = new NativeScriptDeviceRunner(
+        workerState.config as VitestRunnerConfig,
+        slot,
+        registry,
+        workerState,
+        emit,
+      );
+      try {
+        if (method === 'run') await startTests([specification], runner);
+        else await collectTests([specification], runner);
+      } finally {
+        // Vitest flushes its final task updates after onAfterRunFiles. Emit the
+        // device completion event only after startTests/collectTests resolves so
+        // the optional UI cannot mark a failed run as passed prematurely.
+        runner.finishRun();
+      }
     }
+  } finally {
+    await reportCoverage(
+      workerState,
+      workerState.ctx.files.map((file) => file.filepath),
+    );
   }
 }
 

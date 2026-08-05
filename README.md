@@ -67,6 +67,10 @@ pnpm --filter ./packages/nativescript-wamr run test.android
 # The test app's Vitest suite, on a simulator / emulator
 pnpm exec nx run nativescript-wasm-test:test.ios
 pnpm exec nx run nativescript-wasm-test:test.android
+
+# On-device Istanbul coverage reports
+pnpm exec nx run nativescript-wasm-test:test.ios.coverage
+pnpm exec nx run nativescript-wasm-test:test.android.coverage
 ```
 
 On macOS, NativeScript's iOS build needs a UTF-8 locale (`export LANG=en_US.UTF-8`) —

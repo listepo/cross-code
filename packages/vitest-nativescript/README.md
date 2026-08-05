@@ -39,7 +39,7 @@ Vitest runs. The UI package is optional:
 pnpm add @cross-code/vitest-nativescript @nativescript/core @valor/nativescript-websockets
 
 # Vitest workspace
-pnpm add -D @cross-code/vitest-nativescript vitest @vitest/runner
+pnpm add -D @cross-code/vitest-nativescript vitest @vitest/runner @vitest/coverage-istanbul
 
 # Only when the app displays the optional results page
 pnpm add @cross-code/vitest-nativescript-ui
@@ -155,6 +155,34 @@ The same test file is selected by Vitest in Node and by the webpack registry in
 the app. Make sure every file matched by `include` is also matched by
 `require.context`; otherwise Vitest can schedule a file that the device cannot
 load. Native test files conventionally use the `.native.test.ts` suffix.
+
+## Code coverage
+
+Use Vitest's Istanbul provider for on-device coverage. NativeScript JavaScript
+runtimes do not expose the V8 coverage APIs, so the webpack helper instruments
+the application bundle only when coverage is enabled. The Worker forwards the
+resulting `globalThis.__VITEST_COVERAGE__` map through Vitest's normal RPC, so
+standard Vitest reporters and thresholds continue to work.
+
+```ts
+export default defineConfig({
+  // plugins: [nativeScriptUnitPlugin(...)],
+  test: {
+    coverage: {
+      provider: 'istanbul',
+      reporter: ['text', 'html', 'lcov'],
+      include: ['app/**/*.ts'],
+      exclude: ['app/**/*.native.spec.ts', 'app/vitest-nativescript*.ts'],
+      // The device bundle can report only modules it loads.
+      all: false,
+    },
+  },
+});
+```
+
+Run `pnpm exec vitest run --coverage`. The plugin automatically adds the
+coverage build flag to the NativeScript launch command. Do not use the `v8`
+coverage provider for a NativeScript device target.
 
 ## Threading guidance
 

@@ -21,7 +21,9 @@ Workspace-wide Nx and NativeScript rules live in the root `AGENTS.md`.
   `app/wasm/fixture-suite.ts`.
 
 The custom webpack helper activates only for `env.vitestNativeScript`, swaps
-the app entry, and aliases bare `vitest` imports to the device-safe shim.
+the app entry, and aliases bare `vitest` imports to the device-safe shim. With
+`env.vitestNativeScriptCoverage` it also applies Istanbul instrumentation to
+app sources; that flag is added automatically by `vitest run --coverage`.
 
 ## Layout
 
@@ -97,6 +99,8 @@ Run through Nx from the repository root:
 pnpm exec nx run nativescript-wasm-test:typecheck
 pnpm exec nx run nativescript-wasm-test:test.ios
 pnpm exec nx run nativescript-wasm-test:test.android
+pnpm exec nx run nativescript-wasm-test:test.ios.coverage
+pnpm exec nx run nativescript-wasm-test:test.android.coverage
 ```
 
 The iOS and Android targets both use port `17878`; run them serially. Use the
@@ -111,3 +115,10 @@ bare global `ns` command.
    points, WAMR options, or execution tiers.
 3. Typecheck, then run both device targets. The platform adapters are different
    implementations and must both pass.
+
+## Code coverage
+
+Use the `.coverage` targets to collect Istanbul coverage on the device. The
+reports are local, platform-specific artifacts under
+`test-output/vitest/coverage/{ios,android}`. Do not enable Vitest's V8 provider:
+NativeScript runtimes do not expose V8 inspector coverage.
