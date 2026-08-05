@@ -6,6 +6,7 @@
 //   node tools/clean.mjs --dry-run    print what would be removed
 
 import { $, echo, fs, glob, path } from 'zx';
+import { fileURLToPath } from 'node:url';
 
 const dryRun = process.argv.includes('--dry-run');
 const all = process.argv.includes('--all');
@@ -29,8 +30,9 @@ const dirs = [
   'packages/nativescript-wasm3/src/vendors/wasm3-rust/target',
   'packages/nativescript-wamr/src/vendors/wamr-rust/target',
 
-  // ── NativeScript generated platforms (test app) ───────────────────
+  // ── NativeScript generated artifacts (test app) ───────────────────
   'apps/nativescript-wasm-test/platforms',
+  'apps/nativescript-wasm-test/hooks',
 
   // ── Local tooling caches ──────────────────────────────────────────
   '.verdaccio',
@@ -40,12 +42,16 @@ const dirs = [
 const nodeModules = [
   'node_modules',
   'apps/nativescript-wasm-test/node_modules',
+  'packages/*/node_modules',
 ];
 
 if (all) dirs.push(...nodeModules);
 
 echo`Cleaning build caches${dryRun ? ' (dry-run)' : ''}:`;
 echo``;
+
+let removed = 0;
+let skipped = 0;
 
 for (const pattern of dirs) {
   const matches = await glob(pattern, { nodir: false, absolute: false });
@@ -55,26 +61,24 @@ for (const pattern of dirs) {
 
     if (dryRun) {
       echo`DRY-RUN  rm -rf ${match}`;
+      removed++;
     } else {
       try {
         await fs.rm(full, { recursive: true, force: true });
         echo`OK  ${match}`;
+        removed++;
       } catch (err) {
         echo`FAIL  ${match} — ${err.message}`;
+        skipped++;
       }
     }
   }
 }
 
-const total = dirs.length + (all ? nodeModules.length : 0);
 echo``;
-echo`Done — ${total} path(s) checked.`;
+echo`Done — ${removed} path(s) removed${skipped > 0 ? `, ${skipped} failed` : ''}.`;
 
 if (!all) {
   echo``;
   echo`Run \`node tools/clean.mjs --all\` to also remove node_modules trees.`;
 }
-
-// Helpers —───────────────────────────────────────────────────────────
-
-import { fileURLToPath } from 'node:url';
