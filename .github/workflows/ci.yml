@@ -23,11 +23,6 @@ jobs:
           filter: tree:0
           fetch-depth: 0
 
-      # This enables task distribution via Nx Cloud
-      # Run this command as early as possible, before dependencies are installed
-      # Learn more at https://nx.dev/docs/reference/nx-cloud-cli#npx-nxcloud-startcirun
-      - run: npx nx start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="e2e"
-
       # pnpm is the default package manager (packageManager in package.json);
       # pnpm/action-setup installs the pinned version from there.
       - uses: pnpm/action-setup@v4
@@ -40,13 +35,17 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # This enables task distribution via Nx Cloud.
+      # Learn more at https://nx.dev/docs/reference/nx-cloud-cli#npx-nxcloud-startcirun
+      - run: pnpm exec nx start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="e2e"
+
       # Prepend any command with "nx record --" to record its logs to Nx Cloud
-      # - run: npx nx record -- npx nx format:check --base="remotes/origin/main"
-      # - run: npx nx run-many -t lint test build typecheck e2e
+      # - run: pnpm exec nx record -- pnpm exec nx format:check --base="remotes/origin/main"
+      # - run: pnpm exec nx run-many -t lint test build typecheck e2e
       # Nx Cloud recommends fixes for failures to help you get CI green faster. Learn more: https://nx.dev/docs/features/ci-features/self-healing-ci
-      # - run: npx nx fix-ci
+      # - run: pnpm exec nx fix-ci
       #   if: always()
-      # - run: npx nx format:check --base="remotes/origin/main"
+      # - run: pnpm exec nx format:check --base="remotes/origin/main"
 
   # Vitest, TypeScript and the Rust fixture crate. Everything here runs on a
   # plain Linux runner: the .wasm fixtures are committed build outputs, so no
@@ -84,7 +83,7 @@ jobs:
       # projects — including the test app's mocha specs, which are type-checked
       # here even though they can only run on a device.
       - name: Vitest + typecheck
-        run: npx nx run-many -t test typecheck
+        run: pnpm exec nx run-many -t test typecheck
 
       # Rust is pre-installed on GitHub's ubuntu-latest runner. When debugging
       # locally with `act` the slim image may not have it — install on the fly
@@ -98,7 +97,7 @@ jobs:
 
       # The fixture crate: wasm exports plus the globals.wasm byte encoder.
       - name: Rust unit tests
-        run: npx nx run nativescript-wasm-fixture:test.wasm
+        run: pnpm exec nx run nativescript-wasm-fixture:test.wasm
 
       # globals.wasm is committed but generated, and the generator is
       # deterministic — so a stale copy is a hard error rather than a surprise
@@ -385,22 +384,20 @@ jobs:
       # The app resolves the plugin through a file: dependency and imports its
       # built dist/, so the TypeScript has to exist before the app is bundled.
       - name: Build the plugin
-        run: npx nx run nativescript-wasm3:build
+        run: pnpm exec nx run nativescript-wasm3:build
 
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
         run: pnpm install --frozen-lockfile
 
-      - run: npm install -g nativescript
-
       # `ns doctor` shells out to `pod --version`, which prints a locale warning
       # the CLI treats as a failed CocoaPods check unless LANG is a UTF-8 one.
       # The plugin itself needs no pods — it ships a Swift package.
       - name: Mocha specs on the iOS Simulator
-        working-directory: apps/nativescript-wasm-test
+        working-directory: .
         env:
           LANG: en_US.UTF-8
-        run: ns test ios --emulator
+        run: pnpm exec sh -c 'cd apps/nativescript-wasm-test && ns test ios --emulator'
 
   wasm-test-android:
     needs: changes
@@ -423,7 +420,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build the plugin
-        run: npx nx run nativescript-wasm3:build
+        run: pnpm exec nx run nativescript-wasm3:build
 
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test
@@ -433,8 +430,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-
-      - run: npm install -g nativescript
 
       # Lets the emulator use hardware acceleration on the GitHub runner.
       - name: Enable KVM
@@ -451,5 +446,5 @@ jobs:
         with:
           api-level: 34
           arch: x86_64
-          working-directory: apps/nativescript-wasm-test
-          script: ns test android --emulator
+          working-directory: .
+          script: pnpm exec sh -c 'cd apps/nativescript-wasm-test && ns test android --emulator'
