@@ -1,0 +1,22 @@
+[package]
+name = "wry-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Safe Rust wrapper with UniFFI bindings for Swift and Kotlin"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "lib"]
+name = "wry_ffi"
+
+[dependencies]
+wry-sys = { path = "../wry-sys" }
+thiserror = "2"
+uniffi = { version = "0.32", features = ["cli"] }
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[build-dependencies]
+uniffi = { version = "0.32", features = ["build"] }

@@ -1,0 +1,52 @@
+{
+  "name": "@cross-code/ns-wry",
+  "version": "0.1.0",
+  "description": "NativeScript plugin — Rust + UniFFI (uniffi-rs) bindings for Kotlin/Swift, cargo-ndk Android pipeline",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@cross-code/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "nativescript.config.ts",
+    "platforms/ios/NSCWry/Package.swift",
+    "platforms/ios/NSCWry/Sources",
+    "platforms/android/include.gradle",
+    "platforms/android/nsc-wry.aar",
+    "!**/*.tsbuildinfo"
+  ],
+  "nativescript": {
+    "platforms": {
+      "ios": "8.6.0",
+      "android": "8.6.0"
+    }
+  },
+  "scripts": {
+    "sync.vendors": "node tools/sync-wry.mjs",
+    "test.ios": "cd platforms/ios/NSCWry && swift test --disable-sandbox",
+    "test.android": "cd platforms/android/nsc-wry-android && ./gradlew :hosttest:test",
+    "build.android": "cd platforms/android/nsc-wry-android && ./gradlew :library:deployAar"
+  },
+  "keywords": [
+    "NativeScript",
+    "Rust",
+    "UniFFI",
+    "ios",
+    "android"
+  ],
+  "nx": {
+    "name": "ns-wry"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  }
+}

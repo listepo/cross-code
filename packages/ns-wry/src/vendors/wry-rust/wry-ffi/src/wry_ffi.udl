@@ -1,0 +1,13 @@
+namespace wry;
+
+interface WryRuntime {
+  [Throws=WryError]
+  constructor(u32 stack_size);
+
+  string version();
+};
+
+[Error]
+enum WryError {
+  "Generic",
+};

@@ -1,0 +1,28 @@
+{
+  "name": "ns-wry-app",
+  "main": "app/app.ts",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "description": "NativeScript test app for @cross-code/ns-wry — displays a WebView with google.com on the first page.",
+  "scripts": {
+    "build.plugin": "cd ../../ && pnpm exec nx run ns-wry:build",
+    "run.ios": "pnpm run build.plugin && ns run ios --emulator",
+    "run.android": "pnpm run build.plugin && ns run android --emulator",
+    "run.ios:clean": "rm -rf platforms/ios && pnpm run build.plugin && ns run ios --emulator"
+  },
+  "dependencies": {
+    "@cross-code/ns-wry": "file:../../packages/ns-wry",
+    "@nativescript/core": "~9.0.0",
+    "@nativescript/theme": "^3.1.0"
+  },
+  "devDependencies": {
+    "@nativescript/android": "9.0.5",
+    "@nativescript/ios": "9.0.3",
+    "@nativescript/types": "~9.0.0",
+    "@nativescript/webpack": "~5.0.25",
+    "postcss-loader": "8.2.1",
+    "ts-loader": "9.6.2",
+    "typescript": "~6.0.0"
+  }
+}

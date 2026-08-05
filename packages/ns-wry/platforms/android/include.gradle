@@ -1,0 +1,3 @@
+// no external deps — libwry_jni.so is self-contained
+dependencies {
+}

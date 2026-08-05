@@ -17,6 +17,9 @@
     },
     {
       "path": "./packages/vitest-nativescript-ui"
+    },
+    {
+      "path": "./packages/ns-wry"
     }
   ],
   "compilerOptions": {}

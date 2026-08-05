@@ -1,0 +1,19 @@
+# NativeScript
+hooks/
+node_modules/
+platforms/
+
+# Logs
+logs
+*.log
+
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+.idea
+.cloud
+.project
+tmp/
+typings/
+out-tsc/

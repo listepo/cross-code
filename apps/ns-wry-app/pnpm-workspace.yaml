@@ -1,0 +1,10 @@
+# This app is intentionally NOT part of the root monorepo workspace (packages/*):
+# the ns CLI needs its own node_modules. Declaring the app directory as its
+# own pnpm workspace root gives it a separate install and its own pnpm-lock.yaml.
+packages: []
+
+# pnpm 11 blocks dependency build scripts by default (ERR_PNPM_IGNORED_BUILDS).
+allowBuilds:
+  '@nativescript/core': true
+  '@parcel/watcher': true
+  'core-js-pure': true

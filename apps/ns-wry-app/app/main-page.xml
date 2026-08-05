@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="page">
+    <ActionBar title="{{ title }}" />
+
+    <GridLayout rows="auto, *">
+        <Label row="0" text="{{ status }}" class="h3 text-center p-10" textWrap="true" />
+
+        <WebView row="1" src="{{ url }}" />
+    </GridLayout>
+</Page>

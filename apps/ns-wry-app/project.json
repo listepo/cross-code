@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "ns-wry-app",
+  "projectType": "application",
+  "sourceRoot": "apps/ns-wry-app/app",
+  "targets": {
+    "typecheck": {
+      "command": "tsc --noEmit -p tsconfig.json",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": ["^build"],
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/app/**/*",
+        "{projectRoot}/references.d.ts",
+        "{projectRoot}/tsconfig.json",
+        "{projectRoot}/webpack.config.js",
+        "^production"
+      ]
+    }
+  }
+}

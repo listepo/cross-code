@@ -37,9 +37,11 @@
 
 ## NativeScript plugins in this repo
 
-Two sibling plugins live under `packages/`. They are mirror images: same
-class shapes, same wire protocol, same error mapping. Everything both
-plugins share is documented in [Shared plugin architecture](#shared-plugin-architecture)
+Three sibling plugins live under `packages/`, all sharing the same
+architecture: Rust cargo workspace, UniFFI (uniffi-rs) Kotlin/Swift bindings,
+and a TypeScript adapter. The two WASM plugins are mirror images of each
+other (same class shapes, same wire protocol, same error mapping). Everything
+the plugins share is documented in [Shared plugin architecture](#shared-plugin-architecture)
 below; each package's AGENTS.md holds only engine-specific detail.
 
 - **`nativescript-wasm3`** (`@cross-code/nativescript-wasm3`) — mature plugin binding
@@ -51,6 +53,10 @@ below; each package's AGENTS.md holds only engine-specific detail.
   builds enable only the interpreter (see [Key differences](#key-differences-wasm3-vs-wamr)).
   WAMR-2.3.0 sources are vendored at `packages/nativescript-wamr/src/vendors/wamr/`.
   See `packages/nativescript-wamr/AGENTS.md`.
+- **`ns-wry`** (`@cross-code/ns-wry`) — general-purpose NativeScript plugin
+  scaffold built on Rust + UniFFI (uniffi-rs) with cargo-ndk Android pipeline.
+  See `packages/ns-wry/AGENTS.md` for the bare-metal architecture; extend the
+  `wry-rust` workspace and `wry_ffi.udl` IDL to add engine-specific APIs.
 
 ### Vitest + NativeScript unit-test packages
 
@@ -429,7 +435,9 @@ wasm-pack-generated `.d.ts`. See `packages/nativescript-wasm-fixture/README.md`.
 | --------------------------------------- | ----------------------------------------------------------------------- |
 | `packages/nativescript-wasm3/AGENTS.md` | wasm3-specific: stack ABI, globals, fixtures, build/test                |
 | `packages/nativescript-wamr/AGENTS.md`  | WAMR-specific: two-phase load, exec env, WASI, tiers, trampolines, shim |
-| `apps/nativescript-wasm-test/AGENTS.md` | test app: layout, design decisions, running the suites, adding specs    |
+| `packages/ns-wry/AGENTS.md`            | wry scaffold: Rust + UniFFI architecture, platform stubs, extension guide  |
+| `apps/nativescript-wasm-test/AGENTS.md` | test app: layout, design decisions, running the suites, adding specs       |
+| `apps/ns-wry-app`                      | test app: WebView demo, build-plugin-and-run workflow                       |
 
 <!-- code-review-graph MCP tools -->
 

@@ -1,11 +1,13 @@
 # cross-code
 
 An Nx monorepo for running WebAssembly on [NativeScript](https://nativescript.org) —
-two sibling plugins with a shared TypeScript API:
+three sibling plugins built on Rust + UniFFI:
 
 - [`wasm3`](https://github.com/wasm3/wasm3) — lightweight interpreter (v0.5.2)
 - [WAMR](https://github.com/bytecodealliance/wasm-micro-runtime) — WebAssembly
   Micro Runtime (2.3.0): interpreter, Fast JIT, LLVM JIT, AOT, WASI
+- [`ns-wry`](packages/ns-wry) — Rust + [UniFFI](https://github.com/mozilla/uniffi-rs)
+  (uniffi-rs) auto-generated Kotlin/Swift bindings, cargo-ndk Android pipeline
 
 > **Project status: Active development.** APIs and project layout may change without notice; expect breaking changes between releases.
 
@@ -18,7 +20,9 @@ two sibling plugins with a shared TypeScript API:
 | [`@cross-code/nativescript-wasm-fixture`](packages/nativescript-wasm-fixture) | Rust/wasm-pack test fixtures (committed `.wasm` binaries)                                                                               |
 | [`@cross-code/vitest-nativescript`](packages/vitest-nativescript)             | Vitest custom pool and NativeScript Worker runtime for on-device unit tests                                                             |
 | [`@cross-code/vitest-nativescript-ui`](packages/vitest-nativescript-ui)       | Optional NativeScript Core results page for device-side Vitest progress                                                                 |
+| [`@cross-code/ns-wry`](packages/ns-wry)                                       | NativeScript plugin — Rust + UniFFI (uniffi-rs) Kotlin/Swift bindings, cargo-ndk Android pipeline                                       |
 | [`nativescript-wasm-test`](apps/nativescript-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Vitest + `vitest-nativescript`            |
+| [`ns-wry-app`](apps/ns-wry-app)                                               | NativeScript test app for @cross-code/ns-wry — WebView demo with google.com on iOS/Android                                              |
 
 Both plugins expose the same TypeScript API — see [Using the plugins](#using-the-plugins).
 Each package README covers its own layout, development workflow and troubleshooting
@@ -319,4 +323,6 @@ package's README.
 | `@cross-code/nativescript-wasm-fixture` | [README](packages/nativescript-wasm-fixture/README.md) — exported subpaths, rebuilding the `.wasm` fixtures              |
 | `@cross-code/vitest-nativescript`       | [README](packages/vitest-nativescript/README.md) — custom pool, Worker registry, concurrency, and transport              |
 | `@cross-code/vitest-nativescript-ui`    | [README](packages/vitest-nativescript-ui/README.md) — optional NativeScript results UI                                   |
-| `nativescript-wasm-test`                | [README](apps/nativescript-wasm-test/README.md) — running the demo page and the on-device Vitest suite, troubleshooting  |
+| `@cross-code/ns-wry`                   | [README](packages/ns-wry/README.md) — Rust + UniFFI architecture, platform stubs, developing, troubleshooting                         |
+| `nativescript-wasm-test`                | [README](apps/nativescript-wasm-test/README.md) — running the demo page and the on-device Vitest suite, troubleshooting               |
+| `ns-wry-app`                            | [README](apps/ns-wry-app/README.md) — WebView demo, build-plugin-and-run scripts, troubleshooting                                     |

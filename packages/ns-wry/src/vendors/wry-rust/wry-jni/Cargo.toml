@@ -1,0 +1,13 @@
+[package]
+name = "wry-jni"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "JNI bindings for the wry engine — thin Rust wrappers, loaded by Kotlin via System.loadLibrary"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wry-sys = { path = "../wry-sys" }
+jni = { version = "0.21", features = ["invocation"] }
