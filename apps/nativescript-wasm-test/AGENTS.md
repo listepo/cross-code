@@ -2,6 +2,9 @@
 
 AI-agent guidance for working on the `nativescript-wasm-test` app.
 
+Workspace-wide conventions — Nx usage, NativeScript docs, the `npx ns` rule,
+environment requirements — live in the top-level [AGENTS.md](../../AGENTS.md).
+
 ---
 
 ## What this app is
@@ -195,9 +198,8 @@ Both `ns test` targets declare `dependsOn: ["^build"]` for that reason.
 
 ## Running the tests
 
-The `ns` CLI is a local devDependency — always invoke it with `npx ns` so it
-resolves to `node_modules/.bin/ns` and never hits macOS permission issues on
-`~/.local/share/.nativescript-cli`.
+The `ns` CLI is a local devDependency — always invoke it with `npx ns` (see
+the top-level [AGENTS.md](../../AGENTS.md#nativescript) for why).
 
 From the workspace root:
 
@@ -249,40 +251,32 @@ npx ns test ios --device 73F3C71E-982C-4C2A-9AE3-CE75BC8FA2A2
   that the device is not port-forwarded to, and the device then fails to fetch
   `context.json`.
 
-### Known-failing: the plugin is not visible to JS on Android
+### Fixed: the plugin was not visible to JS on Android
 
-`new Wasm3Runtime()` currently throws *"native runtime not found"* on Android.
-The plugin's Kotlin classes are compiled with Kotlin 2.4.x, and NativeScript's
-metadata generator only understands metadata ≤ 2.3.0, so it skips all of them —
-see `packages/nativescript-wasm3/AGENTS.md`, "Kotlin metadata version gates JS
-visibility". The specs themselves are fine; they fail in `beforeEach`.
+`new Wasm3Runtime()` used to throw *"native runtime not found"* on Android:
+the plugin's Kotlin classes were compiled with Kotlin 2.4.x, and NativeScript's
+metadata generator only understands metadata ≤ 2.3.0, so it skipped all of
+them. Both libraries now pin `-Xmetadata-version=2.3.0` (see the top-level
+[AGENTS.md](../../AGENTS.md#android-kotlin-metadata-version)). If the error
+reappears, check `<app>/platforms/android/build-tools/buildMetadata.log` for
+`Skip org.nativescript.wasm3.*`.
 
-### Known-failing: the WAMR plugin is not consumable by the CLI yet
+### Fixed: the WAMR plugin was not consumable by the CLI
 
-Every spec under `app/tests/wamr/` fails on both platforms, for two reasons that
-are in the plugin, not in this app:
+Every spec under `app/tests/wamr/` used to fail on both platforms because of
+issues in the plugin, not in this app:
 
-1. `packages/nativescript-wamr/package.json` has no `"nativescript"` field. The
-   CLI uses that field to recognise a dependency as a plugin; without it the
-   plugin's own `nativescript.config.ts` is never read, its `ios.SPMPackages`
-   entry is never applied, and `NSCWamr` never enters the generated Xcode
-   project. Compare `grep -c NSCWasm3 platforms/ios/*.pbxproj` against
-   `NSCWamr` — the latter is 0.
-2. The WAMR C sources are not vendored. Only the shim
-   (`src/native/shim/nsc_wamr_shim.c`) is committed;
-   `npm run sync.vendors --prefix ../../packages/nativescript-wamr` clones
-   `bytecodealliance/wasm-micro-runtime` and populates the rest. There is also no
-   pre-built `.aar` for Android, unlike wasm3.
+1. `packages/nativescript-wamr/package.json` lacked the `"nativescript"`
+   field, so the CLI never recognised it as a plugin, never read its
+   `nativescript.config.ts`, and never added `NSCWamr` to the generated Xcode
+   project.
+2. The WAMR C sources were not vendored (only the shim was committed) and no
+   pre-built `.aar` existed for Android, unlike wasm3.
 
-The app still builds and deploys with the plugin missing — nothing fails until a
-spec calls `new WamrRuntime()` and gets *"native runtime not found"*. Fix both
-before treating a WAMR spec failure as a real regression.
-
-**Fix them in that order, and only together.** (1) on its own is a tempting
-one-liner, but it makes the CLI add `NSCWamr` to the Xcode project while the C
-sources are still missing — so the Swift package fails to compile and the whole
-iOS build breaks, taking the currently-passing wasm3 specs with it. Vendor the
-sources first, then add the metadata field.
+All four blockers are now fixed: the `"nativescript"` field + `Package.swift`
+exclude (commit 812d7da), the vendored WAMR-2.3.0 sources, and the committed
+`nativescript-wamr.aar`. If a WAMR spec fails now, treat it as a real
+regression in the plugin or this app — not the old known state.
 
 ---
 
