@@ -18,8 +18,8 @@ NativeScript plugin that loads and executes WebAssembly modules with the
 
 ## Usage
 
-Both plugins expose the same API — see **[Using the plugins](../../README.md#using-the-plugins)**
-in the top-level README for the full guide: install, quick start, calling
+Both plugins expose the same API — see **[WASM.md](../../WASM.md)**
+for the full guide: install, quick start, calling
 exports, linear memory, globals, host imports, value marshalling, error
 messages, and the complete API reference.
 
@@ -88,7 +88,7 @@ in the app. Ensure `nativescript-wasm3.aar` is current (run
 `npm run build.android`) and the plugin is properly linked.
 
 For shared issues (unlinked imports, i64 marshalling, app not rebuilt after
-adding the plugin) see [Using the plugins → Troubleshooting](../../README.md#troubleshooting).
+adding the plugin) see [WASM.md → Troubleshooting](../../WASM.md#troubleshooting).
 
 ## License
 
