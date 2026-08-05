@@ -9,6 +9,15 @@ module.exports = function (config) {
     // available frameworks: https://npmjs.org/browse/keyword/karma-adapter
     frameworks: ['mocha', 'chai'],
 
+    // pnpm keeps package links nested, so Karma cannot discover adapters via
+    // its automatic `karma-*` plugin scan. Register the test frameworks and
+    // NativeScript launcher explicitly.
+    plugins: [
+      require('karma-mocha'),
+      require('karma-chai'),
+      require('karma-nativescript-launcher')
+    ],
+
 
     // list of files / patterns to load in the browser. Leave empty for webpack projects
     // files: [],

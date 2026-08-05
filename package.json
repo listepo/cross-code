@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {},
   "private": true,
+  "packageManager": "pnpm@11.20.0",
   "devDependencies": {
     "@nx/js": "23.1.0",
     "@nx/vitest": "23.1.0",

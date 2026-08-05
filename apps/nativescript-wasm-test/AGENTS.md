@@ -28,6 +28,17 @@ both. WAMR adds what wasm3 has no equivalent for: four **execution tiers**
 (Interpreter, Fast JIT, LLVM JIT, AOT) and optional **WASI** support, selected
 per-runtime through `WamrRuntimeOptions` and exercised by the WAMR specs.
 
+> **TypeScript platform types** (`references.d.ts`): composed with
+> https://types.nativescript.org/agents — the iOS default `common.d.ts` bundle
+> plus the opt-in frameworks the app's code touches (`objc!UIKit.d.ts`), and the
+> Android API level the app compiles against (`android-35.d.ts`, matching
+> `App_Resources/Android/app.gradle`). When new native types are needed, add the
+> corresponding `/// <reference path="./node_modules/@nativescript/types-*…" />`
+> line from that page instead of going back to the umbrella
+> `@nativescript/types/index.d.ts`. (Note: `skipLibCheck` means `tsc` won't fail
+> if a referenced `.d.ts` is missing — the file mainly serves editors and the
+> `ns` toolchain.)
+
 There is no off-device test run. An earlier version of this app ran the same
 checks on Node's `WebAssembly` engine through a fake of the Android native
 surface; that was removed when the suite moved to mocha-on-device.
@@ -192,9 +203,9 @@ From the workspace root:
 
 ```bash
 # Via Nx (preferred — auto-builds dependencies)
-npm exec nx run nativescript-wasm-test:test.ios
-npm exec nx run nativescript-wasm-test:test.android
-npm exec nx run nativescript-wasm-test:typecheck
+pnpm exec nx run nativescript-wasm-test:test.ios
+pnpm exec nx run nativescript-wasm-test:test.android
+pnpm exec nx run nativescript-wasm-test:typecheck
 
 # Or with the CLI directly (from this directory)
 npx ns test ios --emulator
@@ -217,11 +228,11 @@ npx ns test ios --device 73F3C71E-982C-4C2A-9AE3-CE75BC8FA2A2
   aborts before building. Export `LANG=en_US.UTF-8`. (The plugin itself needs no
   pods — it ships a Swift package.)
 - **The `.wasm` fixtures are committed build outputs.** They only need rebuilding
-  if the Rust source changed: `npm run build.wasm` in
+  if the Rust source changed: `pnpm run build.wasm` in
   `packages/nativescript-wasm-fixture` (needs Rust + wasm-pack).
 - **`hooks/` is generated and git-ignored.** `@nativescript/unit-test-runner`'s
   postinstall injects the CLI hooks it needs there. If `ns test` behaves as
-  though the runner is not installed, re-run `npm install` in this directory and
+  though the runner is not installed, re-run `pnpm install` in this directory and
   check that `hooks/after-prepare/` exists.
 - **Android needs an SDK platform ≤ 36.** The CLI's compatible-target list stops
   at `android-36`; an SDK with only `android-37` installed fails `ns doctor` with
@@ -284,5 +295,5 @@ sources first, then add the metadata field.
    error, a type, a native entry point, or a WAMR-specific feature such as an
    execution tier the suite does not reach). A change to shared marshalling
    behaviour belongs in `fixture-suite.ts`, where both runtimes run it.
-3. `npm exec nx run nativescript-wasm-test:typecheck`, then run the suite on both
+3. `pnpm exec nx run nativescript-wasm-test:typecheck`, then run the suite on both
    platforms — the two adapters are different code and fail differently.

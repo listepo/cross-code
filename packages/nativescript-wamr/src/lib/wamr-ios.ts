@@ -164,6 +164,11 @@ export class IosRuntime implements NativeRuntimeAdapter {
 
   constructor(options: { stackSizeInBytes: number; wasiEnabled: boolean; executionTier: number }) {
     const RuntimeClass = (globalThis as any).NSCWamrRuntime;
+    if (!RuntimeClass) {
+      throw new WamrError(
+        'nativescript-wamr native runtime not found — is the plugin installed and the app rebuilt?',
+      );
+    }
     this.runtime = RuntimeClass.alloc().initWithStackSizeWasiEnabledExecutionTier(
       options.stackSizeInBytes,
       options.wasiEnabled,

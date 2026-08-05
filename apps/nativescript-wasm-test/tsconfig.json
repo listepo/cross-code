@@ -24,13 +24,13 @@
   "exclude": ["node_modules", "platforms", "app/test.ts", "app/**/*.spec.ts"],
   "references": [
     {
-      "path": "../../packages/nativescript-wasm-fixture"
+      "path": "../../packages/nativescript-wamr"
     },
     {
       "path": "../../packages/nativescript-wasm3"
     },
     {
-      "path": "../../packages/nativescript-wamr"
+      "path": "../../packages/nativescript-wasm-fixture"
     }
   ]
 }
