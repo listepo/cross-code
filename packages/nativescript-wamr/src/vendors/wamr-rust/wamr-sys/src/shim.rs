@@ -14,7 +14,7 @@ use super::*;
 // Global function → instance mapping (mimics the C shim's g_ctx_list).
 // WAMR's opaque handles are raw pointers, which are not Send; they are held as
 // usize so the maps can live in a static, and cast back at the use site.
-static GLOBAL_FUNC_MAP: Mutex<Option<HashMap<usize, (usize, usize)>>> = Mutex::new(None);
+static GLOBAL_FUNC_MAP: Mutex<Option<HashMap<usize, (usize, usize, String)>>> = Mutex::new(None);
 static GLOBAL_LAST_RESULTS: Mutex<Option<(usize, Vec<u32>)>> = Mutex::new(None);
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ fn instance_for(func: wasm_function_inst_t) -> Option<(wasm_module_inst_t, wasm_
     let map = GLOBAL_FUNC_MAP.lock().unwrap_or_else(|e| e.into_inner());
     map.as_ref()
         .and_then(|m| m.get(&(func as usize)))
-        .map(|&(inst, env)| (inst as wasm_module_inst_t, env as wasm_exec_env_t))
+        .map(|&(inst, env, _)| (inst as wasm_module_inst_t, env as wasm_exec_env_t))
 }
 
 /// Reads a function's parameter or result kinds through WAMR's own API.
@@ -107,7 +107,12 @@ struct InstanceEntry {
 
 pub struct NscWamrRuntime {
     instances: Vec<InstanceEntry>,
+    modules: Vec<wasm_module_t>,
     default_stack_size: i32,
+}
+
+pub fn runtime_has_instances(runtime: *mut NscWamrRuntime) -> bool {
+    !runtime.is_null() && unsafe { !(*runtime).instances.is_empty() }
 }
 
 impl NscWamrRuntime {
@@ -119,6 +124,7 @@ impl NscWamrRuntime {
         }
         Ok(Box::new(NscWamrRuntime {
             instances: Vec::new(),
+            modules: Vec::new(),
             default_stack_size: stack_size,
         }))
     }
@@ -199,7 +205,7 @@ pub fn destroy_runtime(ptr: *mut NscWamrRuntime) {
 // ---------------------------------------------------------------------------
 
 pub fn load_module(
-    _runtime: *mut NscWamrRuntime,
+    runtime: *mut NscWamrRuntime,
     bytes: *const u8,
     size: i32,
     error_buf: *mut c_char,
@@ -208,7 +214,11 @@ pub fn load_module(
         if !error_buf.is_null() {
             *error_buf = 0;
         }
-        wasm_runtime_load(bytes as *mut u8, size as u32, error_buf, 256)
+        let module = wasm_runtime_load(bytes as *mut u8, size as u32, error_buf, 256);
+        if !module.is_null() && !runtime.is_null() {
+            (*runtime).modules.push(module);
+        }
+        module
     }
 }
 
@@ -249,6 +259,9 @@ pub fn instantiate(
         return ptr::null_mut();
     }
     rt.add_instance(inst, env);
+    unsafe {
+        wasm_runtime_set_custom_data(inst, runtime as *mut std::ffi::c_void);
+    }
     inst
 }
 
@@ -282,13 +295,13 @@ pub fn find_function(
             // Store in global map for call dispatch (matching C shim's g_ctx_list)
             let mut map = GLOBAL_FUNC_MAP.lock().unwrap();
             map.get_or_insert_with(HashMap::new)
-                .insert(f as usize, (entry.inst as usize, entry.exec_env as usize));
+                .insert(f as usize, (entry.inst as usize, entry.exec_env as usize, name_str.to_string()));
             return f;
         }
     }
     unsafe {
         if !error_buf.is_null() {
-            let msg = CString::new(format!("function not found: {}", name_str)).unwrap_or_default();
+            let msg = CString::new(format!("function lookup failed: '{name_str}'")).unwrap_or_default();
             let bytes = msg.as_bytes_with_nul();
             let len = bytes.len().min(256);
             ptr::copy_nonoverlapping(bytes.as_ptr() as *const c_char, error_buf, len);
@@ -297,9 +310,12 @@ pub fn find_function(
     ptr::null_mut()
 }
 
-pub fn function_name(_func: wasm_function_inst_t) -> String {
-    // Not exposed in current WAMR public API
-    String::new()
+pub fn function_name(func: wasm_function_inst_t) -> String {
+    let map = GLOBAL_FUNC_MAP.lock().unwrap_or_else(|e| e.into_inner());
+    map.as_ref()
+        .and_then(|m| m.get(&(func as usize)))
+        .map(|(_, _, name)| name.clone())
+        .unwrap_or_default()
 }
 
 // The owning instance is recovered from the func_map that find_function fills.
@@ -373,13 +389,15 @@ pub fn call(
     let (inst, env) = {
         let map = GLOBAL_FUNC_MAP.lock().unwrap();
         match map.as_ref().and_then(|m| m.get(&(func as usize))) {
-            Some(&(inst, env)) => (inst as wasm_module_inst_t, env as wasm_exec_env_t),
+            Some(&(inst, env, _)) => (inst as wasm_module_inst_t, env as wasm_exec_env_t),
             None => return Err("function not found in any module instance".into()),
         }
     };
     if env.is_null() {
         return Err("no execution environment".into());
     }
+
+    unsafe { wasm_runtime_clear_exception(inst) };
 
     let ptypes = signature_kinds(func, false);
     let rtypes = signature_kinds(func, true);
@@ -501,23 +519,27 @@ pub fn get_results(
 // memory
 // ---------------------------------------------------------------------------
 
+fn default_memory(runtime: *mut NscWamrRuntime) -> Option<wasm_memory_inst_t> {
+    if runtime.is_null() {
+        return None;
+    }
+    let rt = unsafe { &*runtime };
+    let inst = rt.first_inst()?;
+    let memory = unsafe { wasm_runtime_get_default_memory(inst) };
+    (!memory.is_null()).then_some(memory)
+}
+
 pub fn memory_size(runtime: *mut NscWamrRuntime) -> i32 {
-    if runtime.is_null() { return 0; }
-    // Conservative default
-    64 * 1024
+    let Some(memory) = default_memory(runtime) else { return 0; };
+    let pages = unsafe { wasm_memory_get_cur_page_count(memory) };
+    let bytes_per_page = unsafe { wasm_memory_get_bytes_per_page(memory) };
+    pages.saturating_mul(bytes_per_page).min(i32::MAX as u64) as i32
 }
 
 pub fn get_memory(runtime: *mut NscWamrRuntime) -> *mut u8 {
     if runtime.is_null() { return ptr::null_mut(); }
-    let rt = unsafe { &*runtime };
-    let inst = match rt.first_inst() {
-        Some(i) => i,
-        None => return ptr::null_mut(),
-    };
-    if !unsafe { wasm_runtime_validate_app_addr(inst, 0, 1) } {
-        return ptr::null_mut();
-    }
-    unsafe { wasm_runtime_addr_app_to_native(inst, 0) as *mut u8 }
+    let Some(memory) = default_memory(runtime) else { return ptr::null_mut(); };
+    unsafe { wasm_memory_get_base_address(memory) as *mut u8 }
 }
 
 // ---------------------------------------------------------------------------
@@ -536,14 +558,18 @@ pub fn convert_signature(sig: &str) -> Option<String> {
 }
 
 pub fn link_host_function(
-    inst: wasm_module_inst_t,
+    runtime: *mut NscWamrRuntime,
     module_name: &str,
     name: &str,
     signature: &str,
     callback: *mut std::os::raw::c_void,
 ) -> Result<(), String> {
-    if inst.is_null() || module_name.is_empty() || name.is_empty() || callback.is_null() {
+    if runtime.is_null() || module_name.is_empty() || name.is_empty() || callback.is_null() {
         return Err("invalid argument".into());
+    }
+
+    if !import_declared(runtime, module_name, name) {
+        return Err(format!("import not declared: {module_name}.{name}"));
     }
 
     let wamr_sig = convert_signature(signature).ok_or("failed to convert signature")?;
@@ -568,6 +594,34 @@ pub fn link_host_function(
     Ok(())
 }
 
+pub fn import_declared(runtime: *mut NscWamrRuntime, module_name: &str, name: &str) -> bool {
+    if runtime.is_null() || module_name.is_empty() || name.is_empty() {
+        return false;
+    }
+
+    unsafe { &*runtime }.modules.iter().any(|module| {
+        let count = unsafe { wasm_runtime_get_import_count(*module) };
+        (0..count).any(|index| {
+            let mut import = wasm_import_t::default();
+            unsafe { wasm_runtime_get_import_type(*module, index, &mut import) };
+            if import.kind != wasm_import_export_kind_t_WASM_IMPORT_EXPORT_KIND_FUNC {
+                return false;
+            }
+            let import_module = if import.module_name.is_null() {
+                None
+            } else {
+                unsafe { CStr::from_ptr(import.module_name).to_str().ok() }
+            };
+            let import_name = if import.name.is_null() {
+                None
+            } else {
+                unsafe { CStr::from_ptr(import.name).to_str().ok() }
+            };
+            import_module == Some(module_name) && import_name == Some(name)
+        })
+    })
+}
+
 // ---------------------------------------------------------------------------
 // globals
 // ---------------------------------------------------------------------------
@@ -587,7 +641,7 @@ pub fn get_global(
         wasm_runtime_get_export_global_inst(inst, c_name.as_ptr(), &mut global)
     };
     if !ok {
-        return Err("global not found".into());
+        return Err(format!("global not found: {name}"));
     }
 
     // wasm_global_inst_t::kind is a wasm_valkind_t, which is already the wire's
@@ -639,7 +693,7 @@ pub fn set_global(
 
     let ok = unsafe { wasm_runtime_get_export_global_inst(inst, c_name.as_ptr(), &mut global) };
     if !ok {
-        return Err("global not found".into());
+        return Err(format!("global not found: {name}"));
     }
 
     let expected = global.kind as i32;

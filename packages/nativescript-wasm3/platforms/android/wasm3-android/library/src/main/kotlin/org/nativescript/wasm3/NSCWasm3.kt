@@ -163,7 +163,8 @@ class NSCWasm3Runtime @JvmOverloads constructor(stackSizeInBytes: Int = 64 * 102
             throw NSCWasm3Exception("memory read out of bounds (offset $offset, length $length, size $size)")
         }
         val data = ByteArray(length)
-        memory.position(offset).get(data)
+        memory.position(offset)
+        memory.get(data)
         return data
     }
 
@@ -174,7 +175,8 @@ class NSCWasm3Runtime @JvmOverloads constructor(stackSizeInBytes: Int = 64 * 102
         if (offset < 0 || offset + data.size.toLong() > size) {
             throw NSCWasm3Exception("memory write out of bounds (offset $offset, length ${data.size}, size $size)")
         }
-        memory.position(offset).put(data)
+        memory.position(offset)
+        memory.put(data)
     }
 
     override fun close() {

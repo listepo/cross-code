@@ -25,9 +25,31 @@ fn main() {
     println!("cargo:rerun-if-changed={}", header);
     println!("cargo:rerun-if-changed={}", vendor_dir.display());
 
-    let bindings = bindgen::Builder::default()
+    let mut bindings_builder = bindgen::Builder::default()
         .header(header)
-        .clang_arg(format!("-I{}", vendor_dir.display()))
+        .clang_arg(format!("-I{}", vendor_dir.display()));
+
+    // NDK 30 rejects an unversioned Android target triple when bindgen parses
+    // libc headers. cargo-ndk supplies the sysroot through
+    // BINDGEN_EXTRA_CLANG_ARGS_<target>, but bindgen still needs the
+    // API-qualified target explicitly (for example,
+    // aarch64-linux-android21).
+    let target = env::var("TARGET").unwrap_or_default();
+    if target.ends_with("-android") || target.ends_with("-androideabi") {
+        let api = env::var("CARGO_NDK_PLATFORM").unwrap_or_else(|_| "21".to_string());
+        let clang_target = if target == "armv7-linux-androideabi" {
+            "armv7a-linux-androideabi"
+        } else {
+            &target
+        };
+        bindings_builder =
+            bindings_builder.clang_arg(format!("--target={clang_target}{api}"));
+        if let Ok(sysroot) = env::var("CARGO_NDK_SYSROOT_PATH") {
+            bindings_builder = bindings_builder.clang_arg(format!("--sysroot={sysroot}"));
+        }
+    }
+
+    let bindings = bindings_builder
         .allowlist_type("M3.*")
         .allowlist_type("IM3.*")
         .allowlist_type("m3_.*")

@@ -60,8 +60,7 @@ val buildNative = tasks.register<Exec>("buildNative") {
         "-t", "x86",
         "-t", "x86_64",
         "-o", outDir.absolutePath,
-        "-p", "wasm3-jni",
-        "build", "--release"
+        "build", "-p", "wasm3-jni", "--release"
     )
 
     inputs.dir(pluginRoot.resolve("src/vendors/wasm3"))

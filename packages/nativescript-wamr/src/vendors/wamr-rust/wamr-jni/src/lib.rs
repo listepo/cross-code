@@ -317,7 +317,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_functionName(
     if func.is_null() {
         return std::ptr::null_mut();
     }
-    let name = unsafe { ptr_to_str(nsc_wamr_function_name(func)) };
+    let name = wamr_sys::shim::function_name(func);
     env.new_string(name)
         .map(|s| s.into_raw())
         .unwrap_or(std::ptr::null_mut())
@@ -535,6 +535,7 @@ use std::sync::Mutex;
 struct HostCtx {
     jvm: JavaVM,
     trampoline: GlobalRef, // global ref to HostTrampoline (kept alive)
+    runtime: usize,
     // WAMR's raw calling convention hands the native a bare uint64 buffer with
     // no arity, so the counts parsed from the declared signature are kept here.
     n_args: usize,
@@ -573,6 +574,49 @@ fn host_registrations<R>(
     f(guard.get_or_insert_with(HashMap::new))
 }
 
+unsafe fn free_host_registration(entry: HostRegistration) {
+    wasm_runtime_unregister_natives(
+        entry.module_name as *const c_char,
+        entry.symbols as *mut NativeSymbol,
+    );
+    let symbols = Box::from_raw(entry.symbols as *mut [NativeSymbol; 1]);
+    drop(CString::from_raw(symbols[0].symbol as *mut c_char));
+    drop(symbols);
+    drop(CString::from_raw(entry.module_name as *mut c_char));
+    drop(Box::from_raw(entry.ctx as *mut HostCtx));
+}
+
+/// WAMR's native registry is process-global. Remove a matching registration
+/// belonging to an idle runtime before adding the current runtime's callback;
+/// otherwise a pending module in another runtime can resolve the stale entry.
+fn release_idle_matching_registration(module_name: &CStr, name: &CStr) {
+    let mut guard = HOST_REGISTRATIONS.lock().unwrap_or_else(|e| e.into_inner());
+    let Some(map) = guard.as_mut() else { return; };
+    for (runtime, entries) in map.iter_mut() {
+        if wamr_sys::shim::runtime_has_instances(*runtime as *mut nsc_wamr_runtime_t) {
+            continue;
+        }
+        let mut keep = Vec::with_capacity(entries.len());
+        for entry in entries.drain(..) {
+            let symbols = entry.symbols as *mut [NativeSymbol; 1];
+            let same_name = unsafe {
+                let symbol = if symbols.is_null() { None } else { Some(&(*symbols)[0]) };
+                symbol.is_some_and(|symbol| {
+                    !symbol.symbol.is_null()
+                        && CStr::from_ptr(symbol.symbol) == name
+                    && CStr::from_ptr(entry.module_name as *const c_char) == module_name
+                })
+            };
+            if same_name {
+                unsafe { free_host_registration(entry) };
+            } else {
+                keep.push(entry);
+            }
+        }
+        *entries = keep;
+    }
+}
+
 /// Unregisters and frees every host function linked against `runtime`.
 /// Must run before wasm_runtime_destroy, which frees the registry itself.
 fn release_host_registrations(runtime: usize) {
@@ -598,6 +642,7 @@ fn release_host_registrations(runtime: usize) {
 // wrapper, and the shared test suites assert the "host function" part.
 const TRAP_INVALID_RETURN: &[u8] = b"NSCWamr: host function returned invalid values\0";
 const TRAP_INVALID_CONTEXT: &[u8] = b"NSCWamr: invalid host import context\0";
+const TRAP_MISSING_IMPORT: &[u8] = b"NSCWamr: missing imported function\0";
 
 /// A raw native reports failure by setting an exception on the instance —
 /// unlike wasm3's trampoline, its return type carries no error channel.
@@ -621,6 +666,11 @@ unsafe extern "C" fn wamr_host_trampoline(exec_env: wasm_exec_env_t, argv: *mut 
     }
 
     let ctx = &*(attachment as *const HostCtx);
+    let inst = wasm_runtime_get_module_inst(exec_env);
+    let owner = wasm_runtime_get_custom_data(inst) as usize;
+    if owner != ctx.runtime {
+        return trap(exec_env, TRAP_MISSING_IMPORT);
+    }
     let mut env = match ctx.jvm.attach_current_thread() {
         Ok(e) => e,
         Err(_) => return trap(exec_env, TRAP_INVALID_CONTEXT),
@@ -720,6 +770,16 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_linkHostFunction(
         return 0;
     };
 
+    let runtime = runtime_ptr as *mut nsc_wamr_runtime_t;
+    let module_name_str = c_module.to_string_lossy();
+    let name_str = c_name.to_string_lossy();
+    if !wamr_sys::shim::import_declared(runtime, &module_name_str, &name_str) {
+        throw(&mut env, &format!("import not declared: {module_name_str}.{name_str}"));
+        return 0;
+    }
+
+    release_idle_matching_registration(c_module.as_c_str(), c_name.as_c_str());
+
     // Create a global reference to the trampoline so it won't be GC'd
     let global_ref = match env.new_global_ref(trampoline) {
         Ok(r) => r,
@@ -743,6 +803,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_linkHostFunction(
     let ctx = Box::new(HostCtx {
         jvm,
         trampoline: global_ref,
+        runtime: runtime_ptr as usize,
         n_args,
         n_rets,
     });

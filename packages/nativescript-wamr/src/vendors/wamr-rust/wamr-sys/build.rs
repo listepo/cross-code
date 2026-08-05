@@ -34,11 +34,33 @@ fn main() {
         .join("include");
     let utils_include = vendor_dir.join("core").join("shared").join("utils");
 
-    let bindings = bindgen::Builder::default()
+    let mut bindings_builder = bindgen::Builder::default()
         .header(header)
         .clang_arg(format!("-I{}", include_dir.display()))
         .clang_arg(format!("-I{}", platform_include.display()))
-        .clang_arg(format!("-I{}", utils_include.display()))
+        .clang_arg(format!("-I{}", utils_include.display()));
+
+    // NDK 30 rejects an unversioned Android target triple when bindgen parses
+    // libc headers. cargo-ndk supplies the sysroot through
+    // BINDGEN_EXTRA_CLANG_ARGS_<target>, but bindgen still needs the
+    // API-qualified target explicitly (for example,
+    // aarch64-linux-android21).
+    let target = env::var("TARGET").unwrap_or_default();
+    if target.ends_with("-android") || target.ends_with("-androideabi") {
+        let api = env::var("CARGO_NDK_PLATFORM").unwrap_or_else(|_| "21".to_string());
+        let clang_target = if target == "armv7-linux-androideabi" {
+            "armv7a-linux-androideabi"
+        } else {
+            &target
+        };
+        bindings_builder =
+            bindings_builder.clang_arg(format!("--target={clang_target}{api}"));
+        if let Ok(sysroot) = env::var("CARGO_NDK_SYSROOT_PATH") {
+            bindings_builder = bindings_builder.clang_arg(format!("--sysroot={sysroot}"));
+        }
+    }
+
+    let bindings = bindings_builder
         .allowlist_type("wasm_.*")
         .allowlist_type("WASM.*")
         .allowlist_type("RunningMode")
@@ -70,12 +92,22 @@ fn main() {
     // ── Step 2: Compile WAMR C sources via the `cc` crate ────────────────
 
     let wamr_core = vendor_dir.join("core");
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    let platform_dir_name = match target_os.as_str() {
+        "android" => "android",
+        "macos" | "ios" => "darwin",
+        _ => "linux",
+    };
+    let platform_dir = wamr_core
+        .join("shared")
+        .join("platform")
+        .join(platform_dir_name);
 
     // Include directories needed by WAMR sources
     let include_dirs = vec![
         wamr_core.join("iwasm").join("include"),
         wamr_core.join("shared").join("platform").join("include"),
-        wamr_core.join("shared").join("platform").join("darwin"),
+        platform_dir.clone(),
         wamr_core.join("shared").join("utils"),
         wamr_core.join("shared").join("mem-alloc"),
         wamr_core.join("shared").join("platform").join("common").join("posix"),
@@ -93,7 +125,6 @@ fn main() {
         .opt_level(2);
 
     // Set deployment target to match the Swift package minimum
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if target_os == "macos" {
         build.flag("-mmacosx-version-min=12.0");
     } else if target_os == "ios" {
@@ -128,6 +159,10 @@ fn main() {
     } else if target_arch == "x86_64" {
         build.define("BUILD_TARGET_X86_64", "1");
         build.define("BUILD_TARGET_AMD_64", "1");
+    } else if target_arch == "arm" {
+        build.define("BUILD_TARGET_ARM", "1");
+    } else if target_arch == "x86" {
+        build.define("BUILD_TARGET_X86_32", "1");
     }
 
     // ── Source files ──────────────────────────────────────────────────────
@@ -158,14 +193,8 @@ fn main() {
             .join("libc_errno.c"),
     );
 
-    // Platform init (os_printf, os_vprintf for darwin/posix)
-    build.file(
-        wamr_core
-            .join("shared")
-            .join("platform")
-            .join("darwin")
-            .join("platform_init.c"),
-    );
+    // Platform init (os_printf, os_vprintf, and platform lifecycle hooks).
+    build.file(platform_dir.join("platform_init.c"));
 
     // Platform memory
     build.file(

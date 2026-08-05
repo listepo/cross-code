@@ -192,19 +192,19 @@ pub unsafe extern "C" fn nsc_wamr_get_memory(runtime: *mut shim::NscWamrRuntime)
 
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_link_host_function(
-    inst: wasm_module_inst_t,
+    runtime: *mut shim::NscWamrRuntime,
     module_name: *const std::os::raw::c_char,
     name: *const std::os::raw::c_char,
     signature: *const std::os::raw::c_char,
     callback: *mut std::os::raw::c_void,
 ) -> *const std::os::raw::c_char {
-    if inst.is_null() {
-        return b"null module instance\0".as_ptr() as *const std::os::raw::c_char;
+    if runtime.is_null() {
+        return b"null runtime\0".as_ptr() as *const std::os::raw::c_char;
     }
     let mod_name = unsafe { CStr::from_ptr(module_name) }.to_string_lossy();
     let func_name = unsafe { CStr::from_ptr(name) }.to_string_lossy();
     let sig = unsafe { CStr::from_ptr(signature) }.to_string_lossy();
-    match shim::link_host_function(inst, &mod_name, &func_name, &sig, callback) {
+    match shim::link_host_function(runtime, &mod_name, &func_name, &sig, callback) {
         Ok(()) => std::ptr::null(),
         Err(e) => {
             // Leak the error string — caller reads it once

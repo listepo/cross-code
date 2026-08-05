@@ -383,7 +383,7 @@ jobs:
       # The app resolves both plugins through file: dependencies and imports
       # their built dist/, so TypeScript must exist before bundling.
       - name: Build the plugins
-        run: npx nx run-many -t build -p nativescript-wasm3 nativescript-wamr
+        run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr
 
       - name: Install the test app's dependencies
         working-directory: apps/nativescript-wasm-test

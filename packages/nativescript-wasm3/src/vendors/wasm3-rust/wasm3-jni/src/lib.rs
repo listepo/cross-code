@@ -45,6 +45,30 @@ fn check_m3_result(env: &mut JNIEnv, result: *const c_char) -> bool {
     false
 }
 
+fn check_m3_result_with_runtime(
+    env: &mut JNIEnv,
+    runtime: IM3Runtime,
+    result: *const c_char,
+) -> bool {
+    if result.is_null() {
+        return true;
+    }
+
+    let fallback = unsafe { ptr_to_str(result) };
+    let mut info: M3ErrorInfo = unsafe { std::mem::zeroed() };
+    unsafe { m3_GetErrorInfo(runtime, &mut info) };
+        let detail = unsafe { ptr_to_str(info.message) };
+        let message = if detail.is_empty() {
+            fallback.to_string()
+        } else if fallback.is_empty() || detail.contains(fallback) {
+            detail.to_string()
+        } else {
+            format!("{fallback}: {detail}")
+        };
+        throw(env, &message);
+        false
+}
+
 fn read_long_array(env: &mut JNIEnv, arr: &JLongArray) -> Result<Vec<i64>, String> {
     let len = env.get_array_length(arr).map_err(|e| e.to_string())? as usize;
     if len == 0 {
@@ -336,7 +360,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_findFunction(
     };
     let mut out: IM3Function = std::ptr::null_mut();
     let res = unsafe { m3_FindFunction(&mut out as *mut IM3Function, rt, c_name.as_ptr()) };
-    if !check_m3_result(&mut env, res) {
+    if !check_m3_result_with_runtime(&mut env, rt, res) {
         return 0;
     }
     out as jlong

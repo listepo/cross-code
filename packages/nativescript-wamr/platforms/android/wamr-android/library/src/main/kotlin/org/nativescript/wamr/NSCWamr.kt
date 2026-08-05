@@ -130,8 +130,11 @@ class NSCWamrRuntime
 @JvmOverloads
 constructor(
     stackSizeInBytes: Int = 64 * 1024,
-    wasiEnabled: Boolean = true,
-    executionTier: String = "interpreter",
+    // NativeScript's Android bridge can marshal primitive booleans incorrectly
+    // when resolving Kotlin constructors. Keep the wire-facing flag numeric
+    // and convert it before it reaches the native layer.
+    wasiEnabled: Int = 1,
+    executionTier: Int = 0,
 ) : AutoCloseable {
 
     internal var runtimeHandle: Long = 0
@@ -223,7 +226,8 @@ constructor(
             )
         }
         val data = ByteArray(length)
-        memory.position(offset).get(data)
+        memory.position(offset)
+        memory.get(data)
         return data
     }
 
@@ -237,7 +241,8 @@ constructor(
                 "memory write out of bounds (offset $offset, length ${data.size}, size $size)"
             )
         }
-        memory.position(offset).put(data)
+        memory.position(offset)
+        memory.put(data)
     }
 
     override fun close() {

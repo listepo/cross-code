@@ -198,11 +198,17 @@ private final class HostContext {
     let callback: ([Any]) -> [Any]
     let paramTypes: [WamrType]
     let resultTypes: [WamrType]
+    /// WAMR's native registry is process-global. The module instance stores
+    /// its owning runtime in custom data so a stale registration from another
+    /// runtime cannot invoke the wrong callback.
+    let owner: UnsafeMutableRawPointer
 
-    init(callback: @escaping ([Any]) -> [Any], paramTypes: [WamrType], resultTypes: [WamrType]) {
+    init(callback: @escaping ([Any]) -> [Any], paramTypes: [WamrType], resultTypes: [WamrType],
+         owner: UnsafeMutableRawPointer) {
         self.callback = callback
         self.paramTypes = paramTypes
         self.resultTypes = resultTypes
+        self.owner = owner
     }
 }
 
@@ -211,6 +217,7 @@ private final class HostContext {
 // suites assert on the "host function" part.
 private let trapInvalidReturn = "NSCWamr: host function returned invalid values"
 private let trapInvalidContext = "NSCWamr: invalid host import context"
+private let trapMissingImport = "NSCWamr: missing imported function"
 
 private func trap(_ execEnv: wasm_exec_env_t?, _ message: String) {
     guard let execEnv, let inst = wasm_runtime_get_module_inst(execEnv) else { return }
@@ -230,11 +237,15 @@ public func nscwamr_host_trampoline(
     _ argv: UnsafeMutablePointer<UInt64>?
 ) {
     guard let execEnv,
+          let inst = wasm_runtime_get_module_inst(execEnv),
           let attachment = wasm_runtime_get_function_attachment(execEnv)
     else {
         return trap(execEnv, trapInvalidContext)
     }
     let ctx = Unmanaged<HostContext>.fromOpaque(attachment).takeUnretainedValue()
+    guard let owner = wasm_runtime_get_custom_data(inst), owner == ctx.owner else {
+        return trap(execEnv, trapMissingImport)
+    }
 
     var wasmArgs: [Any] = []
     wasmArgs.reserveCapacity(ctx.paramTypes.count)
@@ -406,10 +417,10 @@ public final class NSCWamrRuntime: NSObject {
         for module in modules {
             let inst = try module.instance()
             if let f = name.withCString({ wasm_runtime_lookup_function(inst, $0) }) {
-                return NSCWamrFunction(function: f, moduleInst: inst, execEnv: try module.execEnv(), runtime: self)
+                return NSCWamrFunction(function: f, moduleInst: inst, execEnv: try module.execEnv(), runtime: self, name: name)
             }
         }
-        throw makeError(8, "function not found: \(name)")
+        throw makeError(8, "function lookup failed: '\(name)'")
     }
 
     // MARK: Linear memory
@@ -487,6 +498,26 @@ private final class HostRegistration {
     }
 }
 
+/// Returns whether a loaded module declares the requested function import.
+/// Registration is process-global in WAMR, so accepting arbitrary names would
+/// leave stale callbacks available to later runtimes.
+private func moduleDeclaresImport(_ module: wasm_module_t, moduleName: String, name: String) -> Bool {
+    let count = Int(wasm_runtime_get_import_count(module))
+    guard count >= 0 else { return false }
+    for index in 0..<count {
+        var imported = wasm_import_t()
+        wasm_runtime_get_import_type(module, Int32(index), &imported)
+        guard imported.kind == WASM_IMPORT_EXPORT_KIND_FUNC,
+              let importedModule = imported.module_name,
+              let importedName = imported.name
+        else { continue }
+        if String(cString: importedModule) == moduleName && String(cString: importedName) == name {
+            return true
+        }
+    }
+    return false
+}
+
 // MARK: - Module
 
 @objc(NSCWamrModule)
@@ -546,6 +577,7 @@ public final class NSCWamrModule: NSObject {
             wasm_runtime_deinstantiate(inst)
             throw makeError(1, "failed to create execution environment")
         }
+        wasm_runtime_set_custom_data(inst, Unmanaged.passUnretained(runtime).toOpaque())
         moduleInst = inst
         moduleExecEnv = env
         return inst
@@ -594,18 +626,22 @@ public final class NSCWamrModule: NSObject {
         guard let parsed = parseWamrSignature(wamrSig) else {
             throw makeError(9, "cannot parse WAMR signature: \(wamrSig)")
         }
+        guard let runtime else {
+            throw makeError(1, "runtime deallocated")
+        }
+        guard moduleDeclaresImport(module, moduleName: moduleName, name: name) else {
+            throw makeError(10, "import not declared: \(moduleName).\(name)")
+        }
 
         let ctx = HostContext(
             callback: { [callback] args in
                 callback.invoke(args as NSArray) as? [Any] ?? []
             },
             paramTypes: parsed.params,
-            resultTypes: parsed.results
+            resultTypes: parsed.results,
+            owner: Unmanaged.passUnretained(runtime).toOpaque()
         )
-        // Retained by the runtime below; the trampoline reads it back unowned.
-        guard let runtime else {
-            throw makeError(1, "runtime deallocated")
-        }
+        // Retained by the runtime; the trampoline reads it back unowned.
         runtime.hostContexts.append(ctx)
 
         // WAMR keeps pointers instead of copying: register_natives stores the
@@ -700,6 +736,7 @@ public final class NSCWamrFunction: NSObject {
     private let function: wasm_function_inst_t
     private let moduleInst: wasm_module_inst_t
     private let execEnv: wasm_exec_env_t
+    private let functionName: String
     /// Retains the runtime so the exec env / module instance stays alive for
     /// the lifetime of the function (the runtime never holds functions, so
     /// this is cycle-free).
@@ -708,11 +745,13 @@ public final class NSCWamrFunction: NSObject {
     fileprivate init(function: wasm_function_inst_t,
                      moduleInst: wasm_module_inst_t,
                      execEnv: wasm_exec_env_t,
-                     runtime: NSCWamrRuntime) {
+                     runtime: NSCWamrRuntime,
+                     name: String) {
         self.function = function
         self.moduleInst = moduleInst
         self.execEnv = execEnv
         self.runtime = runtime
+        self.functionName = name
         super.init()
     }
 
@@ -735,8 +774,9 @@ public final class NSCWamrFunction: NSObject {
         return kinds.compactMap(WireCoding.typeFromCode)
     }
 
-    /// WAMR 2.x exposes no name lookup for a function instance.
-    @objc public var name: String { "" }
+    /// WAMR 2.x exposes no name lookup for a function instance, so retain the
+    /// name supplied to the runtime lookup.
+    @objc public var name: String { functionName }
 
     @objc public var paramTypes: [String] { signatureKinds(results: false).map(\.name) }
 

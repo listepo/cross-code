@@ -68,8 +68,7 @@ val buildNative = tasks.register<Exec>("buildNative") {
         "-t", "x86",
         "-t", "x86_64",
         "-o", outDir.absolutePath,
-        "-p", "wamr-jni",
-        "build", "--release"
+        "build", "-p", "wamr-jni", "--release"
     )
 
     inputs.dir(pluginRoot.resolve("src/vendors/wamr"))
