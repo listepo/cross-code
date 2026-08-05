@@ -1,5 +1,5 @@
 /**
- * Vitest unit-test mirror of apps/nativescript-wasm-test/app/tests/wamr/fixture-module.spec.ts.
+ * Vitest unit-test mirror of apps/ns-wasm-test/app/tests/wamr/fixture-module.spec.ts.
  *
  * The device spec exercises the real WAMR runtime on a device/emulator via
  * `ns test ios|android`. This spec runs the same TypeScript adapter code

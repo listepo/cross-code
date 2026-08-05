@@ -28,7 +28,7 @@ state and linear-memory helpers. `globals.wasm` exists because exported
 **mutable** globals cannot be produced from Rust source — it is assembled byte
 by byte by `test_types::globals`.
 
-Both are consumed by [`apps/nativescript-wasm-test`](../../apps/nativescript-wasm-test),
+Both are consumed by [`apps/ns-wasm-test`](../../apps/ns-wasm-test),
 on a device and under vitest.
 
 ## Building

@@ -67,7 +67,7 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: |
             pnpm-lock.yaml
-            apps/nativescript-wasm-test/pnpm-lock.yaml
+            apps/ns-wasm-test/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
 
@@ -76,7 +76,7 @@ jobs:
       # typecheck resolves @nativescript/types, Vitest and TypeScript
       # from there.
       - name: Install the test app's dependencies
-        working-directory: apps/nativescript-wasm-test
+        working-directory: apps/ns-wasm-test
         run: pnpm install --frozen-lockfile
 
       # Vitest specs plus the typecheck of all projects — including the test
@@ -161,7 +161,7 @@ jobs:
 
           # The app's suite runs the plugin end to end, so a plugin or fixture
           # change is as relevant to it as a change to the app itself.
-          if grep -qE '^(apps/nativescript-wasm-test/|packages/nativescript-wasm3/|packages/nativescript-wamr/|packages/nativescript-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+          if grep -qE '^(apps/ns-wasm-test/|packages/nativescript-wasm3/|packages/nativescript-wamr/|packages/nativescript-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
             echo "app=true" >> "$GITHUB_OUTPUT"
           else
             echo "app=false" >> "$GITHUB_OUTPUT"
@@ -379,7 +379,7 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: |
             pnpm-lock.yaml
-            apps/nativescript-wasm-test/pnpm-lock.yaml
+            apps/ns-wasm-test/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
 
@@ -389,7 +389,7 @@ jobs:
         run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr
 
       - name: Install the test app's dependencies
-        working-directory: apps/nativescript-wasm-test
+        working-directory: apps/ns-wasm-test
         run: pnpm install --frozen-lockfile
 
       # `ns doctor` shells out to `pod --version`, which prints a locale warning
@@ -399,7 +399,7 @@ jobs:
         working-directory: .
         env:
           LANG: en_US.UTF-8
-        run: pnpm exec nx run nativescript-wasm-test:test.ios
+        run: pnpm exec nx run ns-wasm-test:test.ios
 
   wasm-test-android:
     needs: changes
@@ -417,7 +417,7 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: |
             pnpm-lock.yaml
-            apps/nativescript-wasm-test/pnpm-lock.yaml
+            apps/ns-wasm-test/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
 
@@ -425,7 +425,7 @@ jobs:
         run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr
 
       - name: Install the test app's dependencies
-        working-directory: apps/nativescript-wasm-test
+        working-directory: apps/ns-wasm-test
         run: pnpm install --frozen-lockfile
 
       - uses: actions/setup-java@v4.9.0
@@ -448,4 +448,4 @@ jobs:
           api-level: 34
           arch: x86_64
           working-directory: .
-          script: pnpm exec nx run nativescript-wasm-test:test.android
+          script: pnpm exec nx run ns-wasm-test:test.android

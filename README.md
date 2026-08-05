@@ -21,7 +21,7 @@ three sibling plugins built on Rust + UniFFI:
 | [`@cross-code/vitest-nativescript`](packages/vitest-nativescript)             | Vitest custom pool and NativeScript Worker runtime for on-device unit tests                                                             |
 | [`@cross-code/vitest-nativescript-ui`](packages/vitest-nativescript-ui)       | Optional NativeScript Core results page for device-side Vitest progress                                                                 |
 | [`@cross-code/ns-wry`](packages/ns-wry)                                       | NativeScript plugin — Rust + UniFFI (uniffi-rs) Kotlin/Swift bindings, cargo-ndk Android pipeline                                       |
-| [`nativescript-wasm-test`](apps/nativescript-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Vitest + `vitest-nativescript`            |
+| [`ns-wasm-test`](apps/ns-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Vitest + `vitest-nativescript`            |
 | [`ns-wry-app`](apps/ns-wry-app)                                               | NativeScript test app for @cross-code/ns-wry — WebView demo with google.com on iOS/Android                                              |
 
 Both plugins expose the same TypeScript API — see [Using the plugins](#using-the-plugins).
@@ -45,7 +45,7 @@ own `node_modules`) — it has its own `pnpm-workspace.yaml` and lockfile.
 Before running its suite, install it separately:
 
 ```bash
-cd apps/nativescript-wasm-test && pnpm install
+cd apps/ns-wasm-test && pnpm install
 ```
 
 Run TypeScript build and unit tests (no native toolchain required):
@@ -69,12 +69,12 @@ pnpm --filter ./packages/nativescript-wasm3 run test.android
 pnpm --filter ./packages/nativescript-wamr run test.android
 
 # The test app's Vitest suite, on a simulator / emulator
-pnpm exec nx run nativescript-wasm-test:test.ios
-pnpm exec nx run nativescript-wasm-test:test.android
+pnpm exec nx run ns-wasm-test:test.ios
+pnpm exec nx run ns-wasm-test:test.android
 
 # On-device Istanbul coverage reports
-pnpm exec nx run nativescript-wasm-test:test.ios.coverage
-pnpm exec nx run nativescript-wasm-test:test.android.coverage
+pnpm exec nx run ns-wasm-test:test.ios.coverage
+pnpm exec nx run ns-wasm-test:test.android.coverage
 ```
 
 On macOS, NativeScript's iOS build needs a UTF-8 locale (`export LANG=en_US.UTF-8`) —
@@ -324,5 +324,5 @@ package's README.
 | `@cross-code/vitest-nativescript`       | [README](packages/vitest-nativescript/README.md) — custom pool, Worker registry, concurrency, and transport              |
 | `@cross-code/vitest-nativescript-ui`    | [README](packages/vitest-nativescript-ui/README.md) — optional NativeScript results UI                                   |
 | `@cross-code/ns-wry`                   | [README](packages/ns-wry/README.md) — Rust + UniFFI architecture, platform stubs, developing, troubleshooting                         |
-| `nativescript-wasm-test`                | [README](apps/nativescript-wasm-test/README.md) — running the demo page and the on-device Vitest suite, troubleshooting               |
+| `ns-wasm-test`                | [README](apps/ns-wasm-test/README.md) — running the demo page and the on-device Vitest suite, troubleshooting               |
 | `ns-wry-app`                            | [README](apps/ns-wry-app/README.md) — WebView demo, build-plugin-and-run scripts, troubleshooting                                     |

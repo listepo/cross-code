@@ -1,4 +1,4 @@
-# nativescript-wasm-test
+# ns-wasm-test
 
 On-device Vitest coverage for
 [`@cross-code/nativescript-wasm3`](../../packages/nativescript-wasm3) and
@@ -44,11 +44,11 @@ start from `app/app.ts` and do not include the specs.
 From the repository root:
 
 ```bash
-pnpm exec nx run nativescript-wasm-test:typecheck
-pnpm exec nx run nativescript-wasm-test:test.ios
-pnpm exec nx run nativescript-wasm-test:test.android
-pnpm exec nx run nativescript-wasm-test:test.ios.coverage
-pnpm exec nx run nativescript-wasm-test:test.android.coverage
+pnpm exec nx run ns-wasm-test:typecheck
+pnpm exec nx run ns-wasm-test:test.ios
+pnpm exec nx run ns-wasm-test:test.android
+pnpm exec nx run ns-wasm-test:test.ios.coverage
+pnpm exec nx run ns-wasm-test:test.android.coverage
 ```
 
 Or from this directory:

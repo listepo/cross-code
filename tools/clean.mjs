@@ -33,11 +33,11 @@ const dirs = [
   'packages/nativescript-wamr/src/vendors/wamr-rust/target',
 
   // ── NativeScript generated artifacts (test app) ───────────────────
-  'apps/nativescript-wasm-test/platforms',
-  'apps/nativescript-wasm-test/hooks',
-  'apps/nativescript-wasm-test/out-tsc',
-  'apps/nativescript-wasm-test/tmp',
-  'apps/nativescript-wasm-test/test-output',
+  'apps/ns-wasm-test/platforms',
+  'apps/ns-wasm-test/hooks',
+  'apps/ns-wasm-test/out-tsc',
+  'apps/ns-wasm-test/tmp',
+  'apps/ns-wasm-test/test-output',
 
   // ── Local tooling caches ──────────────────────────────────────────
   '.verdaccio',
@@ -46,7 +46,7 @@ const dirs = [
 
 const nodeModules = [
   'node_modules',
-  'apps/nativescript-wasm-test/node_modules',
+  'apps/ns-wasm-test/node_modules',
   'packages/*/node_modules',
 ];
 

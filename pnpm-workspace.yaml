@@ -3,7 +3,7 @@
 #
 # Only the publishable packages are workspace members, mirroring the npm
 # "workspaces" entry in package.json. The NativeScript test app
-# (apps/nativescript-wasm-test) is intentionally NOT a member: the ns CLI
+# (apps/ns-wasm-test) is intentionally NOT a member: the ns CLI
 # needs its own node_modules, so it keeps a separate install (see
 # .github/workflows/ci.yml).
 packages:

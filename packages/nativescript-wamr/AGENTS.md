@@ -240,11 +240,11 @@ The Android build needs `ANDROID_HOME` set, NDK 29, and a Rust toolchain with
 
 ## Test app
 
-`apps/nativescript-wasm-test` drives this plugin's public API against the Rust
+`apps/ns-wasm-test` drives this plugin's public API against the Rust
 fixture in `@cross-code/nativescript-wasm-fixture` on the device's own WAMR
 build — from a demo page, and as a mocha suite under `ns test ios` /
 `ns test android`. Both run the same list of checks
-(`app/wasm/fixture-suite.ts`). See `apps/nativescript-wasm-test/AGENTS.md`.
+(`app/wasm/fixture-suite.ts`). See `apps/ns-wasm-test/AGENTS.md`.
 
 Run the app's suite on both platforms when you touch the TypeScript adapter
 files — the vitest specs stub the native globals out, so they cannot catch a

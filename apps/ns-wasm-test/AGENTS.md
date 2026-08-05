@@ -1,4 +1,4 @@
-# AGENTS.md — nativescript-wasm-test
+# AGENTS.md — ns-wasm-test
 
 This NativeScript app is the end-to-end TypeScript/native integration suite
 for `@cross-code/nativescript-wasm3` and `@cross-code/nativescript-wamr`.
@@ -87,7 +87,7 @@ When runner/UI `dist` output changes:
 
 ```bash
 pnpm exec nx run-many -t build -p vitest-nativescript vitest-nativescript-ui
-cd apps/nativescript-wasm-test
+cd apps/ns-wasm-test
 pnpm install --force
 ```
 
@@ -96,11 +96,11 @@ pnpm install --force
 Run through Nx from the repository root:
 
 ```bash
-pnpm exec nx run nativescript-wasm-test:typecheck
-pnpm exec nx run nativescript-wasm-test:test.ios
-pnpm exec nx run nativescript-wasm-test:test.android
-pnpm exec nx run nativescript-wasm-test:test.ios.coverage
-pnpm exec nx run nativescript-wasm-test:test.android.coverage
+pnpm exec nx run ns-wasm-test:typecheck
+pnpm exec nx run ns-wasm-test:test.ios
+pnpm exec nx run ns-wasm-test:test.android
+pnpm exec nx run ns-wasm-test:test.ios.coverage
+pnpm exec nx run ns-wasm-test:test.android.coverage
 ```
 
 The iOS and Android targets both use port `17878`; run them serially. Use the

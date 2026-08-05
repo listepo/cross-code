@@ -294,7 +294,7 @@ Could not find :library-release:.
 
 `package.json#files` keeps those out of the _published_ package, but apps that
 consume the plugin through a `file:` dependency — like
-`apps/nativescript-wasm-test` — see the whole working tree. Before building an
+`apps/ns-wasm-test` — see the whole working tree. Before building an
 app against a locally built plugin:
 
 ```bash
@@ -363,16 +363,16 @@ No globally installed gradle, cocoapods, or wasm toolchain is required.
 
 Before writing TypeScript that calls native APIs, generate declarations for
 the `@objc` Swift / Kotlin classes. `ns typings` must be run **from the test
-app directory** (`apps/nativescript-wasm-test`), not the plugin directory — it
+app directory** (`apps/ns-wasm-test`), not the plugin directory — it
 needs a fully prepared NativeScript project with platform directories:
 
 ```bash
-cd apps/nativescript-wasm-test
+cd apps/ns-wasm-test
 npx ns typings ios
 npx ns typings android
 ```
 
-The generated `.d.ts` files land in `apps/nativescript-wasm-test/typings/`.
+The generated `.d.ts` files land in `apps/ns-wasm-test/typings/`.
 Copy the relevant native class declarations back to the plugin — they are the
 source-of-truth for native API types consumed by the TypeScript adapters.
 
@@ -399,12 +399,12 @@ Three test layers, each covering a different slice:
 - **native suites** (per plugin) — iOS XCTests (`npm run test.ios`, runs the
   engine natively on macOS) and Android JVM host tests (`npm run test.android`,
   via the `:hosttest` Gradle module).
-- **the test app** (`apps/nativescript-wasm-test`) — the only place the
+- **the test app** (`apps/ns-wasm-test`) — the only place the
   TypeScript adapters meet the real native layer on a device: `NSData` /
   `NSArray` unwrapping on iOS, signed Java `byte[]` handling on Android,
   i64-as-decimal-string on both. Run its suite on **both** platforms when you
   touch `wire.ts` or an adapter file. Details in
-  `apps/nativescript-wasm-test/AGENTS.md`.
+  `apps/ns-wasm-test/AGENTS.md`.
 
 The shared check suite lives in the fixture package
 (`@cross-code/nativescript-wasm-fixture`, Rust + wasm-pack): the test app's
@@ -436,7 +436,7 @@ wasm-pack-generated `.d.ts`. See `packages/nativescript-wasm-fixture/README.md`.
 | `packages/nativescript-wasm3/AGENTS.md` | wasm3-specific: stack ABI, globals, fixtures, build/test                |
 | `packages/nativescript-wamr/AGENTS.md`  | WAMR-specific: two-phase load, exec env, WASI, tiers, trampolines, shim |
 | `packages/ns-wry/AGENTS.md`            | wry scaffold: Rust + UniFFI architecture, platform stubs, extension guide  |
-| `apps/nativescript-wasm-test/AGENTS.md` | test app: layout, design decisions, running the suites, adding specs       |
+| `apps/ns-wasm-test/AGENTS.md` | test app: layout, design decisions, running the suites, adding specs       |
 | `apps/ns-wry-app`                      | test app: WebView demo, build-plugin-and-run workflow                       |
 
 <!-- code-review-graph MCP tools -->
