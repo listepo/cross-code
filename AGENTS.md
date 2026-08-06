@@ -197,13 +197,17 @@ slice, adds it to **Embed Frameworks** with `CodeSignOnCopy`, and re-signs.
 No `SPMPackages` entry is used anymore (that mechanism predates this change;
 see git history for the old SwiftPM declaration).
 
-Rebuild with `npm run build.xcframework` (per plugin). The script
-(`tools/build-xcframework.sh`) builds each slice with
-`swift build --disable-sandbox --triple <arm64-apple-ios|arm64-apple-ios-simulator>`
+Rebuild with `npm run build.xcframework` (per plugin). All three plugins
+share ONE builder: `tools/build-xcframework.sh <ENGINE>` (each package's
+`tools/build-xcframework.sh` is a 3-line wrapper). It builds each slice with
+`swift build --disable-sandbox --triple <arm64-apple-ios|arm64-apple-ios-simulator|x86_64-apple-ios-simulator>`
 + explicit SDK flags (xcodebuild is unusable in sandboxed terminals), applies
 `-Osize` / thin LTO / `-dead_strip`, strips `-S -x` the shipped binaries,
-runs `dsymutil`, and hand-assembles the XCFramework bundle (device arm64 +
-simulator arm64 — the iOS 26 SDK has no x86_64 slices).
+runs `dsymutil`, and hand-assembles the XCFramework bundle with **three
+slices**: device arm64, simulator arm64, and simulator x86_64 (the x86_64
+slice is required — CI's `macos-latest` boots an x86_64 simulator by
+default; without it the frameworks are skipped at link time and the plugin
+classes are `nil` at runtime).
 
 **Metadata-generator gotchas** (verified against the CLI 9.0.6 generator —
 violating any of these makes the app's metadata silently miss the classes):
@@ -347,7 +351,8 @@ These are coupled — don't bump one without checking the other:
 | Tool                  | Version       | Notes                                                              |
 | --------------------- | ------------- | ------------------------------------------------------------------ |
 | Node                  | 22.13+        | pnpm 11.20.0 (see `packageManager`); mise pins 24.18.1, CI uses 24 |
-| pnpm                  | 11.20.0       | default package manager                                            |
+| pnpm                  | 11.20.0       | default package manager; managed by mise via `npm:pnpm`            |
+| Buck2                 | latest        | only for `nx-buck2` targets; see [Buck2 builds](#buck2-builds-nx-buck2) |
 | Swift                 | 6.3+          | macOS; for iOS build/test                                          |
 | Xcode                 | 16+           | iOS device build                                                   |
 | JDK                   | 17–21         | Android build; 21 (temurin) is used by mise/CI                     |
@@ -357,7 +362,34 @@ These are coupled — don't bump one without checking the other:
 | Android Gradle Plugin | 9.3.1         | required by Gradle 9.6 (see above)                                 |
 | Kotlin                | 2.4.x         | AGP 9 built-in; `-Xmetadata-version=2.3.0` for NS metadata         |
 
+Runtime versions are managed by **mise** (`.mise.toml`: node, java, pnpm).
 No globally installed gradle, cocoapods, or wasm toolchain is required.
+
+### Buck2 builds (nx-buck2)
+
+Native builds can optionally run through **Buck2** via the `@cross-code/nx-buck2`
+Nx plugin (`packages/nx-buck2`): executors `build`/`test`/`run` dispatch
+`buck2 build/test/run` against per-project `BUCK` files (currently genrule
+wrappers around the Cargo/SwiftPM toolchains — the standard Buck2 migration
+path). Debug/release is selected per invocation:
+
+```bash
+nx run ns-wamr:buck2-build --configuration=release          # -Oz, LTO, stripped
+nx run ns-wamr:buck2-build --configuration=debug            # -O0 -g3
+nx run ns-wamr:buck2-build --platform=ios --arch=arm64      # cross-compile
+nx run-many -t buck2-build -p ns-wamr ns-wasm3 ns-wry
+```
+
+Buck2 is NOT installed by mise (the crates.io `buck2` crate is a
+placeholder). Install the prebuilt binary once:
+
+```bash
+curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-aarch64-apple-darwin.zst \
+  | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null && sudo chmod +x /usr/local/bin/buck2
+```
+
+or `mise plugin install buck2 https://github.com/izaakschroeder/asdf-buck2`.
+The `.buck-out/` output dir is cleaned by `node tools/clean.mjs`.
 
 ### `ns typings` before native-API TypeScript
 
