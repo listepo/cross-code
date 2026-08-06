@@ -4,6 +4,7 @@ import { Wasm3Runtime } from '@cross-code/ns-wasm3';
 import { WasmKitRuntime } from '@cross-code/ns-wasm-kit-runtime';
 import { EndiveRuntime } from '@cross-code/ns-endive';
 import { WasmEdgeRuntime } from '@cross-code/ns-wasm-edge';
+import { ChicoryRuntime } from '@cross-code/ns-wasm-chicory';
 
 import {
   createHostImports,
@@ -69,6 +70,8 @@ export class WasmDemoModel extends Observable {
     // Endive is Java-native — only include it on Android.
     if ((globalThis as any).isAndroid) {
       sections.push(runEndive());
+      // Chicory is also pure-Java, Android-only.
+      sections.push(runChicory());
     }
     const checks = sections.flatMap((s) => s.checks);
     const summary = summarize(checks);
@@ -179,6 +182,14 @@ function runEndive(): Section {
     'Endive',
     () => EndiveRuntime.version(),
     () => new EndiveRuntime(),
+  );
+}
+
+function runChicory(): Section {
+  return runSection(
+    'Chicory',
+    () => ChicoryRuntime.version(),
+    () => new ChicoryRuntime(),
   );
 }
 
