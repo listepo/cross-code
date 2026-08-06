@@ -231,13 +231,13 @@ jobs:
         with:
           validate-wrappers: false
 
-      # Rust is pre-installed on ubuntu-latest; install if missing (e.g. act).
-      - name: Install Rust (if missing)
-        run: |
-          if ! command -v cargo >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          fi
+#      # Rust is pre-installed on ubuntu-latest; install if missing (e.g. act).
+#      - name: Install Rust (if missing)
+#        run: |
+#          if ! command -v cargo >/dev/null 2>&1; then
+#            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+#            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+#          fi
 
       - name: JVM host tests (cargo build + Kotlin wrapper)
         working-directory: packages/nativescript-wasm3/platforms/android/wasm3-android
@@ -261,12 +261,6 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
 
 #      - name: Check for WAMR C sources
 #        id: sources
