@@ -346,11 +346,11 @@ These are coupled — don't bump one without checking the other:
 
 | Tool                  | Version       | Notes                                                              |
 | --------------------- | ------------- | ------------------------------------------------------------------ |
-| Node                  | 22.13+        | pnpm 11.20.0 (see `packageManager`); asdf pins 24.18.1, CI uses 24 |
+| Node                  | 22.13+        | pnpm 11.20.0 (see `packageManager`); mise pins 24.18.1, CI uses 24 |
 | pnpm                  | 11.20.0       | default package manager                                            |
 | Swift                 | 6.3+          | macOS; for iOS build/test                                          |
 | Xcode                 | 16+           | iOS device build                                                   |
-| JDK                   | 17–21         | Android build; 21 (temurin) is used by asdf/CI                     |
+| JDK                   | 17–21         | Android build; 21 (temurin) is used by mise/CI                     |
 | Android NDK           | 29.0.14206865 | set via `ANDROID_HOME`; required by `cargo ndk`                    |
 | Rust                  | stable        | with `cargo-ndk` — Android cross-compile + hosttest                |
 | Gradle wrapper        | 9.6.1         | auto-downloaded by wrapper                                         |

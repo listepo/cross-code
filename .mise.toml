@@ -1,0 +1,16 @@
+# mise version manager configuration
+# https://mise.jdx.dev/
+
+[tools]
+node = "24.18.1"
+java = "temurin-21.0.2"
+
+[settings]
+# Use Temurin as the default Java distribution
+java.default_distribution = "temurin"
+
+# ── Notes ───────────────────────────────────────────────────────────────────
+# - Swift 6.3+ and Xcode 16+ are managed by macOS / Xcode.app, not mise.
+# - Kotlin 2.4.x and Android NDK 29 are pulled by the Gradle project.
+# - Gradle 9.6.1 is managed by the committed wrapper (gradlew), not mise.
+# - pnpm 11.20.0 (see packageManager in package.json) uses corepack / npm.
