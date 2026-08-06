@@ -1,0 +1,53 @@
+# Shared SwiftLint configuration for the hand-written Swift code in the
+# NativeScript plugins (NSCWasm3 / NSCWamr / NSCWry SwiftPM packages).
+#
+# Generated code never reaches SwiftLint: the lint scripts pass the package's
+# Sources/Tests paths explicitly, and the excluded list below covers the
+# script-managed vendored C (Sources/CWasm3, Sources/CWamr), the
+# UniFFI-generated *-swift bindings, and build outputs for whole-repo runs.
+# ObjC headers (include/) are not linted — SwiftLint only checks .swift.
+
+excluded:
+  - .build
+  - .claude
+  - buck-out
+  - packages/ns-wasm3/platforms/ios/NSCWasm3/Sources/CWasm3
+  - packages/ns-wasm3/src/vendors/wasm3-swift
+  - packages/ns-wasm3/src/wasm3-swift
+  - packages/ns-wamr/platforms/ios/NSCWamr/Sources/CWamr
+  - packages/ns-wamr/src/vendors/wamr-swift
+  - packages/ns-wry/platforms/ios/NSCWry.xcframework
+  - packages/ns-wry/platforms/ios/NSCWry.xcframework.dSYMs
+
+# Default ruleset, with a few documented deviations:
+
+# The plugin wrappers are single-file facades (~450 / ~870 lines of @objc
+# declarations). The default file-length warning (400) doesn't fit them.
+file_length:
+  warning: 900
+  error: 1200
+
+# Same reasoning for the wrapper classes' bodies.
+type_body_length:
+  warning: 800
+  error: 1000
+
+# The wire codec uses one-letter locals (n, s, v, d) for short casts; the
+# default identifier_name minimum length (3) doesn't fit that style.
+identifier_name:
+  min_length: 1
+  max_length:
+    warning: 60
+    error: 80
+
+# NSCWamrRuntime.call validates every JNI result inline (~65 lines); the
+# default function-body warning (50) is too tight for that error style.
+function_body_length:
+  warning: 80
+  error: 120
+
+# JNI-style wrapper functions take a few arguments and validate each one;
+# the default cyclomatic complexity (10) is too tight for the error paths.
+cyclomatic_complexity:
+  warning: 15
+  error: 25

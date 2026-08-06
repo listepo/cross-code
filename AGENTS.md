@@ -466,6 +466,36 @@ root `detekt.yml` via a `repoRoot` path. When you touch the Kotlin sources,
 keep `detekt ktlintCheck` green — CI runs it in the `wasm3-android` and
 `wamr-android` jobs.
 
+### Swift linting (SwiftLint + Periphery)
+
+Each iOS SwiftPM package (`platforms/ios/NSCWasm3`, `platforms/ios/NSCWamr`,
+plus the `NSCWry` scaffold) is linted with **SwiftLint** (validated against
+0.65.0) and scanned for unused code with **Periphery** (3.8.0). Generated
+code never reaches the tools: SwiftLint is invoked with the package's
+`Sources`/`Tests` paths and its `excluded` list covers the script-managed
+vendored C (`Sources/CWasm3`, `Sources/CWamr`), the UniFFI-generated
+`*-swift` bindings, and build outputs; Periphery disables its unused-import
+analysis (`disable_unused_import_analysis` in `.periphery.yml`) because the C
+targets trip it — unused-CODE detection is unaffected.
+
+```bash
+pnpm exec nx run <pkg>:lint.ios      # SwiftLint (sources + tests)
+pnpm exec nx run <pkg>:periphery.ios # Periphery scan (builds the package)
+cd platforms/ios/NSCWasm3 && swiftlint lint --config ../../../../../.swiftlint.yml Sources Tests
+```
+
+Configs are **shared at the monorepo root**: `.swiftlint.yml` (defaults +
+documented deviations: bigger file/type/function-body limits for the
+single-file wrappers, short identifier names in the wire codec) and
+`.periphery.yml` (`retain_public` + `retain_objc_accessible` — the plugin
+frameworks are consumed by the NativeScript runtime via the ObjC bridge — and
+`disable_unused_import_analysis` for the vendored C). The test files disable
+`force_cast` file-scoped (the wire protocol crosses the bridge as `Any`; the
+casts are the assertions). Periphery found and removed real dead code in
+`NSCWamr.swift` (`slotWidth`, `WireCoding.typeName`, `value(for:from:at:)`) —
+keep `lint.ios` and `periphery.ios` green; CI runs both in the `wasm3-ios`
+and `wamr-ios` jobs.
+
 Code coverage, per project and per language:
 
 - **TypeScript** — every package's vitest config has a `coverage` block

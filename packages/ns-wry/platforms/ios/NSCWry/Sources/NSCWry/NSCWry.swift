@@ -5,6 +5,9 @@ import Foundation
 @objc(NSCWryRuntime)
 open class NSCWryRuntime: NSObject {
 
+    // Assigned by init but not yet read: kept as the scaffold pattern for a
+    // real engine, which will consume it when creating the runtime.
+    // periphery:ignore
     private let stackSize: UInt32
 
     @objc(initWithStackSize:)

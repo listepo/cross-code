@@ -2,6 +2,10 @@ import XCTest
 
 @testable import NSCWamr
 
+// The wire protocol crosses the bridge as Any; these tests assert the
+// concrete types with as! on purpose.
+// swiftlint:disable force_cast
+
 // MARK: - Host callback fixtures
 //
 // linkHostFunction takes an NSCWamrHostCallback (an open ObjC class that
@@ -250,3 +254,5 @@ final class NSCWamrTests: XCTestCase {
         }
     }
 }
+
+// swiftlint:enable force_cast

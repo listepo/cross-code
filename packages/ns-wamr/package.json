@@ -55,6 +55,18 @@
           "script": "test.ios"
         }
       },
+      "lint.ios": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "lint.ios"
+        }
+      },
+      "periphery.ios": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "periphery.ios"
+        }
+      },
       "test.android": {
         "executor": "nx:run-script",
         "options": {
@@ -117,6 +129,8 @@
     "fixtures": "node tools/gen-fixtures.mjs && node tools/sync-wamr.mjs",
     "sync.vendors": "node tools/sync-wamr.mjs",
     "test.ios": "cd platforms/ios/NSCWamr && swift test --disable-sandbox",
+    "lint.ios": "swiftlint lint --config ../../.swiftlint.yml platforms/ios/NSCWamr/Sources platforms/ios/NSCWamr/Tests",
+    "periphery.ios": "cd platforms/ios/NSCWamr && periphery scan --config $(git rev-parse --show-toplevel)/.periphery.yml --disable-update-check",
     "test.android": "cd platforms/android/wamr-android && ./gradlew :hosttest:test",
     "build.android": "cd platforms/android/wamr-android && ./gradlew :library:deployAar",
     "lint.android": "cd platforms/android/wamr-android && ./gradlew detekt ktlintCheck",

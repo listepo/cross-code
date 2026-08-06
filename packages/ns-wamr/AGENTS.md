@@ -136,7 +136,8 @@ each `NativeSymbol`.
 
 `WireCoding.slots(for:from:)` encodes JS values into raw `[UInt32]` stack slots
 following WAMR's raw calling convention: i32/f32 take 1 slot; i64/f64 take 2
-slots. `WireCoding.value(for:from:at:)` does the reverse.
+slots. `WireCoding.slot(for:from:)` (one 64-bit unit) and
+`WireCoding.value(for:slot:)` do the reverse.
 
 The host trampoline (`@_cdecl nscwamr_host_trampoline`) walks the host context
 dictionary matching the total slot count, decodes arguments from the stack,

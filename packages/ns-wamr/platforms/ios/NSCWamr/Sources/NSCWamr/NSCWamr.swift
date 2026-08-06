@@ -36,22 +36,12 @@ private enum WamrType: UInt8 {
         }
     }
 
-    /// Number of 32-bit stack slots this type occupies in WAMR's raw calling convention.
-    var slotWidth: Int {
-        switch self {
-        case .i32, .f32: return 1
-        case .i64, .f64: return 2
-        }
-    }
-
     init?(fromWasmTypeCode code: UInt8) {
         self.init(rawValue: code)
     }
 }
 
 private enum WireCoding {
-    static func typeName(_ type: WamrType) -> String { type.name }
-
     /// Decodes a JS-provided value into raw stack slot(s). Returns nil on failure.
     static func slots(for type: WamrType, from value: Any) -> [UInt32]? {
         switch type {
@@ -83,26 +73,6 @@ private enum WireCoding {
             }
         }
         return nil
-    }
-
-    /// Decodes raw stack slots into the wire value for the given type, advancing `index`.
-    static func value(for type: WamrType, from slots: [UInt32], at index: inout Int) -> Any {
-        switch type {
-        case .i32:
-            let v = slots[index]; index += 1
-            return NSNumber(value: Int32(bitPattern: v))
-        case .i64:
-            let lo = UInt64(slots[index]), hi = UInt64(slots[index + 1])
-            index += 2
-            return String(Int64(bitPattern: lo | (hi << 32)))
-        case .f32:
-            let v = slots[index]; index += 1
-            return NSNumber(value: Double(Float(bitPattern: v)))
-        case .f64:
-            let lo = UInt64(slots[index]), hi = UInt64(slots[index + 1])
-            index += 2
-            return NSNumber(value: Double(bitPattern: lo | (hi << 32)))
-        }
     }
 
     static func typeFromCode(_ code: UInt8) -> WamrType? { WamrType(fromWasmTypeCode: code) }
@@ -417,7 +387,13 @@ public final class NSCWamrRuntime: NSObject {
         for module in modules {
             let inst = try module.instance()
             if let f = name.withCString({ wasm_runtime_lookup_function(inst, $0) }) {
-                return NSCWamrFunction(function: f, moduleInst: inst, execEnv: try module.execEnv(), runtime: self, name: name)
+                return NSCWamrFunction(
+                    function: f,
+                    moduleInst: inst,
+                    execEnv: try module.execEnv(),
+                    runtime: self,
+                    name: name,
+                )
             }
         }
         throw makeError(8, "function lookup failed: '\(name)'")

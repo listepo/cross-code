@@ -221,6 +221,19 @@ jobs:
         working-directory: packages/ns-wasm3/platforms/ios/NSCWasm3
         run: swift test --disable-sandbox
 
+      - name: Install SwiftLint and Periphery
+        run: |
+          brew install swiftlint
+          brew install peripheryapp/periphery/periphery
+
+      - name: SwiftLint
+        working-directory: packages/ns-wasm3/platforms/ios/NSCWasm3
+        run: swiftlint lint --config ../../../../../.swiftlint.yml Sources Tests
+
+      - name: Periphery (unused code)
+        working-directory: packages/ns-wasm3/platforms/ios/NSCWasm3
+        run: periphery scan --config ../../../../../.periphery.yml --disable-update-check
+
       - name: Build for iOS device
         working-directory: packages/ns-wasm3/platforms/ios/NSCWasm3
         run: |
@@ -327,6 +340,22 @@ jobs:
         if: steps.sources.outputs.present == 'true'
         working-directory: packages/ns-wamr/platforms/ios/NSCWamr
         run: swift test --disable-sandbox
+
+      - name: Install SwiftLint and Periphery
+        if: steps.sources.outputs.present == 'true'
+        run: |
+          brew install swiftlint
+          brew install peripheryapp/periphery/periphery
+
+      - name: SwiftLint
+        if: steps.sources.outputs.present == 'true'
+        working-directory: packages/ns-wamr/platforms/ios/NSCWamr
+        run: swiftlint lint --config ../../../../../.swiftlint.yml Sources Tests
+
+      - name: Periphery (unused code)
+        if: steps.sources.outputs.present == 'true'
+        working-directory: packages/ns-wamr/platforms/ios/NSCWamr
+        run: periphery scan --config ../../../../../.periphery.yml --disable-update-check
 
       - name: Build for iOS device
         if: steps.sources.outputs.present == 'true'

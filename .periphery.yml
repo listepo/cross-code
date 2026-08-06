@@ -1,0 +1,25 @@
+# Shared Periphery configuration for the hand-written Swift code in the
+# NativeScript plugins (NSCWasm3 / NSCWamr / NSCWry SwiftPM packages).
+#
+# Periphery scans one package at a time; the npm scripts cd into the package
+# and point at this config:
+#   periphery scan --config <repo-root>/.periphery.yml
+#
+# The script-managed vendored C targets (Sources/CWasm3, Sources/CWamr) trip
+# the unused-import analysis, so it is disabled below (unused-CODE detection
+# is unaffected). The UniFFI-generated *-swift bindings live outside the
+# plugin packages and are never scanned.
+
+# The plugin frameworks are standalone libraries consumed by the NativeScript
+# runtime — nothing in-repo uses their public interfaces, so retain all
+# public declarations.
+retain_public: true
+
+# The JS-facing API is invoked through the ObjC runtime (@objc classes and
+# methods). Without this, Periphery reports those members as unused.
+retain_objc_accessible: true
+
+# The script-managed vendored C targets (Sources/CWasm3, Sources/CWamr) trip
+# the unused-import analysis ("Unused imported module" on every C file).
+# Unused-CODE detection is unaffected.
+disable_unused_import_analysis: true
