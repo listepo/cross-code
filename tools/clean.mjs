@@ -21,6 +21,16 @@ const dirs = [
   'tmp',
   'packages/*/dist',
   'packages/*/out-tsc',
+  'packages/*/test-output',
+
+  // ── nx-buck2 compiled outputs ─────────────────────────────────────
+  'packages/nx-buck2/executors',
+  'packages/nx-buck2/generators',
+  'packages/nx-buck2/index.js',
+  'packages/nx-buck2/index.d.ts',
+
+  // ── Buck2 outputs ─────────────────────────────────────────────────
+  '.buck-out',
 
   // ── Android Gradle builds ─────────────────────────────────────────
   'packages/ns-wasm3/platforms/android/wasm3-android/build',
@@ -40,7 +50,7 @@ const dirs = [
   'apps/ns-wasm-test/test-output',
 
   // ── Local tooling caches ──────────────────────────────────────────
-  '.verdaccio',
+  '.verdaccio/storage',
   '.pnpm-store',
 ];
 

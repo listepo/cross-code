@@ -13,6 +13,8 @@
     "@nx/devkit": ">=21.0.0"
   },
   "scripts": {
+    "clean": "rm -rf executors generators index.js index.d.ts",
+    "prebuild": "pnpm run clean",
     "build": "tsc -p tsconfig.lib.json && for d in executors/build executors/test executors/run generators/init generators/project; do cp src/$d/schema.json $d/schema.json 2>/dev/null; done",
     "typecheck": "tsc --noEmit -p tsconfig.lib.json",
     "test": "vitest run"
