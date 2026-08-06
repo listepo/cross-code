@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/nx-generators.json",
+  "generators": {
+    "init": {
+      "factory": "./generators/init/generator",
+      "schema": "./generators/init/schema.json",
+      "description": "Add nx-ns-app build/run/debug/test/clean targets to an existing NativeScript project."
+    },
+    "app": {
+      "factory": "./generators/app/generator",
+      "schema": "./generators/app/schema.json",
+      "description": "Generate a new NativeScript application with nx-ns-app targets pre-configured."
+    }
+  }
+}

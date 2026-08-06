@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/nx-executors.json",
+  "executors": {
+    "build": {
+      "implementation": "./executors/build/executor",
+      "schema": "./executors/build/schema.json",
+      "description": "Build a NativeScript app for a platform (ns build/prepare). Supports debug/release and device selection."
+    },
+    "test": {
+      "implementation": "./executors/test/executor",
+      "schema": "./executors/test/schema.json",
+      "description": "Run NativeScript tests on a device or emulator. Wraps vitest-ns for the Vitest pool or falls back to ns test."
+    },
+    "run": {
+      "implementation": "./executors/run/executor",
+      "schema": "./executors/run/schema.json",
+      "description": "Run a NativeScript app on a device or emulator (ns run)."
+    },
+    "debug": {
+      "implementation": "./executors/debug/executor",
+      "schema": "./executors/debug/schema.json",
+      "description": "Debug a NativeScript app (ns debug) with configurable port."
+    },
+    "clean": {
+      "implementation": "./executors/clean/executor",
+      "schema": "./executors/clean/schema.json",
+      "description": "Remove NativeScript platform directories and build artifacts."
+    },
+    "prepare": {
+      "implementation": "./executors/prepare/executor",
+      "schema": "./executors/prepare/schema.json",
+      "description": "Prepare a NativeScript app without building (ns prepare)."
+    }
+  }
+}

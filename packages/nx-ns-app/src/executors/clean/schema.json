@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NativeScript Clean Executor",
+  "type": "object",
+  "properties": {
+    "platform": {
+      "type": "string",
+      "enum": ["ios", "android"],
+      "description": "Specific platform to clean. Omit to clean both."
+    },
+    "all": {
+      "type": "boolean",
+      "default": false,
+      "description": "Also remove node_modules."
+    }
+  }
+}

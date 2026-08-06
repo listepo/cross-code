@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Init NativeScript Nx Project",
+  "type": "object",
+  "properties": {
+    "project": { "type": "string", "description": "Existing NativeScript project path (relative to workspace root)." },
+    "platforms": { "type": "array", "items": { "enum": ["ios", "android"] }, "default": ["ios", "android"] }
+  }
+}

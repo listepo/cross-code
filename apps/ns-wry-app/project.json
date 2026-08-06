@@ -9,7 +9,9 @@
       "options": {
         "cwd": "{projectRoot}"
       },
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "cache": true,
       "inputs": [
         "{projectRoot}/app/**/*",
@@ -17,6 +19,127 @@
         "{projectRoot}/tsconfig.json",
         "{projectRoot}/webpack.config.js",
         "^production"
+      ]
+    },
+    "build.ios": {
+      "executor": "@cross-code/nx-ns-app:build",
+      "options": {
+        "platform": "ios",
+        "configuration": "debug",
+        "noHmr": true
+      },
+      "dependsOn": [
+        {
+          "projects": "dependencies",
+          "target": "build"
+        }
+      ],
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/platforms/ios"
+      ]
+    },
+    "run.ios": {
+      "executor": "@cross-code/nx-ns-app:run",
+      "options": {
+        "platform": "ios",
+        "device": "emulator",
+        "noHmr": true
+      },
+      "dependsOn": [
+        "build.ios"
+      ],
+      "cache": false
+    },
+    "debug.ios": {
+      "executor": "@cross-code/nx-ns-app:debug",
+      "options": {
+        "platform": "ios",
+        "device": "emulator"
+      },
+      "dependsOn": [
+        "build.ios"
+      ],
+      "cache": false
+    },
+    "build.android": {
+      "executor": "@cross-code/nx-ns-app:build",
+      "options": {
+        "platform": "android",
+        "configuration": "debug",
+        "noHmr": true
+      },
+      "dependsOn": [
+        {
+          "projects": "dependencies",
+          "target": "build"
+        }
+      ],
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/platforms/android"
+      ]
+    },
+    "run.android": {
+      "executor": "@cross-code/nx-ns-app:run",
+      "options": {
+        "platform": "android",
+        "device": "emulator",
+        "noHmr": true
+      },
+      "dependsOn": [
+        "build.android"
+      ],
+      "cache": false
+    },
+    "debug.android": {
+      "executor": "@cross-code/nx-ns-app:debug",
+      "options": {
+        "platform": "android",
+        "device": "emulator"
+      },
+      "dependsOn": [
+        "build.android"
+      ],
+      "cache": false
+    },
+    "clean": {
+      "executor": "@cross-code/nx-ns-app:clean"
+    },
+    "prepare.ios": {
+      "executor": "@cross-code/nx-ns-app:prepare",
+      "options": {
+        "platform": "ios"
+      },
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/platforms/ios"
+      ]
+    },
+    "prepare.android": {
+      "executor": "@cross-code/nx-ns-app:prepare",
+      "options": {
+        "platform": "android"
+      },
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/platforms/android"
       ]
     }
   }

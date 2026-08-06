@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Generate NativeScript App",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "description": "App name." },
+    "directory": { "type": "string", "description": "Custom directory. Default: apps/<name>." },
+    "platforms": { "type": "array", "items": { "enum": ["ios", "android"] }, "default": ["ios", "android"] }
+  },
+  "required": ["name"]
+}

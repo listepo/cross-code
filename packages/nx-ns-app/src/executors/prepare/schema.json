@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NativeScript Prepare Executor",
+  "type": "object",
+  "properties": {
+    "platform": {
+      "type": "string",
+      "enum": ["ios", "android"],
+      "description": "Target platform."
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Environment variables to pass to the app."
+    },
+    "extraArgs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Extra arguments forwarded to ns CLI."
+    }
+  },
+  "required": ["platform"]
+}

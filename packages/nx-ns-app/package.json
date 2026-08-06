@@ -1,0 +1,22 @@
+{
+  "name": "@cross-code/nx-ns-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nx plugin for NativeScript applications — build, test, run, debug, and clean via the NativeScript CLI.",
+  "main": "./src/index.js",
+  "executors": "./executors.json",
+  "generators": "./generators.json",
+  "nx": {
+    "name": "nx-ns-app"
+  },
+  "dependencies": {
+    "@nx/devkit": ">=21.0.0"
+  },
+  "scripts": {
+    "clean": "rm -rf executors generators index.js index.d.ts",
+    "prebuild": "pnpm run clean",
+    "build": "tsc -p tsconfig.lib.json && for d in executors/build executors/test executors/run executors/debug executors/clean executors/prepare generators/init generators/app; do cp src/$d/schema.json $d/schema.json 2>/dev/null; done",
+    "typecheck": "tsc --noEmit -p tsconfig.lib.json",
+    "test": "vitest run"
+  }
+}

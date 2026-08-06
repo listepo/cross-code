@@ -1,7 +1,10 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "namedInputs": {
-    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "default": [
+      "{projectRoot}/**/*",
+      "sharedGlobals"
+    ],
     "production": [
       "default",
       "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
@@ -12,7 +15,10 @@
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
-      "exclude": ["apps/ns-wasm-test/*", "apps/ns-wry-app/*"],
+      "exclude": [
+        "apps/ns-wasm-test/*",
+        "apps/ns-wry-app/*"
+      ],
       "options": {
         "typecheck": {
           "targetName": "typecheck"
@@ -42,18 +48,56 @@
   },
   "targetDefaults": {
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "buck2-build": {
       "executor": "@cross-code/nx-buck2:build",
-      "inputs": ["production", "^production"],
-      "outputs": ["{projectRoot}/.buck-out"],
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/.buck-out"
+      ],
       "cache": true
     },
     "buck2-test": {
       "executor": "@cross-code/nx-buck2:test",
-      "inputs": ["production", "^production"],
+      "inputs": [
+        "production",
+        "^production"
+      ],
       "cache": true
+    },
+    "ns-build": {
+      "executor": "@cross-code/nx-ns-app:build",
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ]
+    },
+    "ns-run": {
+      "executor": "@cross-code/nx-ns-app:run",
+      "cache": false
+    },
+    "ns-debug": {
+      "executor": "@cross-code/nx-ns-app:debug",
+      "cache": false
+    },
+    "ns-clean": {
+      "executor": "@cross-code/nx-ns-app:clean",
+      "cache": false
+    },
+    "ns-prepare": {
+      "executor": "@cross-code/nx-ns-app:prepare",
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ]
     }
   }
 }

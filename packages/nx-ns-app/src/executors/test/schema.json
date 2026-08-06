@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NativeScript Test Executor",
+  "type": "object",
+  "properties": {
+    "platform": { "type": "string", "enum": ["ios", "android"], "description": "Target platform." },
+    "device": { "type": "string", "description": "Device ID or 'emulator'." },
+    "configuration": { "type": "string", "enum": ["debug", "release"], "default": "debug" },
+    "noHmr": { "type": "boolean", "default": true },
+    "coverage": { "type": "boolean", "default": false, "description": "Generate coverage reports." },
+    "extraArgs": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["platform"]
+}

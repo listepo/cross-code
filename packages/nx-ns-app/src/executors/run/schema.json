@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NativeScript Run Executor",
+  "type": "object",
+  "properties": {
+    "platform": { "type": "string", "enum": ["ios", "android"], "description": "Target platform." },
+    "device": { "type": "string", "description": "Device ID or 'emulator'." },
+    "configuration": { "type": "string", "enum": ["debug", "release"], "default": "debug", "description": "Build configuration." },
+    "clean": { "type": "boolean", "default": false, "description": "Clean platform before running." },
+    "noHmr": { "type": "boolean", "default": true, "description": "Disable HMR." },
+    "forceClean": { "type": "boolean", "default": false, "description": "Remove platforms/<platform> directory before running." },
+    "extraArgs": { "type": "array", "items": { "type": "string" }, "description": "Extra arguments forwarded to ns CLI." }
+  },
+  "required": ["platform"]
+}

@@ -10,6 +10,7 @@
   "packageManager": "pnpm@11.20.0",
   "devDependencies": {
     "@cross-code/nx-buck2": "workspace:*",
+    "@cross-code/nx-ns-app": "workspace:*",
     "@nx/devkit": "^23.1.0",
     "@nx/js": "23.1.0",
     "@nx/vitest": "23.1.0",
