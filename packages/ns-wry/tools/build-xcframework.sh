@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Builds NSCWry.xcframework (device arm64 + simulator arm64) with size
-# optimizations, plus dSYM bundles for symbolication.
+# Builds NSCWry.xcframework (device arm64 + simulator arm64 + simulator
+# x86_64) with size optimizations, plus dSYM bundles for symbolication.
 #
 # The NativeScript CLI (9.x) picks up any platforms/ios/*.xcframework from a
 # plugin automatically (FRAMEWORK_EXTENSIONS in ios-project-service.js), so
 # the output only needs to be committed next to the SPM package.
 #
 # Notes:
-# - The iOS 26 simulator SDK is arm64-only (x86_64 slices are gone), and the
-#   device SDK is arm64-only too, so the XCFramework has two slices.
+# - The iOS 26 SDK still supports x86_64 simulator compilation for Intel Macs
+#   and Rosetta-mode simulators on Apple Silicon. We ship an x86_64 simulator
+#   slice so the framework links on every macOS host. The xcframework has
+#   three slices: ios-arm64 (device), ios-arm64-simulator, ios-x86_64-simulator.
 # - xcodebuild cannot be used from sandboxed terminals (nested sandbox-exec is
 #   blocked), so each slice is built with `swift build --triple` + explicit
 #   SDK flags, and the .xcframework bundle is assembled by hand (its layout is
@@ -71,10 +73,14 @@ build_slice arm64-apple-ios iphoneos ios-arm64
 # ── 2. Simulator slice (arm64) ──────────────────────────────────────────
 build_slice arm64-apple-ios-simulator iphonesimulator ios-arm64-simulator
 
+# ── 3. Simulator slice (x86_64) — needed for Intel Macs and Rosetta sims ─
+build_slice x86_64-apple-ios-simulator iphonesimulator ios-x86_64-simulator
+
 # ── 3. Strip the shipped binaries: local symbols + DWARF (keeps exported
 #      dynamic symbols + ObjC runtime metadata; dSYMs retain everything). ─
 strip -S -x "$BUILD/ios-arm64/NSCWry.framework/NSCWry"
 strip -S -x "$BUILD/ios-arm64-simulator/NSCWry.framework/NSCWry"
+strip -S -x "$BUILD/ios-x86_64-simulator/NSCWry.framework/NSCWry"
 
 # ── 4. Assemble the XCFramework bundle by hand ──────────────────────────
 mkdir -p "$OUT"
@@ -107,6 +113,18 @@ cat > "$OUT/Info.plist" <<'PLIST'
 			<key>SupportedPlatformVariant</key>
 			<string>simulator</string>
 		</dict>
+		<dict>
+			<key>LibraryIdentifier</key>
+			<string>ios-x86_64-simulator</string>
+			<key>LibraryPath</key>
+			<string>NSCWry.framework</string>
+			<key>SupportedArchitectures</key>
+			<array><string>x86_64</string></array>
+			<key>SupportedPlatform</key>
+			<string>ios</string>
+			<key>SupportedPlatformVariant</key>
+			<string>simulator</string>
+		</dict>
 	</array>
 	<key>CFBundlePackageType</key>
 	<string>XFWK</string>
@@ -117,9 +135,10 @@ cat > "$OUT/Info.plist" <<'PLIST'
 PLIST
 ditto "$BUILD/ios-arm64/NSCWry.framework" "$OUT/ios-arm64/NSCWry.framework"
 ditto "$BUILD/ios-arm64-simulator/NSCWry.framework" "$OUT/ios-arm64-simulator/NSCWry.framework"
+ditto "$BUILD/ios-x86_64-simulator/NSCWry.framework" "$OUT/ios-x86_64-simulator/NSCWry.framework"
 
 # ── 5. Keep the dSYMs produced by dsymutil (device + simulator). ─────────
-for slice in ios-arm64 ios-arm64-simulator; do
+for slice in ios-arm64 ios-arm64-simulator ios-x86_64-simulator; do
   ditto "$BUILD/$slice/NSCWry.framework.dSYM" "$DSYM_OUT/$slice/NSCWry.framework.dSYM"
 done
 

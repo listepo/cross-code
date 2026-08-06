@@ -1,0 +1,22 @@
+---
+triple:          'x86_64-apple-darwin'
+binary-path:     '.build/xcframework-slices/ios-x86_64-simulator/NSCWry.framework/NSCWry'
+relocations:
+  - { offset: 0x36E41, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeC16stackSizeInBytesACs6UInt32V_tcfC', symObjAddr: 0x0, symBinAddr: 0x1BDF, symSize: 0x3D }
+  - { offset: 0x36F98, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeCMa', symObjAddr: 0x75, symBinAddr: 0x1C54, symSize: 0x14 }
+  - { offset: 0x36FC2, size: 0x8, addend: 0x0, symName: ___swift_project_boxed_opaque_existential_0, symObjAddr: 0x242, symBinAddr: 0x1DF4, symSize: 0x26 }
+  - { offset: 0x36FD6, size: 0x8, addend: 0x0, symName: ___swift_destroy_boxed_opaque_existential_0, symObjAddr: 0x268, symBinAddr: 0x1E1A, symSize: 0x22 }
+  - { offset: 0x37085, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeC16stackSizeInBytesACs6UInt32V_tcfC', symObjAddr: 0x0, symBinAddr: 0x1BDF, symSize: 0x3D }
+  - { offset: 0x370D1, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeC16stackSizeInBytesACs6UInt32V_tcfc', symObjAddr: 0x3D, symBinAddr: 0x1C1C, symSize: 0x38 }
+  - { offset: 0x3710F, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeC16stackSizeInBytesACs6UInt32V_tcfcTo', symObjAddr: 0x89, symBinAddr: 0x1C68, symSize: 0x19 }
+  - { offset: 0x37123, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeC10wryVersionSSyFZ', symObjAddr: 0xA2, symBinAddr: 0x1C81, symSize: 0x1A }
+  - { offset: 0x3717E, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeC10wryVersionSSyFZTo', symObjAddr: 0xBC, symBinAddr: 0x1C9B, symSize: 0x3A }
+  - { offset: 0x37192, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeC4call8withArgsypSgSayypG_tF', symObjAddr: 0xF6, symBinAddr: 0x1CD5, symSize: 0x10 }
+  - { offset: 0x371BF, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeC4call8withArgsypSgSayypG_tFTo', symObjAddr: 0x106, symBinAddr: 0x1CE5, symSize: 0xB8 }
+  - { offset: 0x371DE, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeC7disposeyyF', symObjAddr: 0x1BE, symBinAddr: 0x1D9D, symSize: 0x6 }
+  - { offset: 0x371FF, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeC7disposeyyFTo', symObjAddr: 0x1C4, symBinAddr: 0x1DA3, symSize: 0x6 }
+  - { offset: 0x37213, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeCACycfC', symObjAddr: 0x1CA, symBinAddr: 0x1DA9, symSize: 0x1F }
+  - { offset: 0x3723C, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeCACycfc', symObjAddr: 0x1E9, symBinAddr: 0x1E49, symSize: 0x24 }
+  - { offset: 0x3728C, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeCACycfcTo', symObjAddr: 0x20D, symBinAddr: 0x1E6D, symSize: 0x9 }
+  - { offset: 0x372A0, size: 0x8, addend: 0x0, symName: '_$s6NSCWry0A7RuntimeCfD', symObjAddr: 0x216, symBinAddr: 0x1DC8, symSize: 0x2C }
+...
