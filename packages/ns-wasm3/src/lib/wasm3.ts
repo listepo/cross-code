@@ -1,6 +1,6 @@
 // ns-wasm3 — wasm3 interpreter plugin for NativeScript.
 // The Runtime / Module / Function classes are thin engine-named wrappers
-// around the generic base classes in @cross-code/ns-wasm-kit.
+// around the generic base classes in @cross-code/ns-wasm-core.
 
 import type { WasmValue } from '@cross-code/ns-wasm-core';
 import {
@@ -8,7 +8,7 @@ import {
   WasmModule,
   WasmFunction,
   type NativeRuntimeAdapter,
-} from '@cross-code/ns-wasm-kit';
+} from '@cross-code/ns-wasm-core';
 import { Wasm3Error } from './wire.js';
 import { IosRuntime } from './wasm3-ios.js';
 import { AndroidRuntime } from './wasm3-android.js';
@@ -22,7 +22,7 @@ export {
   type NativeFunctionAdapter,
   type NativeModuleAdapter,
   type NativeRuntimeAdapter,
-} from '@cross-code/ns-wasm-kit';
+} from '@cross-code/ns-wasm-core';
 
 // ---------------------------------------------------------------------------
 // Engine-specific types

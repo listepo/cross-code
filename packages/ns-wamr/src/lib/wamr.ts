@@ -1,6 +1,6 @@
 // ns-wamr — WAMR (WebAssembly Micro Runtime) plugin for NativeScript.
 // The Runtime / Module / Function classes are thin engine-named wrappers
-// around the generic base classes in @cross-code/ns-wasm-kit.
+// around the generic base classes in @cross-code/ns-wasm-core.
 
 import type { WasmValue } from '@cross-code/ns-wasm-core';
 import {
@@ -8,7 +8,7 @@ import {
   WasmModule,
   WasmFunction,
   type NativeRuntimeAdapter,
-} from '@cross-code/ns-wasm-kit';
+} from '@cross-code/ns-wasm-core';
 import { WamrError } from './wire.js';
 import { IosRuntime } from './wamr-ios.js';
 import { AndroidRuntime } from './wamr-android.js';
@@ -22,7 +22,7 @@ export {
   type NativeFunctionAdapter,
   type NativeModuleAdapter,
   type NativeRuntimeAdapter,
-} from '@cross-code/ns-wasm-kit';
+} from '@cross-code/ns-wasm-core';
 
 // ---------------------------------------------------------------------------
 // Engine-specific types

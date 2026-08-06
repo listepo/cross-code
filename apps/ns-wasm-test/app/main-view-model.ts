@@ -1,6 +1,7 @@
 import { Observable } from '@nativescript/core';
 import { WamrExecutionTier, WamrRuntime } from '@cross-code/ns-wamr';
 import { Wasm3Runtime } from '@cross-code/ns-wasm3';
+import { WasmKitRuntime } from '@cross-code/ns-wasm-kit-runtime';
 
 import {
   createHostImports,
@@ -58,7 +59,7 @@ export class WasmDemoModel extends Observable {
   }
 
   onRun() {
-    const sections = [runWasm3(), runWamr()];
+    const sections = [runWasm3(), runWamr(), runWasmKit()];
     const checks = sections.flatMap((s) => s.checks);
     const summary = summarize(checks);
 
@@ -144,6 +145,14 @@ function runWasm3(): Section {
     'wasm3',
     () => Wasm3Runtime.version(),
     () => new Wasm3Runtime(),
+  );
+}
+
+function runWasmKit(): Section {
+  return runSection(
+    'WasmKit',
+    () => WasmKitRuntime.version(),
+    () => new WasmKitRuntime(),
   );
 }
 

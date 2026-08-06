@@ -16,7 +16,7 @@ import {
   type WasmValue,
   type WasmValueType,
   type WireValue,
-} from '@cross-code/ns-wasm-core';
+} from './wire.js';
 import type {
   WireHostCallback,
   NativeRuntimeAdapter,

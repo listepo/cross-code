@@ -4,7 +4,7 @@
 //
 // Wire protocol convention: i32 -> number, i64 -> decimal string, f32/f64 -> number.
 
-import type { WasmValueType, WireValue } from '@cross-code/ns-wasm-core';
+import type { WasmValueType, WireValue } from './wire.js';
 
 /** A platform-native callback that receives wire values and returns wire values. */
 export type WireHostCallback = (args: WireValue[]) => WireValue[];

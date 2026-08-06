@@ -2,7 +2,7 @@
 // globalThis by the NativeScript iOS runtime.
 
 import { Wasm3Error, type WasmValueType, type WireValue } from './wire.js';
-import type { WireHostCallback, NativeFunctionAdapter, NativeModuleAdapter, NativeRuntimeAdapter } from '@cross-code/ns-wasm-kit';
+import type { WireHostCallback, NativeFunctionAdapter, NativeModuleAdapter, NativeRuntimeAdapter } from '@cross-code/ns-wasm-core';
 
 // ---------------------------------------------------------------------------
 // iOS helpers

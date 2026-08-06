@@ -28,7 +28,8 @@
     "@cross-code/vitest-ns-ui": "file:../../packages/vitest-ns-ui",
     "@nativescript/core": "~9.0.0",
     "@nativescript/theme": "^3.1.0",
-    "@valor/nativescript-websockets": "2.0.3"
+    "@valor/nativescript-websockets": "2.0.3",
+    "@cross-code/ns-wasm-kit-runtime": "file:../../packages/ns-wasm-kit-runtime"
   },
   "devDependencies": {
     "@nativescript/android": "9.0.5",
