@@ -55,9 +55,13 @@ function fromJavaBytes(javaBytes: any): Uint8Array {
 function normalizeAndroidValue(value: any): WireValue | null {
   if (value === undefined || value === null) return null;
   if (typeof value === 'number' || typeof value === 'string') return value;
-  // NativeScript may box numbers as java.lang.Float / Double.
-  if (typeof value.doubleValue === 'function') return value.doubleValue();
-  if (typeof value.floatValue === 'function') return value.floatValue();
+  const javaLang = (globalThis as any).java?.lang;
+  if (javaLang != null && value instanceof javaLang.Number) {
+    // i64 globals cross as java.lang.Long — stringify before unboxing
+    // so values above Number.MAX_SAFE_INTEGER stay exact.
+    if (value instanceof javaLang.Long) return String(value.toString());
+    return value.doubleValue();
+  }
   return String(value);
 }
 
@@ -132,9 +136,7 @@ class AndroidModule implements NativeModuleAdapter {
 
   getGlobal(name: string): WireValue {
     try {
-      // Return the raw native value — i64 globals cross as decimal strings;
-      // the shared WasmModule.getGlobal handles BigInteger conversion.
-      return this.module.getGlobal(name);
+      return normalizeAndroidValue(this.module.getGlobal(name));
     } catch (error) {
       rethrow(error, `getGlobal ${name}`);
       throw null as never;
@@ -143,7 +145,7 @@ class AndroidModule implements NativeModuleAdapter {
 
   setGlobal(name: string, value: WireValue): void {
     try {
-      this.module.setGlobal(name, value);
+      this.module.setGlobal(name, toJavaWireValue(value));
     } catch (error) {
       rethrow(error, `setGlobal ${name}`);
     }
