@@ -14,3 +14,14 @@ java.default_distribution = "temurin"
 # - Kotlin 2.4.x and Android NDK 29 are pulled by the Gradle project.
 # - Gradle 9.6.1 is managed by the committed wrapper (gradlew), not mise.
 # - pnpm 11.20.0 (see packageManager in package.json) uses corepack / npm.
+#
+# Buck2 is NOT available via cargo (the crates.io "buck2" crate v0.1.1 is a
+# placeholder). Install it once with the prebuilt binary (~107 MB, no toolchain
+# needed):
+#
+#   curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-aarch64-apple-darwin.zst | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null && sudo chmod +x /usr/local/bin/buck2
+#
+# Or use the community asdf plugin (mise-compatible, downloads prebuilt):
+#   mise plugin install buck2 https://github.com/izaakschroeder/asdf-buck2
+#   buck2 = "latest"   # then uncomment the line below
+# buck2 = "latest"
