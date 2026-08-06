@@ -60,13 +60,17 @@ export class WasmDemoModel extends Observable {
   }
 
   onRun() {
-    const sections = [runWasm3(), runWamr(), runWasmKit(), runEndive()];
+    const sections = [runWasm3(), runWamr(), runWasmKit()];
+    // Endive is Java-native — only include it on Android.
+    if ((globalThis as any).isAndroid) {
+      sections.push(runEndive());
+    }
     const checks = sections.flatMap((s) => s.checks);
     const summary = summarize(checks);
 
     this.status =
       summary.failed === 0
-        ? `${summary.passed}/${summary.total} checks passed on both runtimes`
+        ? `${summary.passed}/${summary.total} checks passed on all runtimes`
         : `${summary.failed} of ${summary.total} checks FAILED`;
     this.report = sections
       .map((s) => [s.title, ...s.checks.map(formatCheck)].join('\n'))
