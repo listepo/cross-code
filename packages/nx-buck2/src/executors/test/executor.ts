@@ -22,7 +22,7 @@ export default async function testExecutor(
   logger.info(`🧪 Buck2 test: ${target} [${configuration}]`);
 
   const buck2 = resolveBuck2();
-  const args = ['test', target, '--mode', configuration];
+  const args = ['test', target, '--modifier', configuration];
 
   const result = spawnSync(buck2, args, {
     stdio: 'inherit',

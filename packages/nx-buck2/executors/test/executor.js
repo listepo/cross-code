@@ -13,7 +13,7 @@ async function testExecutor(options, context) {
     const configuration = options.configuration ?? 'debug';
     devkit_1.logger.info(`🧪 Buck2 test: ${target} [${configuration}]`);
     const buck2 = resolveBuck2();
-    const args = ['test', target, '--mode', configuration];
+    const args = ['test', target, '--modifier', configuration];
     const result = (0, node_child_process_1.spawnSync)(buck2, args, {
         stdio: 'inherit',
         cwd: context.root,

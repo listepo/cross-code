@@ -7,21 +7,14 @@
   "executors": "./executors.json",
   "generators": "./generators.json",
   "nx": {
-    "name": "nx-buck2",
-    "targets": {
-      "build": {
-        "executor": "@cross-code/nx-buck2:build"
-      },
-      "test": {
-        "executor": "@cross-code/nx-buck2:test"
-      }
-    }
+    "name": "nx-buck2"
   },
   "dependencies": {
     "@nx/devkit": ">=21.0.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.lib.json && for d in executors/build executors/test executors/run generators/init generators/project; do cp src/$d/schema.json $d/schema.json 2>/dev/null; done",
-    "typecheck": "tsc --noEmit -p tsconfig.lib.json"
+    "typecheck": "tsc --noEmit -p tsconfig.lib.json",
+    "test": "vitest run"
   }
 }
