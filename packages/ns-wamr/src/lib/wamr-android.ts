@@ -2,7 +2,7 @@
 // globalThis.org.nativescript.wamr by the NativeScript Android runtime.
 
 import { WamrError, type WasmValueType, type WireValue } from './wire.js';
-import type { WireHostCallback, NativeFunctionAdapter, NativeModuleAdapter, NativeRuntimeAdapter } from './wamr.js';
+import type { WireHostCallback, NativeFunctionAdapter, NativeModuleAdapter, NativeRuntimeAdapter } from '@cross-code/ns-wasm-kit';
 
 // ---------------------------------------------------------------------------
 // Android helpers

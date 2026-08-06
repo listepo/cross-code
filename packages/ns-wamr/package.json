@@ -142,7 +142,8 @@
     "build.xcframework": "bash tools/build-xcframework.sh"
   },
   "dependencies": {
-    "@cross-code/ns-wasm-core": "workspace:*"
+    "@cross-code/ns-wasm-core": "workspace:*",
+    "@cross-code/ns-wasm-kit": "workspace:*"
   },
   "devDependencies": {
     "@nativescript/core": "^8.9.0"
