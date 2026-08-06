@@ -1,7 +1,7 @@
 # cross-code
 
 An Nx monorepo for running WebAssembly on [NativeScript](https://nativescript.org) —
-four WASM runtime plugins built on a shared TypeScript foundation (wire protocol,
+three WASM runtime plugins built on a shared TypeScript foundation (wire protocol,
 adapter interfaces, base Runtime/Module/Function classes):
 
 - [`wasm3`](https://github.com/wasm3/wasm3) — lightweight interpreter (v0.5.2)
@@ -9,8 +9,10 @@ adapter interfaces, base Runtime/Module/Function classes):
   Micro Runtime (2.3.0): interpreter, Fast JIT, LLVM JIT, AOT, WASI
 - [WasmKit](https://github.com/swiftwasm/WasmKit) — Swift-based WebAssembly
   runtime with WASI support, iOS-native through SwiftPM
-- [`ns-wry`](packages/ns-wry) — Rust + [UniFFI](https://github.com/mozilla/uniffi-rs)
-  (uniffi-rs) auto-generated Kotlin/Swift bindings, cargo-ndk Android pipeline
+
+Also in the monorepo: [`ns-wry`](packages/ns-wry) — a general-purpose NativeScript
+plugin scaffold built on Rust + [UniFFI](https://github.com/mozilla/uniffi-rs)
+(uniffi-rs) auto-generated Kotlin/Swift bindings and cargo-ndk Android pipeline.
 
 > **Project status: Active development.** APIs and project layout may change without notice; expect breaking changes between releases.
 
@@ -30,7 +32,7 @@ adapter interfaces, base Runtime/Module/Function classes):
 | [`ns-wasm-test`](apps/ns-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Vitest + `vitest-ns`            |
 | [`ns-wry-app`](apps/ns-wry-app)                                               | NativeScript test app for @cross-code/ns-wry — WebView demo with google.com on iOS/Android                                              |
 
-Both plugins expose the same TypeScript API — see [WASM.md](WASM.md). All runtime
+The WASM runtime plugins expose the same TypeScript API — see [WASM.md](WASM.md). All runtime
 plugins (wasm3, WAMR, WasmKit) share the same foundation (`@cross-code/ns-wasm-core`)
 which provides the wire protocol, error classes, adapter interfaces and generic
 `WasmRuntime`/`WasmModule`/`WasmFunction` classes.
