@@ -22,10 +22,19 @@
   },
   "scripts": {
     "build.wasm": "wasm-pack build src/test-types --target bundler --out-dir pkg && rm -f src/test-types/pkg/.gitignore && cargo run --quiet --manifest-path src/test-types/Cargo.toml --bin gen_globals -- src/test-types/pkg",
-    "test.wasm": "cargo test --manifest-path src/test-types/Cargo.toml"
+    "test.wasm": "cargo test --manifest-path src/test-types/Cargo.toml",
+    "coverage": "bash tools/coverage.sh"
   },
   "nx": {
-    "name": "ns-wasm-fixture"
+    "name": "ns-wasm-fixture",
+    "targets": {
+      "coverage": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage"
+        }
+      }
+    }
   },
   "dependencies": {}
 }

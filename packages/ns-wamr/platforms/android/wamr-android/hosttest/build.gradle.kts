@@ -4,6 +4,7 @@
 // The native library is built via `cargo build` for the host target (no NDK).
 plugins {
     id("org.jetbrains.kotlin.jvm")
+    id("jacoco")
 }
 
 sourceSets {
@@ -66,4 +67,13 @@ tasks.test {
         "java.library.path",
         rustWorkspace.resolve("target/release").absolutePath,
     )
+}
+
+// JaCoCo coverage for the JVM host tests (the Kotlin wrapper + tests).
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
 }

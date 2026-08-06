@@ -26,7 +26,15 @@
     "test-results"
   ],
   "nx": {
-    "name": "vitest-ns-ui"
+    "name": "vitest-ns-ui",
+    "targets": {
+      "coverage": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage"
+        }
+      }
+    }
   },
   "dependencies": {
     "tslib": "^2.3.0"
@@ -38,5 +46,8 @@
   "peerDependencies": {
     "@cross-code/vitest-ns": "^0.0.1",
     "@nativescript/core": "^9.0.20"
+  },
+  "scripts": {
+    "coverage": "vitest run --coverage"
   }
 }

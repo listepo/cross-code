@@ -100,6 +100,16 @@ jobs:
       - name: Vitest + typecheck
         run: pnpm exec nx run-many -t test typecheck
 
+      # Code coverage per project: vitest (v8) for the TS packages, llvm-cov
+      # for the Rust fixture. Reports land in <pkg>/test-output/vitest/coverage
+      # and <pkg>/target/coverage (both gitignored). Native (Swift/Kotlin)
+      # coverage runs via `nx run-many -t coverage.ios coverage.android` on a
+      # machine with Xcode/JDK — not in this job.
+      - name: Coverage
+        run: |
+          rustup component add llvm-tools-preview
+          pnpm exec nx run-many -t coverage
+
       # Rust is pre-installed on GitHub's ubuntu-latest runner. When debugging
       # locally with `act` the slim image may not have it — install on the fly
       # so the same workflow is self-contained.

@@ -406,6 +406,25 @@ Three test layers, each covering a different slice:
   touch `wire.ts` or an adapter file. Details in
   `apps/ns-wasm-test/AGENTS.md`.
 
+Code coverage, per project and per language:
+
+- **TypeScript** — every package's vitest config has a `coverage` block
+  (provider `v8`); `pnpm exec nx run-many -t coverage` produces reports in
+  `<pkg>/test-output/vitest/coverage/`.
+- **Rust** — `packages/ns-wasm-fixture/tools/coverage.sh` runs the crate's
+  tests with `-C instrument-coverage` and reports via the rustup
+  `llvm-tools-preview` component (run `rustup component add llvm-tools-preview`
+  once); report in `<pkg>/target/coverage/`.
+- **Swift** — `coverage.ios` in `ns-wamr`/`ns-wasm3` runs
+  `swift test --enable-code-coverage` and prints an `llvm-cov` report (excludes
+  the vendored C sources).
+- **Kotlin** — `coverage.android` in `ns-wamr`/`ns-wasm3` runs the
+  `:hosttest:jacocoTestReport` Gradle task (JaCoCo over the Kotlin wrapper +
+  JVM host tests).
+- The CI `unit-tests` job runs the TS + Rust coverage (`nx run-many -t
+  coverage`); the Swift/Kotlin coverage targets need Xcode/JDK and run on a
+  developer machine.
+
 The shared check suite lives in the fixture package
 (`@cross-code/ns-wasm-fixture`, Rust + wasm-pack): the test app's
 `app/wasm/fixture-suite.ts` is the canonical correctness specification, typed

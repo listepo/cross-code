@@ -1,3 +1,4 @@
 dist
 out-tsc
 node_modules
+test-output

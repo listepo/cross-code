@@ -35,7 +35,10 @@
     "sync.vendors": "node tools/sync-wasm3.mjs",
     "test.ios": "cd platforms/ios/NSCWasm3 && swift test --disable-sandbox",
     "test.android": "cd platforms/android/wasm3-android && ./gradlew :hosttest:test",
-    "build.android": "cd platforms/android/wasm3-android && ./gradlew :library:deployAar"
+    "build.android": "cd platforms/android/wasm3-android && ./gradlew :library:deployAar",
+    "coverage": "vitest run --coverage",
+    "coverage.ios": "cd platforms/ios/NSCWasm3 && swift test --enable-code-coverage && xcrun llvm-cov report .build/debug/NSCWasm3PackageTests.xctest/Contents/MacOS/NSCWasm3PackageTests -instr-profile .build/debug/codecov/default.profdata -ignore-filename-regex='Sources/CWasm3|/usr/'",
+    "coverage.android": "cd platforms/android/wasm3-android && ./gradlew :hosttest:jacocoTestReport"
   },
   "keywords": [
     "NativeScript",
@@ -46,7 +49,27 @@
     "android"
   ],
   "nx": {
-    "name": "ns-wasm3"
+    "name": "ns-wasm3",
+    "targets": {
+      "coverage": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage"
+        }
+      },
+      "coverage.ios": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage.ios"
+        }
+      },
+      "coverage.android": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage.android"
+        }
+      }
+    }
   },
   "dependencies": {
     "tslib": "^2.3.0"

@@ -70,6 +70,24 @@
         "options": {
           "script": "fixtures"
         }
+      },
+      "coverage": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage"
+        }
+      },
+      "coverage.ios": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage.ios"
+        }
+      },
+      "coverage.android": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage.android"
+        }
       }
     }
   },
@@ -82,7 +100,10 @@
     "test.android": "cd platforms/android/wamr-android && ./gradlew :hosttest:test",
     "build.android": "cd platforms/android/wamr-android && ./gradlew :library:deployAar",
     "typings.ios": "cd ../../apps/ns-wasm-test && ns typings ios",
-    "typings.android": "cd ../../apps/ns-wasm-test && ns typings android"
+    "typings.android": "cd ../../apps/ns-wasm-test && ns typings android",
+    "coverage": "vitest run --coverage",
+    "coverage.ios": "cd platforms/ios/NSCWamr && swift test --enable-code-coverage && xcrun llvm-cov report .build/debug/NSCWamrPackageTests.xctest/Contents/MacOS/NSCWamrPackageTests -instr-profile .build/debug/codecov/default.profdata -ignore-filename-regex='Sources/CWamr|/usr/'",
+    "coverage.android": "cd platforms/android/wamr-android && ./gradlew :hosttest:jacocoTestReport"
   },
   "devDependencies": {
     "@nativescript/core": "^8.9.0"

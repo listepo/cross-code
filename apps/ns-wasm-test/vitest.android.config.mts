@@ -41,7 +41,6 @@ export default defineConfig({
         'app/vitest-ns.ts',
         'app/vitest-ns.worker.ts',
       ],
-      all: false,
     },
   },
 });

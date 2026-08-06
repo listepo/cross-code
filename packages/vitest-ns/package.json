@@ -53,7 +53,15 @@
     "node": ">=20"
   },
   "nx": {
-    "name": "vitest-ns"
+    "name": "vitest-ns",
+    "targets": {
+      "coverage": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage"
+        }
+      }
+    }
   },
   "dependencies": {
     "@vitest/expect": "~4.1.10",
@@ -72,5 +80,8 @@
   "peerDependencies": {
     "@vitest/runner": "~4.1.10",
     "vitest": "~4.1.10"
+  },
+  "scripts": {
+    "coverage": "vitest run --coverage"
   }
 }
