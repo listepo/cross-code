@@ -83,11 +83,12 @@ export class WasmRuntime {
    */
   loadModule(source: WasmModuleSource, imports?: WasmImports): WasmModule {
     if (typeof source === 'string') {
-      // eslint-disable-next-line new-cap
+      // Cast: constructor-types stored in a variable need `as any` for
+      // `new` in strict TS (the precise constructor overload isn't known
+      // at the call-site).
       return new (this._ModuleCtor as any)(this.adapter.loadModuleFromFile(source), this);
     }
     const adapter = this.adapter.loadModuleFromBytes(toBytes(source));
-    // eslint-disable-next-line new-cap
     const module = new (this._ModuleCtor as any)(adapter, this);
     if (imports) module.linkImports(imports);
     return module;
@@ -103,7 +104,7 @@ export class WasmRuntime {
 
   findFunction(name: string): WasmFunction {
     const fn = this.adapter.findFunction(name);
-    // eslint-disable-next-line new-cap
+    // Same cast rationale as loadModule.
     return new (this._FunctionCtor as any)(fn);
   }
 
@@ -173,14 +174,17 @@ export class WasmModule {
   }
 
   getGlobal(name: string): WasmValue {
-    return this.adapter.getGlobal(name);
+    const value = this.adapter.getGlobal(name);
+    // i64 globals cross the wire as decimal strings — convert to bigint.
+    return typeof value === 'string' ? BigInt(value) : value;
   }
 
   setGlobal(name: string, value: WasmArg): void {
-    const parsed = parseSignature('i'); // default: treat as i32 if unknown
+    // Wire the value through toWire (handles bigint → string for i64).
+    // TODO: future type-aware global support (currently treats all globals
+    // as i32 at the wire level).
     const wire = toWire(value, `setGlobal ${name}`);
     this.adapter.setGlobal(name, wire);
-    void parsed; // unused — kept for future type-aware global support
   }
 }
 

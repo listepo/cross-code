@@ -92,4 +92,15 @@ export class Wasm3Runtime extends WasmRuntime {
   static version(): string {
     return wasm3VersionNative();
   }
+
+  // Narrow return types so consumers get Wasm3Module / Wasm3Function.
+  // The base-class factory uses the constructors we passed to super(),
+  // so the runtime values are already correct — we only cast for the types.
+  override loadModule(source: Wasm3ModuleSource, imports?: Wasm3Imports): Wasm3Module {
+    return super.loadModule(source, imports) as unknown as Wasm3Module;
+  }
+
+  override findFunction(name: string): Wasm3Function {
+    return super.findFunction(name) as unknown as Wasm3Function;
+  }
 }

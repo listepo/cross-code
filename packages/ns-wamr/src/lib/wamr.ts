@@ -127,4 +127,15 @@ export class WamrRuntime extends WasmRuntime {
   static version(): string {
     return wamrVersionNative();
   }
+
+  // Narrow return types so consumers get WamrModule / WamrFunction.
+  // The base-class factory uses the constructors we passed to super(),
+  // so the runtime values are already correct — we only cast for the types.
+  override loadModule(source: WamrModuleSource, imports?: WamrImports): WamrModule {
+    return super.loadModule(source, imports) as unknown as WamrModule;
+  }
+
+  override findFunction(name: string): WamrFunction {
+    return super.findFunction(name) as unknown as WamrFunction;
+  }
 }
