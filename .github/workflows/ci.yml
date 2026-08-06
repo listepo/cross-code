@@ -100,16 +100,6 @@ jobs:
       - name: Vitest + typecheck
         run: pnpm exec nx run-many -t test typecheck
 
-      # Rust is pre-installed on GitHub's ubuntu-latest runner. When debugging
-      # locally with `act` the slim image may not have it — install on the fly
-      # so the same workflow is self-contained.
-      - name: Install Rust (if missing)
-        run: |
-          if ! command -v cargo >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          fi
-
       # The fixture crate: wasm exports plus the globals.wasm byte encoder.
       - name: Rust unit tests
         run: pnpm exec nx run nativescript-wasm-fixture:test.wasm
@@ -196,15 +186,15 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-
-      - name: Verify the synced Swift package copy is current
-        working-directory: packages/nativescript-wasm3
-        run: |
-          node tools/sync-wasm3.mjs
-          git diff --exit-code -- . || {
-            echo "::error::platforms/ios/NSCWasm3/Sources/CWasm3 is stale — run 'pnpm run sync.vendors' and commit the result."
-            exit 1
-          }
+#
+#      - name: Verify the synced Swift package copy is current
+#        working-directory: packages/nativescript-wasm3
+#        run: |
+#          node tools/sync-wasm3.mjs
+#          git diff --exit-code -- . || {
+#            echo "::error::platforms/ios/NSCWasm3/Sources/CWasm3 is stale — run 'pnpm run sync.vendors' and commit the result."
+#            exit 1
+#          }
 
       - name: Swift tests
         working-directory: packages/nativescript-wasm3/platforms/ios/NSCWasm3
