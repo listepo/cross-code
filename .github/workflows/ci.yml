@@ -408,10 +408,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The app resolves both plugins through file: dependencies and imports
-      # their built dist/, so TypeScript must exist before bundling.
-      - name: Build the plugins
-        run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr
+      # The app snapshots local file: dependencies when pnpm installs them, so
+      # every package whose entry point lives in dist/ must be built first.
+      - name: Build the app's local packages
+        run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr vitest-nativescript vitest-nativescript-ui
 
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test
@@ -446,8 +446,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Build the plugin
-        run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr
+      # Keep this before the app install: pnpm snapshots local file: packages,
+      # including their generated dist/ entry points, into app node_modules.
+      - name: Build the app's local packages
+        run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr vitest-nativescript vitest-nativescript-ui
 
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test
