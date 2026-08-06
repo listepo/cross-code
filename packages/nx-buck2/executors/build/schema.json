@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Buck2 Build Executor",
+  "description": "Build native libs with Buck2",
+  "type": "object",
+  "properties": {
+    "configuration": {
+      "type": "string",
+      "enum": ["debug", "release"],
+      "default": "release",
+      "description": "Build profile. debug = -O0 -g, release = -Oz -flto + strip."
+    },
+    "target": {
+      "type": "string",
+      "description": "Buck2 target label (e.g. //packages/ns-wamr:wamr-c). Defaults to the project root target."
+    },
+    "arch": {
+      "type": "string",
+      "enum": ["arm64", "x86_64", "arm64-v8a", "armeabi-v7a", "x86"],
+      "description": "Target architecture. Auto-detected from platform if omitted."
+    },
+    "platform": {
+      "type": "string",
+      "enum": ["ios", "ios-sim", "android", "macos"],
+      "description": "Target platform. Controls SDK and sysroot. Default: macos."
+    },
+    "extraArgs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Additional args to pass to buck2 build."
+    }
+  },
+  "required": []
+}

@@ -1,0 +1,7 @@
+# Toolchain definitions for cross-code monorepo.
+# system_demo_toolchains() auto-detects the host toolchain and creates
+# targets the prelude expects (toolchains//:cxx, toolchains//:cpp, etc.).
+
+load("@prelude//toolchains:demo.bzl", "system_demo_toolchains")
+
+system_demo_toolchains()

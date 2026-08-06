@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Buck2 Run Executor",
+  "type": "object",
+  "properties": {
+    "target": {
+      "type": "string",
+      "description": "Buck2 binary target to run."
+    },
+    "configuration": {
+      "type": "string",
+      "enum": ["debug", "release"],
+      "default": "debug"
+    },
+    "args": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["target"]
+}

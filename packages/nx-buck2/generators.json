@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/nx-generators.json",
+  "generators": {
+    "init": {
+      "factory": "./generators/init/generator",
+      "schema": "./generators/init/schema.json",
+      "description": "Initialize Buck2 in a project — adds a BUCK file template and toolchain configuration."
+    },
+    "project": {
+      "factory": "./generators/project/generator",
+      "schema": "./generators/project/schema.json",
+      "description": "Generate a new Buck2-aware project with language-appropriate BUCK rules."
+    }
+  }
+}

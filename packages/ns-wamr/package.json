@@ -90,6 +90,18 @@
         "options": {
           "script": "coverage.android"
         }
+      },
+      "buck2-build": {
+        "executor": "@cross-code/nx-buck2:build",
+        "options": {
+          "configuration": "release"
+        }
+      },
+      "buck2-test": {
+        "executor": "@cross-code/nx-buck2:test",
+        "options": {
+          "configuration": "debug"
+        }
       }
     }
   },

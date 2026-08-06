@@ -1,0 +1,93 @@
+# Buck2 build definitions for @cross-code/ns-wamr
+#
+# Each genrule wraps the existing toolchain (Cargo / swift build).
+# Debug/release is controlled by $BUCK2_MODIFIER injected by nx-buck2 executor.
+# --mode {debug,release} sets .buckconfig [build_mode.*] compiler flags for
+# native cxx_library targets; for genrules we read the env var instead.
+#
+# Target naming convention:
+#   :<name>-<platform>[-<arch>]  e.g. :wamr-c-ios-arm64
+
+# ── WAMR C library (host, via Cargo workspace) ─────────────────────
+
+genrule(
+    name = "wamr-c",
+    srcs = glob([
+        "src/vendors/wamr/core/**/*.c",
+        "src/vendors/wamr/core/**/*.h",
+        "src/vendors/wamr-rust/wamr-sys/**/*.rs",
+        "src/vendors/wamr-rust/wamr-sys/Cargo.toml",
+        "src/vendors/wamr-rust/Cargo.lock",
+    ]),
+    out = "libwamr_sys.a",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cd $SRCDIR/src/vendors/wamr-rust && cargo build -p wamr-sys --profile $PROFILE 2>&1 && cp target/$PROFILE/libwamr_sys.a $OUT",
+    visibility = ["PUBLIC"],
+)
+
+# ── Rust JNI library (Android, via cargo-ndk) ─────────────────────
+
+genrule(
+    name = "wamr-jni-android",
+    srcs = glob([
+        "src/vendors/wamr-rust/**/*.rs",
+        "src/vendors/wamr-rust/**/*.toml",
+        "src/vendors/wamr-rust/Cargo.lock",
+        "src/vendors/wamr/core/**/*.c",
+        "src/vendors/wamr/core/**/*.h",
+    ]),
+    out = "libwamr_jni.so",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cd $SRCDIR/src/vendors/wamr-rust && cargo ndk -t arm64-v8a build -p wamr-jni --profile $PROFILE 2>&1 && find target -name 'libwamr_jni.so' | head -1 | xargs -I{} cp {} $OUT && echo 'JNI .so built'",
+    visibility = ["PUBLIC"],
+)
+
+# ── Swift @objc wrapper (macOS host, for hosttest) ─────────────────
+
+genrule(
+    name = "nsc-wamr-swift-host",
+    srcs = glob([
+        "platforms/ios/NSCWamr/Sources/**/*.swift",
+        "platforms/ios/NSCWamr/Package.swift",
+        "platforms/ios/NSCWamr/Sources/**/include/**/*.h",
+    ]),
+    out = "NSCWamr.dylib",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; CONF=\"release\"; [ \"$MODE\" = debug ] && CONF=\"debug\"; cd $SRCDIR/platforms/ios/NSCWamr && swift build --disable-sandbox --configuration $CONF 2>&1 && cp .build/$CONF/libNSCWamr.dylib $OUT",
+    visibility = ["PUBLIC"],
+)
+
+# ── iOS xcframework (device + simulator) ───────────────────────────
+
+genrule(
+    name = "ns-wamr-xcframework",
+    srcs = glob([
+        "platforms/ios/**/*.swift",
+        "platforms/ios/**/*.h",
+        "platforms/ios/**/Package.swift",
+        "tools/build-xcframework.sh",
+    ]),
+    out = "NSCWamr.xcframework.zip",
+    cmd = "bash $SRCDIR/tools/build-xcframework.sh 2>&1 && cd $SRCDIR/platforms/ios && zip -qr $OUT NSCWamr.xcframework && echo 'xcframework built'",
+    visibility = ["PUBLIC"],
+)
+
+# ── Kotlin hosttest ────────────────────────────────────────────────
+
+genrule(
+    name = "hosttest",
+    srcs = glob([
+        "platforms/android/wamr-android/**/*.kt",
+        "platforms/android/wamr-android/**/*.kts",
+    ]),
+    out = "hosttest-report.xml",
+    cmd = "cd $SRCDIR/platforms/android/wamr-android && ./gradlew :hosttest:test 2>&1 && touch $OUT",
+    visibility = ["PUBLIC"],
+)
+
+# ── All targets (aggregate) ────────────────────────────────────────
+
+genrule(
+    name = "all",
+    srcs = [],
+    out = "all.stamp",
+    cmd = "echo 'ns-wamr: all targets requested' && touch $OUT",
+    visibility = ["PUBLIC"],
+)

@@ -43,6 +43,17 @@
   "targetDefaults": {
     "test": {
       "dependsOn": ["^build"]
+    },
+    "buck2-build": {
+      "executor": "@cross-code/nx-buck2:build",
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/.buck-out"],
+      "cache": true
+    },
+    "buck2-test": {
+      "executor": "@cross-code/nx-buck2:test",
+      "inputs": ["production", "^production"],
+      "cache": true
     }
   }
 }

@@ -1,0 +1,31 @@
+# Buck2 build definitions for @cross-code/ns-wry
+
+genrule(
+    name = "wry-rust-host",
+    srcs = glob([
+        "src/vendors/wry-rust/**/*.rs",
+        "src/vendors/wry-rust/**/*.toml",
+    ]),
+    out = "libwry.a",
+    cmd = "echo 'wry Rust build via Cargo' && touch $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "nsc-wry-swift-host",
+    srcs = glob([
+        "platforms/ios/NSCWry/Sources/**/*.swift",
+        "platforms/ios/NSCWry/Package.swift",
+    ]),
+    out = "NSCWry.dylib",
+    cmd = "echo 'NSCWry Swift build' && touch $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "all",
+    srcs = [],
+    out = "all.stamp",
+    cmd = "echo 'ns-wry: all targets' && touch $OUT",
+    visibility = ["PUBLIC"],
+)

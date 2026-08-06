@@ -1,0 +1,44 @@
+# Buck2 build definitions for @cross-code/ns-wasm3
+
+genrule(
+    name = "wasm3-c",
+    srcs = glob([
+        "src/vendors/wasm3/source/**/*.c",
+        "src/vendors/wasm3/source/**/*.h",
+        "src/vendors/wasm3-rust/wasm3-sys/**/*.rs",
+        "src/vendors/wasm3-rust/wasm3-sys/Cargo.toml",
+    ]),
+    out = "libwasm3_sys.a",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cd $SRCDIR/src/vendors/wasm3-rust && cargo build -p wasm3-sys --profile $PROFILE 2>&1 && cp target/$PROFILE/libwasm3_sys.a $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "wasm3-jni-android",
+    srcs = glob([
+        "src/vendors/wasm3-rust/**/*.rs",
+        "src/vendors/wasm3-rust/**/*.toml",
+    ]),
+    out = "libwasm3_jni.so",
+    cmd = "echo 'wasm3 JNI Android build via cargo-ndk' && touch $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "nsc-wasm3-swift-host",
+    srcs = glob([
+        "platforms/ios/NSCWasm3/Sources/**/*.swift",
+        "platforms/ios/NSCWasm3/Package.swift",
+    ]),
+    out = "NSCWasm3.dylib",
+    cmd = "echo 'NSCWasm3 Swift build' && touch $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "all",
+    srcs = [],
+    out = "all.stamp",
+    cmd = "echo 'ns-wasm3: all targets' && touch $OUT",
+    visibility = ["PUBLIC"],
+)

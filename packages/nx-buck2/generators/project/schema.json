@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Generate Buck2 Project",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Project name."
+    },
+    "language": {
+      "type": "string",
+      "enum": ["c", "rust", "swift", "kotlin"],
+      "default": "c"
+    },
+    "directory": {
+      "type": "string",
+      "description": "Custom directory. Default: packages/<name>."
+    }
+  },
+  "required": ["name"]
+}

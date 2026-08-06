@@ -1,0 +1,27 @@
+{
+  "name": "@cross-code/nx-buck2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nx plugin for Buck2 — cross-compilation native builds with debug/release profiles, size optimization, and symbol preservation.",
+  "main": "./src/index.js",
+  "executors": "./executors.json",
+  "generators": "./generators.json",
+  "nx": {
+    "name": "nx-buck2",
+    "targets": {
+      "build": {
+        "executor": "@cross-code/nx-buck2:build"
+      },
+      "test": {
+        "executor": "@cross-code/nx-buck2:test"
+      }
+    }
+  },
+  "dependencies": {
+    "@nx/devkit": ">=21.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.lib.json && for d in executors/build executors/test executors/run generators/init generators/project; do cp src/$d/schema.json $d/schema.json 2>/dev/null; done",
+    "typecheck": "tsc --noEmit -p tsconfig.lib.json"
+  }
+}

@@ -72,3 +72,6 @@ reasonix.toml
 
 # pnpm local package store (created during resolution)
 .pnpm-store
+.buck-out/
+/buck-out
+.buck-out/

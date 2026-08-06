@@ -55,6 +55,12 @@
         "options": {
           "script": "coverage"
         }
+      },
+      "buck2-build": {
+        "executor": "@cross-code/nx-buck2:build",
+        "options": {
+          "configuration": "release"
+        }
       }
     }
   },

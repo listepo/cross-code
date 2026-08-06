@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Init Buck2 Generator",
+  "type": "object",
+  "properties": {
+    "language": {
+      "type": "string",
+      "enum": ["c", "rust", "swift", "kotlin"],
+      "default": "c",
+      "description": "Language for the generated BUCK file template."
+    },
+    "project": {
+      "type": "string",
+      "description": "Project name (in packages/). Defaults to root."
+    }
+  }
+}

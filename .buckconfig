@@ -1,0 +1,40 @@
+# Buck2 configuration for cross-code monorepo
+
+[cells]
+  root = .
+  prelude = prelude
+  toolchains = toolchains
+  none = none
+
+[cell_aliases]
+  config = prelude
+  ovr_config = prelude
+  fbcode = none
+  fbsource = none
+  fbcode_macros = none
+  buck = none
+
+[external_cells]
+  prelude = bundled
+
+[buck2]
+  root = .
+  buck_out = .buck-out
+
+[parser]
+  target_platform_detector_spec = target:root//...->prelude//platforms:default \
+    target:prelude//...->prelude//platforms:default \
+    target:toolchains//...->prelude//platforms:default
+
+[build]
+  execution_platforms = prelude//platforms:default
+
+[project]
+  ignore = .git,node_modules,dist,.nx,.buck-out,target
+
+[build_mode.debug]
+  compiler_flags = -O0 -g3 -DDEBUG
+
+[build_mode.release]
+  compiler_flags = -Oz -flto=thin -DNDEBUG -fvisibility=hidden
+  linker_flags = -dead_strip -Wl,-S

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Buck2 Test Executor",
+  "description": "Run tests with Buck2",
+  "type": "object",
+  "properties": {
+    "target": {
+      "type": "string",
+      "description": "Buck2 test target label."
+    },
+    "configuration": {
+      "type": "string",
+      "enum": ["debug", "release"],
+      "default": "debug"
+    }
+  }
+}
