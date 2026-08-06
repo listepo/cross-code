@@ -11,7 +11,7 @@ Both plugins share one API — only the class names differ
 thrown as `Wasm3Error` / `WamrError` respectively. Examples below use wasm3;
 substitute the class names for WAMR.
 
-|                 | `@cross-code/nativescript-wasm3` | `@cross-code/nativescript-wamr`                      |
+|                 | `@cross-code/ns-wasm3` | `@cross-code/ns-wamr`                      |
 | --------------- | -------------------------------- | ---------------------------------------------------- |
 | Engine          | wasm3 interpreter (v0.5.2)       | WAMR 2.3.0                                           |
 | Execution       | interpreter only                 | `Interpreter` (default), `FastJIT`, `LLVMJIT`, `AOT` |
@@ -21,8 +21,8 @@ substitute the class names for WAMR.
 ## Install
 
 ```bash
-ns plugin add @cross-code/nativescript-wasm3
-# or: ns plugin add @cross-code/nativescript-wamr
+ns plugin add @cross-code/ns-wasm3
+# or: ns plugin add @cross-code/ns-wamr
 ```
 
 Each plugin ships its own `nativescript.config.ts` declaring the local Swift
@@ -34,7 +34,7 @@ bundled `.aar` and `include.gradle` are picked up automatically.
 
 ```ts
 import { knownFolders, path } from '@nativescript/core';
-import { Wasm3Runtime } from '@cross-code/nativescript-wasm3';
+import { Wasm3Runtime } from '@cross-code/ns-wasm3';
 
 const runtime = new Wasm3Runtime(); // default 64 KiB stack
 // const runtime = new Wasm3Runtime({ stackSizeInBytes: 128 * 1024 });
@@ -160,7 +160,7 @@ messages:
 | ----------------------------- | ------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
 | `stackSizeInBytes`            | `number`            | `65536`       | interpreter stack size                                                                         |
 | `wasiEnabled` _(wamr only)_   | `boolean`           | `true`        | enable WASI support for the module                                                             |
-| `executionTier` _(wamr only)_ | `WamrExecutionTier` | `Interpreter` | execution engine — see the [wamr README](packages/nativescript-wamr/README.md#execution-tiers) |
+| `executionTier` _(wamr only)_ | `WamrExecutionTier` | `Interpreter` | execution engine — see the [wamr README](packages/ns-wamr/README.md#execution-tiers) |
 
 **Static**
 
@@ -204,7 +204,7 @@ messages:
 
 ## Troubleshooting
 
-**`nativescript-wasm3 native runtime not found` / `nativescript-wamr native runtime not found`** — the app wasn't rebuilt after adding the plugin. Run `ns build ios` or `ns build android`.
+**`ns-wasm3 native runtime not found` / `ns-wamr native runtime not found`** — the app wasn't rebuilt after adding the plugin. Run `ns build ios` or `ns build android`.
 
 **`missing imported function`** — a host import wasn't linked before
 `findFunction`/`call` was used. Link all imports via `loadModule(src, imports)`

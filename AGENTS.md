@@ -44,15 +44,15 @@ other (same class shapes, same wire protocol, same error mapping). Everything
 the plugins share is documented in [Shared plugin architecture](#shared-plugin-architecture)
 below; each package's AGENTS.md holds only engine-specific detail.
 
-- **`nativescript-wasm3`** (`@cross-code/nativescript-wasm3`) — mature plugin binding
+- **`ns-wasm3`** (`@cross-code/ns-wasm3`) — mature plugin binding
   the wasm3 interpreter (Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android).
-  See `packages/nativescript-wasm3/AGENTS.md`.
-- **`nativescript-wamr`** (`@cross-code/nativescript-wamr`) — newer plugin binding
+  See `packages/ns-wasm3/AGENTS.md`.
+- **`ns-wamr`** (`@cross-code/ns-wamr`) — newer plugin binding
   WAMR (WebAssembly Micro Runtime) with four execution tiers (Interpreter,
   Fast JIT, LLVM JIT, AOT) and WASI support in its API — the current native
   builds enable only the interpreter (see [Key differences](#key-differences-wasm3-vs-wamr)).
-  WAMR-2.3.0 sources are vendored at `packages/nativescript-wamr/src/vendors/wamr/`.
-  See `packages/nativescript-wamr/AGENTS.md`.
+  WAMR-2.3.0 sources are vendored at `packages/ns-wamr/src/vendors/wamr/`.
+  See `packages/ns-wamr/AGENTS.md`.
 - **`ns-wry`** (`@cross-code/ns-wry`) — general-purpose NativeScript plugin
   scaffold built on Rust + UniFFI (uniffi-rs) with cargo-ndk Android pipeline.
   See `packages/ns-wry/AGENTS.md` for the bare-metal architecture; extend the
@@ -60,11 +60,11 @@ below; each package's AGENTS.md holds only engine-specific detail.
 
 ### Vitest + NativeScript unit-test packages
 
-- **`vitest-nativescript`** (`@cross-code/vitest-nativescript`) — a Vitest
+- **`vitest-ns`** (`@cross-code/vitest-ns`) — a Vitest
   custom pool that runs unit tests in NativeScript Worker runtimes. Read
-  `packages/vitest-nativescript/AGENTS.md` before changing its Node/device
+  `packages/vitest-ns/AGENTS.md` before changing its Node/device
   protocol or webpack aliases.
-- **`vitest-nativescript-ui`** (`@cross-code/vitest-nativescript-ui`) — an
+- **`vitest-ns-ui`** (`@cross-code/vitest-ns-ui`) — an
   optional NativeScript Core results view. It is presentation-only and should
   remain removable for headless or CI usage.
 - These packages support one-shot unit tests; they are not a component-testing
@@ -407,11 +407,11 @@ Three test layers, each covering a different slice:
   `apps/ns-wasm-test/AGENTS.md`.
 
 The shared check suite lives in the fixture package
-(`@cross-code/nativescript-wasm-fixture`, Rust + wasm-pack): the test app's
+(`@cross-code/ns-wasm-fixture`, Rust + wasm-pack): the test app's
 `app/wasm/fixture-suite.ts` is the canonical correctness specification, typed
 against structural interfaces (`WasmModuleLike` / `WasmRuntimeLike`) rather
 than either plugin, and `callFixture<K>` is type-checked against the
-wasm-pack-generated `.d.ts`. See `packages/nativescript-wasm-fixture/README.md`.
+wasm-pack-generated `.d.ts`. See `packages/ns-wasm-fixture/README.md`.
 
 ## Key differences: wasm3 vs WAMR
 
@@ -433,8 +433,8 @@ wasm-pack-generated `.d.ts`. See `packages/nativescript-wasm-fixture/README.md`.
 
 | Path                                    | Contents                                                                |
 | --------------------------------------- | ----------------------------------------------------------------------- |
-| `packages/nativescript-wasm3/AGENTS.md` | wasm3-specific: stack ABI, globals, fixtures, build/test                |
-| `packages/nativescript-wamr/AGENTS.md`  | WAMR-specific: two-phase load, exec env, WASI, tiers, trampolines, shim |
+| `packages/ns-wasm3/AGENTS.md` | wasm3-specific: stack ABI, globals, fixtures, build/test                |
+| `packages/ns-wamr/AGENTS.md`  | WAMR-specific: two-phase load, exec env, WASI, tiers, trampolines, shim |
 | `packages/ns-wry/AGENTS.md`            | wry scaffold: Rust + UniFFI architecture, platform stubs, extension guide  |
 | `apps/ns-wasm-test/AGENTS.md` | test app: layout, design decisions, running the suites, adding specs       |
 | `apps/ns-wry-app`                      | test app: WebView demo, build-plugin-and-run workflow                       |

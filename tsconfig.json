@@ -4,19 +4,19 @@
   "files": [],
   "references": [
     {
-      "path": "./packages/nativescript-wasm3"
+      "path": "./packages/ns-wasm3"
     },
     {
-      "path": "./packages/nativescript-wasm-fixture"
+      "path": "./packages/ns-wasm-fixture"
     },
     {
-      "path": "./packages/nativescript-wamr"
+      "path": "./packages/ns-wamr"
     },
     {
-      "path": "./packages/vitest-nativescript"
+      "path": "./packages/vitest-ns"
     },
     {
-      "path": "./packages/vitest-nativescript-ui"
+      "path": "./packages/vitest-ns-ui"
     },
     {
       "path": "./packages/ns-wry"

@@ -6,8 +6,8 @@
   },
   "files": [
     "./references.d.ts",
-    "app/vitest-nativescript.ts",
-    "app/vitest-nativescript.worker.ts"
+    "app/vitest-ns.ts",
+    "app/vitest-ns.worker.ts"
   ],
   "include": ["app/**/*.spec.ts", "app/**/*.d.ts"],
   "exclude": ["node_modules", "platforms"]

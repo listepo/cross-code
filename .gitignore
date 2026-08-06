@@ -68,7 +68,7 @@ vitest.config.*.timestamp*
 
 reasonix.toml
 
-/packages/nativescript-wasm3/src/vendors/wasm3-rust/target/
+/packages/ns-wasm3/src/vendors/wasm3-rust/target/
 
 # pnpm local package store (created during resolution)
 .pnpm-store

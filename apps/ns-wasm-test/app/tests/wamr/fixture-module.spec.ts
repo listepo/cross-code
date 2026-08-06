@@ -2,7 +2,7 @@
  * The Rust fixture module driven through the plugin's public API, on the
  * device's own WAMR runtime.
  *
- * Vitest discovers this file in Node, then @cross-code/vitest-nativescript
+ * Vitest discovers this file in Node, then @cross-code/vitest-ns
  * executes it inside a NativeScript Worker on the selected device.
  *
  * The bulk of the coverage is `runFixtureChecks` from `app/wasm/fixture-suite.ts`,
@@ -16,7 +16,7 @@ import {
   WamrRuntime,
   WamrExecutionTier,
   type WamrModule,
-} from '@cross-code/nativescript-wamr';
+} from '@cross-code/ns-wamr';
 
 import {
   callFixture,
@@ -32,7 +32,7 @@ import {
   readAppFile,
 } from '../../wasm/wasm-assets';
 
-describe('the fixture module through @cross-code/nativescript-wamr', () => {
+describe('the fixture module through @cross-code/ns-wamr', () => {
   let runtime: WamrRuntime;
   let module: WamrModule;
   let log: HostCall[];

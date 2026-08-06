@@ -23,14 +23,14 @@ const dirs = [
   'packages/*/out-tsc',
 
   // ── Android Gradle builds ─────────────────────────────────────────
-  'packages/nativescript-wasm3/platforms/android/wasm3-android/build',
-  'packages/nativescript-wasm3/platforms/android/wasm3-android/.gradle',
-  'packages/nativescript-wamr/platforms/android/wamr-android/build',
-  'packages/nativescript-wamr/platforms/android/wamr-android/.gradle',
+  'packages/ns-wasm3/platforms/android/wasm3-android/build',
+  'packages/ns-wasm3/platforms/android/wasm3-android/.gradle',
+  'packages/ns-wamr/platforms/android/wamr-android/build',
+  'packages/ns-wamr/platforms/android/wamr-android/.gradle',
 
   // ── Rust cargo targets ────────────────────────────────────────────
-  'packages/nativescript-wasm3/src/vendors/wasm3-rust/target',
-  'packages/nativescript-wamr/src/vendors/wamr-rust/target',
+  'packages/ns-wasm3/src/vendors/wasm3-rust/target',
+  'packages/ns-wamr/src/vendors/wamr-rust/target',
 
   // ── NativeScript generated artifacts (test app) ───────────────────
   'apps/ns-wasm-test/platforms',

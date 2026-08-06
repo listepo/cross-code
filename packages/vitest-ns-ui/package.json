@@ -1,0 +1,42 @@
+{
+  "name": "@cross-code/vitest-ns-ui",
+  "version": "0.0.1",
+  "description": "NativeScript Core test-results UI for @cross-code/vitest-ns.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@cross-code/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
+  "keywords": [
+    "vitest",
+    "nativescript",
+    "unit-testing",
+    "test-results"
+  ],
+  "nx": {
+    "name": "vitest-ns-ui"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@cross-code/vitest-ns": "workspace:*",
+    "@nativescript/core": "^9.0.20"
+  },
+  "peerDependencies": {
+    "@cross-code/vitest-ns": "^0.0.1",
+    "@nativescript/core": "^9.0.20"
+  }
+}

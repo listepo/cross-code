@@ -1,18 +1,18 @@
 # AGENTS.md — ns-wasm-test
 
 This NativeScript app is the end-to-end TypeScript/native integration suite
-for `@cross-code/nativescript-wasm3` and `@cross-code/nativescript-wamr`.
+for `@cross-code/ns-wasm3` and `@cross-code/ns-wamr`.
 Workspace-wide Nx and NativeScript rules live in the root `AGENTS.md`.
 
 ## Test architecture
 
-- Vitest runs in Node and uses the `@cross-code/vitest-nativescript` custom
+- Vitest runs in Node and uses the `@cross-code/vitest-ns` custom
   pool for discovery, scheduling, and reporter output.
-- `app/vitest-nativescript.ts` is the test-only application entry. It owns the
-  coordinator and the optional `@cross-code/vitest-nativescript-ui` page. Its
+- `app/vitest-ns.ts` is the test-only application entry. It owns the
+  coordinator and the optional `@cross-code/vitest-ns-ui` page. Its
   first import must remain `@valor/nativescript-websockets` so the transport
   global exists before the coordinator starts.
-- `app/vitest-nativescript.worker.ts` is a statically discoverable NativeScript
+- `app/vitest-ns.worker.ts` is a statically discoverable NativeScript
   Worker entry. It imports `@nativescript/core/globals` for timers, and its
   webpack registry must match every file selected by the Vitest configs.
 - Specs execute inside the Worker against the real iOS/Android native plugins.
@@ -29,8 +29,8 @@ app sources; that flag is added automatically by `vitest run --coverage`.
 
 ```text
 app/
-  vitest-nativescript.ts          coordinator + results UI
-  vitest-nativescript.worker.ts   Worker registry
+  vitest-ns.ts          coordinator + results UI
+  vitest-ns.worker.ts   Worker registry
   tests/wasm3/                    wasm3 Vitest specs
   tests/wamr/                     WAMR Vitest specs
   wasm/fixture-suite.ts           shared correctness checks
@@ -79,14 +79,14 @@ The app is deliberately outside the root pnpm workspace and owns a separate
 lockfile. Local packages use `file:` dependencies. Add or remove dependencies
 with pnpm from this app directory; do not emulate links with TypeScript paths.
 
-`@cross-code/vitest-nativescript-ui` has the runner as a peer dependency so the
+`@cross-code/vitest-ns-ui` has the runner as a peer dependency so the
 app provides one runner instance, and the UI has `@nativescript/core` as a peer
 so its `Page`/`View` types come from the app's NativeScript installation.
 
 When runner/UI `dist` output changes:
 
 ```bash
-pnpm exec nx run-many -t build -p vitest-nativescript vitest-nativescript-ui
+pnpm exec nx run-many -t build -p vitest-ns vitest-ns-ui
 cd apps/ns-wasm-test
 pnpm install --force
 ```

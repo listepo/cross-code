@@ -1,6 +1,6 @@
 import { Observable } from '@nativescript/core';
-import { WamrExecutionTier, WamrRuntime } from '@cross-code/nativescript-wamr';
-import { Wasm3Runtime } from '@cross-code/nativescript-wasm3';
+import { WamrExecutionTier, WamrRuntime } from '@cross-code/ns-wamr';
+import { Wasm3Runtime } from '@cross-code/ns-wasm3';
 
 import {
   createHostImports,
@@ -19,7 +19,7 @@ import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM } from './wasm/wasm-assets';
  * so the demo page shows the same module behaving identically on each. The
  * checks themselves live in `wasm/fixture-suite.ts`; the Vitest specs in
  * `app/tests/wasm3/` and `app/tests/wamr/` assert on the same list under
- * the `vitest-nativescript` worker.
+ * the `vitest-ns` worker.
  *
  * WAMR runs on its Interpreter tier here, the one tier available in every
  * build; the specs cover Fast JIT, LLVM JIT and AOT where they are compiled in.

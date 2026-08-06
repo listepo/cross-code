@@ -1,8 +1,8 @@
 # ns-wasm-test
 
 On-device Vitest coverage for
-[`@cross-code/nativescript-wasm3`](../../packages/nativescript-wasm3) and
-[`@cross-code/nativescript-wamr`](../../packages/nativescript-wamr). The app
+[`@cross-code/ns-wasm3`](../../packages/ns-wasm3) and
+[`@cross-code/ns-wamr`](../../packages/ns-wamr). The app
 runs the shared WebAssembly fixture against the real native runtimes on iOS
 and Android.
 
@@ -10,12 +10,12 @@ There are two app modes:
 
 - The normal demo entry (`app/app.ts`) renders the shared WASM checks when you
   tap **RUN**.
-- The test entry (`app/vitest-nativescript.ts`) displays the optional
-  `@cross-code/vitest-nativescript-ui` results page while Vitest executes the
+- The test entry (`app/vitest-ns.ts`) displays the optional
+  `@cross-code/vitest-ns-ui` results page while Vitest executes the
   specs in a NativeScript Worker.
 
 Vitest remains in Node for discovery, scheduling, and CLI reporting. The
-`@cross-code/vitest-nativescript` custom pool sends each selected file over a
+`@cross-code/vitest-ns` custom pool sends each selected file over a
 WebSocket to the NativeScript app, where the Worker loads and executes it.
 The test entry imports `@valor/nativescript-websockets` first because
 NativeScript Core does not provide the browser-compatible `WebSocket` global
@@ -24,8 +24,8 @@ used by that host/device connection.
 ## Layout
 
 ```text
-app/vitest-nativescript.ts          test-only app entry and results UI
-app/vitest-nativescript.worker.ts   Worker registry for app/tests/**/*.spec.ts
+app/vitest-ns.ts          test-only app entry and results UI
+app/vitest-ns.worker.ts   Worker registry for app/tests/**/*.spec.ts
 app/tests/wasm3/*.spec.ts           Vitest specs for wasm3
 app/tests/wamr/*.spec.ts            Vitest specs for WAMR
 app/wasm/fixture-suite.ts           checks shared by specs and demo page
@@ -104,7 +104,7 @@ tiers are exercised when available in the native build.
 
 Calls into the fixture go through `callFixture()`, whose parameters and return
 values come from the wasm-pack-generated
-`@cross-code/nativescript-wasm-fixture/types` declarations.
+`@cross-code/ns-wasm-fixture/types` declarations.
 
 ## Local package wiring
 
@@ -125,11 +125,11 @@ pnpm install --force
   this app's generated `platforms/<platform>` directory and rerun the target.
 - The host and device communicate on port `17878`. Do not run the iOS and
   Android targets concurrently unless they use different ports.
-- `vitest-nativescript` currently supports one-shot `vitest run`; watch/HMR,
+- `vitest-ns` currently supports one-shot `vitest run`; watch/HMR,
   `vi` mocks/fake timers, snapshots, and component testing are not implemented.
 
 ## See also
 
-- [`@cross-code/vitest-nativescript`](../../packages/vitest-nativescript/README.md)
-- [`@cross-code/vitest-nativescript-ui`](../../packages/vitest-nativescript-ui/README.md)
+- [`@cross-code/vitest-ns`](../../packages/vitest-ns/README.md)
+- [`@cross-code/vitest-ns-ui`](../../packages/vitest-ns-ui/README.md)
 - [Workspace README](../../README.md)

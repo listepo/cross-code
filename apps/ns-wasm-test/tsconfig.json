@@ -23,25 +23,25 @@
   "exclude": [
     "node_modules",
     "platforms",
-    "app/vitest-nativescript.ts",
-    "app/vitest-nativescript.worker.ts",
+    "app/vitest-ns.ts",
+    "app/vitest-ns.worker.ts",
     "app/**/*.spec.ts"
   ],
   "references": [
     {
-      "path": "../../packages/nativescript-wamr"
+      "path": "../../packages/ns-wamr"
     },
     {
-      "path": "../../packages/nativescript-wasm3"
+      "path": "../../packages/ns-wasm3"
     },
     {
-      "path": "../../packages/nativescript-wasm-fixture"
+      "path": "../../packages/ns-wasm-fixture"
     },
     {
-      "path": "../../packages/vitest-nativescript"
+      "path": "../../packages/vitest-ns"
     },
     {
-      "path": "../../packages/vitest-nativescript-ui"
+      "path": "../../packages/vitest-ns-ui"
     }
   ]
 }

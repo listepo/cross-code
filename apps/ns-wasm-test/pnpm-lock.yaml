@@ -8,21 +8,21 @@ importers:
 
   .:
     dependencies:
-      '@cross-code/nativescript-wamr':
-        specifier: file:../../packages/nativescript-wamr
-        version: file:../../packages/nativescript-wamr
-      '@cross-code/nativescript-wasm-fixture':
-        specifier: file:../../packages/nativescript-wasm-fixture
-        version: file:../../packages/nativescript-wasm-fixture
-      '@cross-code/nativescript-wasm3':
-        specifier: file:../../packages/nativescript-wasm3
-        version: file:../../packages/nativescript-wasm3
-      '@cross-code/vitest-nativescript':
-        specifier: file:../../packages/vitest-nativescript
-        version: file:../../packages/vitest-nativescript(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2)
-      '@cross-code/vitest-nativescript-ui':
-        specifier: file:../../packages/vitest-nativescript-ui
-        version: file:../../packages/vitest-nativescript-ui(@cross-code/vitest-nativescript@file:../../packages/vitest-nativescript(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2))(@nativescript/core@9.0.20)
+      '@cross-code/ns-wamr':
+        specifier: file:../../packages/ns-wamr
+        version: file:../../packages/ns-wamr
+      '@cross-code/ns-wasm-fixture':
+        specifier: file:../../packages/ns-wasm-fixture
+        version: file:../../packages/ns-wasm-fixture
+      '@cross-code/ns-wasm3':
+        specifier: file:../../packages/ns-wasm3
+        version: file:../../packages/ns-wasm3
+      '@cross-code/vitest-ns':
+        specifier: file:../../packages/vitest-ns
+        version: file:../../packages/vitest-ns(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2)
+      '@cross-code/vitest-ns-ui':
+        specifier: file:../../packages/vitest-ns-ui
+        version: file:../../packages/vitest-ns-ui(@cross-code/vitest-ns@file:../../packages/vitest-ns(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2))(@nativescript/core@9.0.20)
       '@nativescript/core':
         specifier: ~9.0.0
         version: 9.0.20
@@ -137,23 +137,23 @@ packages:
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
 
-  '@cross-code/nativescript-wamr@file:../../packages/nativescript-wamr':
-    resolution: {directory: ../../packages/nativescript-wamr, type: directory}
+  '@cross-code/ns-wamr@file:../../packages/ns-wamr':
+    resolution: {directory: ../../packages/ns-wamr, type: directory}
 
-  '@cross-code/nativescript-wasm-fixture@file:../../packages/nativescript-wasm-fixture':
-    resolution: {directory: ../../packages/nativescript-wasm-fixture, type: directory}
+  '@cross-code/ns-wasm-fixture@file:../../packages/ns-wasm-fixture':
+    resolution: {directory: ../../packages/ns-wasm-fixture, type: directory}
 
-  '@cross-code/nativescript-wasm3@file:../../packages/nativescript-wasm3':
-    resolution: {directory: ../../packages/nativescript-wasm3, type: directory}
+  '@cross-code/ns-wasm3@file:../../packages/ns-wasm3':
+    resolution: {directory: ../../packages/ns-wasm3, type: directory}
 
-  '@cross-code/vitest-nativescript-ui@file:../../packages/vitest-nativescript-ui':
-    resolution: {directory: ../../packages/vitest-nativescript-ui, type: directory}
+  '@cross-code/vitest-ns-ui@file:../../packages/vitest-ns-ui':
+    resolution: {directory: ../../packages/vitest-ns-ui, type: directory}
     peerDependencies:
-      '@cross-code/vitest-nativescript': ^0.0.1
+      '@cross-code/vitest-ns': ^0.0.1
       '@nativescript/core': ^9.0.20
 
-  '@cross-code/vitest-nativescript@file:../../packages/vitest-nativescript':
-    resolution: {directory: ../../packages/vitest-nativescript, type: directory}
+  '@cross-code/vitest-ns@file:../../packages/vitest-ns':
+    resolution: {directory: ../../packages/vitest-ns, type: directory}
     engines: {node: '>=20'}
     peerDependencies:
       '@vitest/runner': ~4.1.10
@@ -2245,21 +2245,21 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@cross-code/nativescript-wamr@file:../../packages/nativescript-wamr': {}
+  '@cross-code/ns-wamr@file:../../packages/ns-wamr': {}
 
-  '@cross-code/nativescript-wasm-fixture@file:../../packages/nativescript-wasm-fixture': {}
+  '@cross-code/ns-wasm-fixture@file:../../packages/ns-wasm-fixture': {}
 
-  '@cross-code/nativescript-wasm3@file:../../packages/nativescript-wasm3':
+  '@cross-code/ns-wasm3@file:../../packages/ns-wasm3':
     dependencies:
       tslib: 2.8.1
 
-  '@cross-code/vitest-nativescript-ui@file:../../packages/vitest-nativescript-ui(@cross-code/vitest-nativescript@file:../../packages/vitest-nativescript(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2))(@nativescript/core@9.0.20)':
+  '@cross-code/vitest-ns-ui@file:../../packages/vitest-ns-ui(@cross-code/vitest-ns@file:../../packages/vitest-ns(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2))(@nativescript/core@9.0.20)':
     dependencies:
-      '@cross-code/vitest-nativescript': file:../../packages/vitest-nativescript(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2)
+      '@cross-code/vitest-ns': file:../../packages/vitest-ns(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2)
       '@nativescript/core': 9.0.20
       tslib: 2.8.1
 
-  '@cross-code/vitest-nativescript@file:../../packages/vitest-nativescript(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2)':
+  '@cross-code/vitest-ns@file:../../packages/vitest-ns(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2)':
     dependencies:
       '@vitest/expect': 4.1.10
       '@vitest/runner': 4.1.10

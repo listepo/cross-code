@@ -2,17 +2,17 @@
  * The WebAssembly exercise shared by the on-device demo page and the Vitest
  * specs in `app/tests/`.
  *
- * It runs on whichever runtime the caller hands it — `@cross-code/nativescript-wasm3`
- * or `@cross-code/nativescript-wamr`. Both plugins expose the same shape, so the suite
+ * It runs on whichever runtime the caller hands it — `@cross-code/ns-wasm3`
+ * or `@cross-code/ns-wamr`. Both plugins expose the same shape, so the suite
  * is typed against the structural interfaces below rather than either package:
  * the demo page renders the checks, the NativeScript Vitest worker asserts on
  * them, and neither
  * runtime is privileged here.
  *
- * The module under test is `@cross-code/nativescript-wasm-fixture` (Rust, built with
+ * The module under test is `@cross-code/ns-wasm-fixture` (Rust, built with
  * wasm-pack); its generated `.d.ts` is what types `callFixture` below.
  */
-import type * as FixtureExports from '@cross-code/nativescript-wasm-fixture/types';
+import type * as FixtureExports from '@cross-code/ns-wasm-fixture/types';
 
 // ---------------------------------------------------------------------------
 // The runtime surface the suite needs

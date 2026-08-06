@@ -1,14 +1,14 @@
 const { dirname } = require('node:path');
 const webpack = require('@nativescript/webpack');
-const configureNativeScriptVitestWebpack = require('@cross-code/vitest-nativescript/webpack');
+const configureNativeScriptVitestWebpack = require('@cross-code/vitest-ns/webpack');
 
-// The fixture .wasm binaries are build outputs of @cross-code/nativescript-wasm-fixture
+// The fixture .wasm binaries are build outputs of @cross-code/ns-wasm-fixture
 // (wasm-pack + the gen_globals binary). Copy them into the bundle so wasm3 and
 // WAMR can load them from the app folder at runtime — see app/wasm/wasm-assets.ts.
 // Resolve via the package's own exports so this stays correct if the fixture's
 // internal folder layout changes.
 const fixturePkgDir = dirname(
-  require.resolve('@cross-code/nativescript-wasm-fixture/types.wasm'),
+  require.resolve('@cross-code/ns-wasm-fixture/types.wasm'),
 );
 
 module.exports = (env) => {
@@ -29,7 +29,7 @@ module.exports = (env) => {
   });
 
   configureNativeScriptVitestWebpack(webpack, {
-    entry: 'vitest-nativescript.ts',
+    entry: 'vitest-ns.ts',
   });
 
   return webpack.resolveConfig();

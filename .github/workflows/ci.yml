@@ -112,7 +112,7 @@ jobs:
 
       # The fixture crate: wasm exports plus the globals.wasm byte encoder.
       - name: Rust unit tests
-        run: pnpm exec nx run nativescript-wasm-fixture:test.wasm
+        run: pnpm exec nx run ns-wasm-fixture:test.wasm
 
       # globals.wasm is committed but generated, and the generator is
       # deterministic — so a stale copy is a hard error rather than a surprise
@@ -121,15 +121,15 @@ jobs:
       - name: Verify the committed globals.wasm matches its generator
         run: |
           cargo run --quiet \
-            --manifest-path packages/nativescript-wasm-fixture/src/test-types/Cargo.toml \
+            --manifest-path packages/ns-wasm-fixture/src/test-types/Cargo.toml \
             --bin gen_globals -- "$RUNNER_TEMP/globals"
           cmp "$RUNNER_TEMP/globals/globals.wasm" \
-            packages/nativescript-wasm-fixture/src/test-types/pkg/globals.wasm || {
-            echo "::error::globals.wasm is stale — run 'pnpm run build.wasm' in packages/nativescript-wasm-fixture and commit the result."
+            packages/ns-wasm-fixture/src/test-types/pkg/globals.wasm || {
+            echo "::error::globals.wasm is stale — run 'pnpm run build.wasm' in packages/ns-wasm-fixture and commit the result."
             exit 1
           }
 
-  # The nativescript-wasm3 native suites below need a macOS runner / an Android
+  # The ns-wasm3 native suites below need a macOS runner / an Android
   # SDK, so they only run when the plugin or this workflow changed. Fails open:
   # any detection problem runs them anyway.
   changes:
@@ -162,13 +162,13 @@ jobs:
           changed="$(git diff --name-only "$base...HEAD")" || run_all
 
           echo "$changed"
-          if grep -qE '^(packages/nativescript-wasm3/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+          if grep -qE '^(packages/ns-wasm3/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
             echo "wasm3=true" >> "$GITHUB_OUTPUT"
           else
             echo "wasm3=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if grep -qE '^(packages/nativescript-wamr/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+          if grep -qE '^(packages/ns-wamr/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
             echo "wamr=true" >> "$GITHUB_OUTPUT"
           else
             echo "wamr=false" >> "$GITHUB_OUTPUT"
@@ -176,7 +176,7 @@ jobs:
 
           # The app's suite runs the plugin end to end, so a plugin or fixture
           # change is as relevant to it as a change to the app itself.
-          if grep -qE '^(apps/ns-wasm-test/|packages/nativescript-wasm3/|packages/nativescript-wamr/|packages/nativescript-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+          if grep -qE '^(apps/ns-wasm-test/|packages/ns-wasm3/|packages/ns-wamr/|packages/ns-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
             echo "app=true" >> "$GITHUB_OUTPUT"
           else
             echo "app=false" >> "$GITHUB_OUTPUT"
@@ -199,7 +199,7 @@ jobs:
           package-manager-cache: false
 
       - name: Verify the synced Swift package copy is current
-        working-directory: packages/nativescript-wasm3
+        working-directory: packages/ns-wasm3
         run: |
           node tools/sync-wasm3.mjs
           git diff --exit-code -- . || {
@@ -208,11 +208,11 @@ jobs:
           }
 
       - name: Swift tests
-        working-directory: packages/nativescript-wasm3/platforms/ios/NSCWasm3
+        working-directory: packages/ns-wasm3/platforms/ios/NSCWasm3
         run: swift test --disable-sandbox
 
       - name: Build for iOS device
-        working-directory: packages/nativescript-wasm3/platforms/ios/NSCWasm3
+        working-directory: packages/ns-wasm3/platforms/ios/NSCWasm3
         run: |
           xcodebuild build \
             -scheme NSCWasm3 \
@@ -256,14 +256,14 @@ jobs:
           fi
 
       - name: JVM host tests (cargo build + Kotlin wrapper)
-        working-directory: packages/nativescript-wasm3/platforms/android/wasm3-android
+        working-directory: packages/ns-wasm3/platforms/android/wasm3-android
         run: ./gradlew :hosttest:test
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: wasm3-android-test-report
-          path: packages/nativescript-wasm3/platforms/android/wasm3-android/hosttest/build/reports/tests/test
+          path: packages/ns-wasm3/platforms/android/wasm3-android/hosttest/build/reports/tests/test
 
   # The test app's Vitest suite, on a simulator and an emulator. This is the only
   # place the plugin's TypeScript adapters run against the real native layer —
@@ -291,7 +291,7 @@ jobs:
           # -print -quit: stop after the first match so find exits cleanly —
           # under pipefail, grep -q exiting early would SIGPIPE find and flip
           # the result to "no sources", silently skipping the job.
-          if find packages/nativescript-wamr/src/vendors/wamr \
+          if find packages/ns-wamr/src/vendors/wamr \
               \( -name '*.c' -o -name '*.h' \) -print -quit | grep -q .; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
@@ -301,7 +301,7 @@ jobs:
 
       - name: Verify the synced Swift package copy is current
         if: steps.sources.outputs.present == 'true'
-        working-directory: packages/nativescript-wamr
+        working-directory: packages/ns-wamr
         run: |
           node tools/sync-wamr.mjs
           git diff --exit-code -- . || {
@@ -311,12 +311,12 @@ jobs:
 
       - name: Swift tests
         if: steps.sources.outputs.present == 'true'
-        working-directory: packages/nativescript-wamr/platforms/ios/NSCWamr
+        working-directory: packages/ns-wamr/platforms/ios/NSCWamr
         run: swift test --disable-sandbox
 
       - name: Build for iOS device
         if: steps.sources.outputs.present == 'true'
-        working-directory: packages/nativescript-wamr/platforms/ios/NSCWamr
+        working-directory: packages/ns-wamr/platforms/ios/NSCWamr
         run: |
           xcodebuild build \
             -scheme NSCWamr \
@@ -346,7 +346,7 @@ jobs:
           # -print -quit: stop after the first match so find exits cleanly —
           # under pipefail, grep -q exiting early would SIGPIPE find and flip
           # the result to "no sources", silently skipping the job.
-          if find packages/nativescript-wamr/src/vendors/wamr \
+          if find packages/ns-wamr/src/vendors/wamr \
               \( -name '*.c' -o -name '*.h' \) -print -quit | grep -q .; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
@@ -376,14 +376,14 @@ jobs:
 
       - name: JVM host tests (cargo build + Kotlin wrapper)
         if: steps.sources.outputs.present == 'true'
-        working-directory: packages/nativescript-wamr/platforms/android/wamr-android
+        working-directory: packages/ns-wamr/platforms/android/wamr-android
         run: ./gradlew :hosttest:test
 
       - uses: actions/upload-artifact@v4
         if: failure() && steps.sources.outputs.present == 'true'
         with:
           name: wamr-android-test-report
-          path: packages/nativescript-wamr/platforms/android/wamr-android/hosttest/build/reports/tests/test
+          path: packages/ns-wamr/platforms/android/wamr-android/hosttest/build/reports/tests/test
 
   # The test app's Vitest suite, on a simulator and an emulator. This is the only
   # place the plugin's TypeScript adapters run against the real native layer —
@@ -411,7 +411,7 @@ jobs:
       # The app snapshots local file: dependencies when pnpm installs them, so
       # every package whose entry point lives in dist/ must be built first.
       - name: Build the app's local packages
-        run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr vitest-nativescript vitest-nativescript-ui
+        run: pnpm exec nx run-many -t build -p ns-wasm3 ns-wamr vitest-ns vitest-ns-ui
 
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test
@@ -449,7 +449,7 @@ jobs:
       # Keep this before the app install: pnpm snapshots local file: packages,
       # including their generated dist/ entry points, into app node_modules.
       - name: Build the app's local packages
-        run: pnpm exec nx run-many -t build -p nativescript-wasm3 nativescript-wamr vitest-nativescript vitest-nativescript-ui
+        run: pnpm exec nx run-many -t build -p ns-wasm3 ns-wamr vitest-ns vitest-ns-ui
 
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test

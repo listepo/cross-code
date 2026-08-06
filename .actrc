@@ -7,8 +7,8 @@
 # Slim image (~500 MB) — has Node, npm, Python, git.
 # The Rust and Java steps will fail because cargo/javac are not installed;
 # run those directly on the host instead:
-#   cargo test --manifest-path packages/nativescript-wasm-fixture/src/test-types/Cargo.toml
-#   cd packages/nativescript-wasm3/platforms/android/wasm3-android && ./gradlew :hosttest:test
+#   cargo test --manifest-path packages/ns-wasm-fixture/src/test-types/Cargo.toml
+#   cd packages/ns-wasm3/platforms/android/wasm3-android && ./gradlew :hosttest:test
 #
 # To run everything in act switch to the full image (~17 GB):
 #   -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:full-22.04

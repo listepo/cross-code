@@ -11,7 +11,7 @@ gradle      9.6.1
 # ── Version policy ──────────────────────────────────────────────────────────
 # nodejs  – CI uses node-version: 24 (actions/setup-node@v5)
 # java    – CI uses java-version: '21', distribution: temurin
-# gradle  – wrapper at packages/nativescript-wasm3/platforms/android/
+# gradle  – wrapper at packages/ns-wasm3/platforms/android/
 #           wasm3-android/gradle/wrapper/gradle-wrapper.properties → 9.6.1
 #
 # Swift 6.3+ and Xcode 16+ are managed by macOS / Xcode.app, not asdf.

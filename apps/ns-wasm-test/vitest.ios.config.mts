@@ -1,4 +1,4 @@
-import { nativeScriptUnitPlugin } from '@cross-code/vitest-nativescript';
+import { nativeScriptUnitPlugin } from '@cross-code/vitest-ns';
 import { defineConfig } from 'vitest/config';
 
 const port = 17_878;
@@ -37,8 +37,8 @@ export default defineConfig({
       include: ['app/**/*.ts'],
       exclude: [
         'app/tests/**',
-        'app/vitest-nativescript.ts',
-        'app/vitest-nativescript.worker.ts',
+        'app/vitest-ns.ts',
+        'app/vitest-ns.worker.ts',
       ],
       all: false,
     },

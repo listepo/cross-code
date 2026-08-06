@@ -15,13 +15,13 @@ three sibling plugins built on Rust + UniFFI:
 
 | Package                                                                       | Description                                                                                                                             |
 | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@cross-code/nativescript-wasm3`](packages/nativescript-wasm3)               | NativeScript plugin — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android (wasm3 interpreter)                                |
-| [`@cross-code/nativescript-wamr`](packages/nativescript-wamr)                 | NativeScript plugin — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android (WAMR: interpreter, Fast JIT, LLVM JIT, AOT, WASI) |
-| [`@cross-code/nativescript-wasm-fixture`](packages/nativescript-wasm-fixture) | Rust/wasm-pack test fixtures (committed `.wasm` binaries)                                                                               |
-| [`@cross-code/vitest-nativescript`](packages/vitest-nativescript)             | Vitest custom pool and NativeScript Worker runtime for on-device unit tests                                                             |
-| [`@cross-code/vitest-nativescript-ui`](packages/vitest-nativescript-ui)       | Optional NativeScript Core results page for device-side Vitest progress                                                                 |
+| [`@cross-code/ns-wasm3`](packages/ns-wasm3)               | NativeScript plugin — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android (wasm3 interpreter)                                |
+| [`@cross-code/ns-wamr`](packages/ns-wamr)                 | NativeScript plugin — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android (WAMR: interpreter, Fast JIT, LLVM JIT, AOT, WASI) |
+| [`@cross-code/ns-wasm-fixture`](packages/ns-wasm-fixture) | Rust/wasm-pack test fixtures (committed `.wasm` binaries)                                                                               |
+| [`@cross-code/vitest-ns`](packages/vitest-ns)             | Vitest custom pool and NativeScript Worker runtime for on-device unit tests                                                             |
+| [`@cross-code/vitest-ns-ui`](packages/vitest-ns-ui)       | Optional NativeScript Core results page for device-side Vitest progress                                                                 |
 | [`@cross-code/ns-wry`](packages/ns-wry)                                       | NativeScript plugin — Rust + UniFFI (uniffi-rs) Kotlin/Swift bindings, cargo-ndk Android pipeline                                       |
-| [`ns-wasm-test`](apps/ns-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Vitest + `vitest-nativescript`            |
+| [`ns-wasm-test`](apps/ns-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Vitest + `vitest-ns`            |
 | [`ns-wry-app`](apps/ns-wry-app)                                               | NativeScript test app for @cross-code/ns-wry — WebView demo with google.com on iOS/Android                                              |
 
 Both plugins expose the same TypeScript API — see [WASM.md](WASM.md).
@@ -61,12 +61,12 @@ pnpm exec nx run-many -t build test
 pnpm exec nx run-many -t test typecheck
 
 # iOS XCTests (runs wasm3 / WAMR natively on macOS)
-pnpm --filter ./packages/nativescript-wasm3 run test.ios
-pnpm --filter ./packages/nativescript-wamr run test.ios
+pnpm --filter ./packages/ns-wasm3 run test.ios
+pnpm --filter ./packages/ns-wamr run test.ios
 
 # Android JVM host tests (no emulator needed)
-pnpm --filter ./packages/nativescript-wasm3 run test.android
-pnpm --filter ./packages/nativescript-wamr run test.android
+pnpm --filter ./packages/ns-wasm3 run test.android
+pnpm --filter ./packages/ns-wamr run test.android
 
 # The test app's Vitest suite, on a simulator / emulator
 pnpm exec nx run ns-wasm-test:test.ios
@@ -81,7 +81,7 @@ On macOS, NativeScript's iOS build needs a UTF-8 locale (`export LANG=en_US.UTF-
 otherwise the CLI's CocoaPods check fails before the build starts.
 
 > **wamr native suites** need the vendored WAMR C sources
-> (`packages/nativescript-wamr/src/vendors/wamr/`, WAMR-2.3.0). If the source
+> (`packages/ns-wamr/src/vendors/wamr/`, WAMR-2.3.0). If the source
 > tree is ever missing, the wamr native commands and CI jobs (`wamr-ios`,
 > `wamr-android`) skip gracefully — they print a `SKIP:` message and exit 0
 > rather than fail. The TypeScript layer and vitest specs run normally.
@@ -90,8 +90,8 @@ otherwise the CLI's CocoaPods check fails before the build starts.
 
 ```bash
 # Build a single project
-pnpm exec nx run nativescript-wasm3:build
-pnpm exec nx run nativescript-wamr:build
+pnpm exec nx run ns-wasm3:build
+pnpm exec nx run ns-wamr:build
 
 # Run all affected tasks
 pnpm exec nx affected -t build test
@@ -116,11 +116,11 @@ Both plugins expose the same TypeScript API; only the class names differ
 | Package                                 | Docs                                                                                                                     |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | WebAssembly plugins (wasm3 & WAMR)      | [WASM.md](WASM.md) — shared usage, API reference, marshalling, errors, troubleshooting                                    |
-| `@cross-code/nativescript-wasm3`        | [README](packages/nativescript-wasm3/README.md) — platform details, package layout, developing, troubleshooting, license |
-| `@cross-code/nativescript-wamr`         | [README](packages/nativescript-wamr/README.md) — execution tiers, package layout, developing, troubleshooting, license   |
-| `@cross-code/nativescript-wasm-fixture` | [README](packages/nativescript-wasm-fixture/README.md) — exported subpaths, rebuilding the `.wasm` fixtures              |
-| `@cross-code/vitest-nativescript`       | [README](packages/vitest-nativescript/README.md) — custom pool, Worker registry, concurrency, and transport              |
-| `@cross-code/vitest-nativescript-ui`    | [README](packages/vitest-nativescript-ui/README.md) — optional NativeScript results UI                                   |
+| `@cross-code/ns-wasm3`        | [README](packages/ns-wasm3/README.md) — platform details, package layout, developing, troubleshooting, license |
+| `@cross-code/ns-wamr`         | [README](packages/ns-wamr/README.md) — execution tiers, package layout, developing, troubleshooting, license   |
+| `@cross-code/ns-wasm-fixture` | [README](packages/ns-wasm-fixture/README.md) — exported subpaths, rebuilding the `.wasm` fixtures              |
+| `@cross-code/vitest-ns`       | [README](packages/vitest-ns/README.md) — custom pool, Worker registry, concurrency, and transport              |
+| `@cross-code/vitest-ns-ui`    | [README](packages/vitest-ns-ui/README.md) — optional NativeScript results UI                                   |
 | `@cross-code/ns-wry`                   | [README](packages/ns-wry/README.md) — Rust + UniFFI architecture, platform stubs, developing, troubleshooting                         |
 | `ns-wasm-test`                | [README](apps/ns-wasm-test/README.md) — running the demo page and the on-device Vitest suite, troubleshooting               |
 | `ns-wry-app`                            | [README](apps/ns-wry-app/README.md) — WebView demo, build-plugin-and-run scripts, troubleshooting                                     |

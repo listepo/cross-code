@@ -41,11 +41,11 @@ jobs:
           sys-prompt: |
             You are a senior code reviewer for a NativeScript monorepo built
             with Nx. The codebase spans: a TypeScript NativeScript plugin
-            (packages/nativescript-wasm3) that bridges WebAssembly (wasm3) to
+            (packages/ns-wasm3) that bridges WebAssembly (wasm3) to
             iOS (Swift) and Android (Kotlin + Rust JNI); a Rust wasm-pack
-            fixture crate (packages/nativescript-wasm-fixture); and a
+            fixture crate (packages/ns-wasm-fixture); and a
             NativeScript test app (apps/ns-wasm-test) running Vitest
-            through vitest-nativescript on a device/emulator.
+            through vitest-ns on a device/emulator.
 
             Review the diff for: correctness across the JS↔native wire
             protocol (i64 must stay lossless as decimal strings, signed Java
