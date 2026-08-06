@@ -429,9 +429,13 @@ public final class NSCWamrRuntime: NSObject {
         guard let inst = firstInstance else { return 0 }
         // Current (not max) size: wasm_runtime_get_app_addr_range reports the
         // maximum growable size for modules that declare memory.grow limits.
+        // WAMR collapses each module's memory into one page whose byte size is
+        // init_pages * 64 KiB, so cur_page_count * bytes_per_page is the exact
+        // logical size (mirrors the Android shim's memory_size).
         guard let memory = wasm_runtime_get_memory(inst, 0) else { return 0 }
         let pages = wasm_memory_get_cur_page_count(memory)
-        let size = UInt64(pages) * 64 * 1024
+        let bytesPerPage = wasm_memory_get_bytes_per_page(memory)
+        let size = UInt64(pages) * UInt64(bytesPerPage)
         return UInt32(clamping: size)
     }
 
@@ -566,7 +570,11 @@ public final class NSCWamrModule: NSObject {
 
         var errorBuf = [CChar](repeating: 0, count: 256)
         guard let inst = errorBuf.withUnsafeMutableBufferPointer({ errBuf in
-            wasm_runtime_instantiate(module, runtime.moduleStackSize, 256 * 1024,
+            // No app heap: the plugin never calls wasm_runtime_module_malloc,
+            // and a non-zero heap is spliced into the linear memory by
+            // memory_instantiate, inflating the memory past the module's
+            // declared pages (and letting host writes reach the heap).
+            wasm_runtime_instantiate(module, runtime.moduleStackSize, 0,
                                      errBuf.baseAddress, UInt32(errBuf.count))
         }) else {
             throw makeError(1, "failed to instantiate module: \(String(cString: errorBuf))")

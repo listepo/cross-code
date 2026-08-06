@@ -245,7 +245,11 @@ pub fn instantiate(
         wasm_runtime_instantiate(
             module,
             rt.default_stack_size as u32,
-            256 * 1024, // default heap
+            // No app heap: the plugin never calls wasm_runtime_module_malloc,
+            // and a non-zero heap is spliced into the linear memory by
+            // memory_instantiate, inflating memorySize past the module's
+            // declared pages (and letting host writes reach the heap).
+            0,
             error_buf,
             256,
         )
