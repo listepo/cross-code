@@ -62,8 +62,10 @@ function normalizeAndroidValue(value: any): WireValue | null {
 }
 
 function toJavaWireValue(val: WireValue): any {
-  // Ensure float/double marshalling survives the NS bridge intact.
-  if (typeof val === 'number') return new ((globalThis as any).java.lang.Double)(val);
+  // Use the static factory so the NS bridge gets a java.lang.Double object
+  // not a primitive (NativeScript boxes primitives as Float, losing f64).
+  if (typeof val === 'number') return (globalThis as any).java.lang.Double.valueOf(val);
+  // i64 crosses the wire as a decimal string — leave it as-is.
   return String(val);
 }
 
@@ -92,8 +94,9 @@ class AndroidFunction implements NativeFunctionAdapter {
   call(args: WireValue[]): WireValue[] {
     const context = `call ${this.name()}`;
     try {
-      const javaArgs = javaArrayToJs(args.map(toJavaWireValue));
-      const result = this.fn.call(javaArgs);
+      const list = arrayList();
+      for (const arg of args) list.add(toJavaWireValue(arg));
+      const result = this.fn.call(list);
       if (result == null) throw new EndiveError(`${context}: returned null`);
       return (javaArrayToJs(result) as any[]).map((v: any) => {
         const n = normalizeAndroidValue(v);
@@ -129,8 +132,9 @@ class AndroidModule implements NativeModuleAdapter {
 
   getGlobal(name: string): WireValue {
     try {
-      const v = this.module.getGlobal(name);
-      return typeof v === 'string' ? v : Number(v);
+      // Return the raw native value — i64 globals cross as decimal strings;
+      // the shared WasmModule.getGlobal handles BigInteger conversion.
+      return this.module.getGlobal(name);
     } catch (error) {
       rethrow(error, `getGlobal ${name}`);
       throw null as never;
