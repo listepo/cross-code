@@ -172,13 +172,13 @@ jobs:
           changed="$(git diff --name-only "$base...HEAD")" || run_all
 
           echo "$changed"
-          if grep -qE '^(packages/ns-wasm3/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+          if grep -qE '^(packages/ns-wasm3/|packages/ns-wasm-core/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
             echo "wasm3=true" >> "$GITHUB_OUTPUT"
           else
             echo "wasm3=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if grep -qE '^(packages/ns-wamr/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+          if grep -qE '^(packages/ns-wamr/|packages/ns-wasm-core/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
             echo "wamr=true" >> "$GITHUB_OUTPUT"
           else
             echo "wamr=false" >> "$GITHUB_OUTPUT"
@@ -186,7 +186,7 @@ jobs:
 
           # The app's suite runs the plugin end to end, so a plugin or fixture
           # change is as relevant to it as a change to the app itself.
-          if grep -qE '^(apps/ns-wasm-test/|packages/ns-wasm3/|packages/ns-wamr/|packages/ns-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+          if grep -qE '^(apps/ns-wasm-test/|packages/ns-wasm3/|packages/ns-wamr/|packages/ns-wasm-kit-runtime/|packages/ns-endive/|packages/ns-wasm-core/|packages/ns-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
             echo "app=true" >> "$GITHUB_OUTPUT"
           else
             echo "app=false" >> "$GITHUB_OUTPUT"
@@ -459,7 +459,7 @@ jobs:
       # The app snapshots local file: dependencies when pnpm installs them, so
       # every package whose entry point lives in dist/ must be built first.
       - name: Build the app's local packages
-        run: pnpm exec nx run-many -t build -p ns-wasm3 ns-wamr vitest-ns vitest-ns-ui
+        run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive vitest-ns vitest-ns-ui
 
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test
@@ -497,7 +497,7 @@ jobs:
       # Keep this before the app install: pnpm snapshots local file: packages,
       # including their generated dist/ entry points, into app node_modules.
       - name: Build the app's local packages
-        run: pnpm exec nx run-many -t build -p ns-wasm3 ns-wamr vitest-ns vitest-ns-ui
+        run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive vitest-ns vitest-ns-ui
 
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test
