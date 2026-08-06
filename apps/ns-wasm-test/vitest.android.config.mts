@@ -10,6 +10,10 @@ export default defineConfig({
       appPath: '.',
       workers: 1,
       port,
+      // A cold CI runner downloads Gradle, builds the app and boots the
+      // emulator before the device worker can connect; that routinely
+      // exceeds the 2m default.
+      connectTimeout: 10 * 60_000,
       include: ['app/tests/**/*.spec.ts'],
       launchCommand: {
         command: 'npx',
