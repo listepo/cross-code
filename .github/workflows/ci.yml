@@ -196,6 +196,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          package-manager-cache: false
 
       - name: Verify the synced Swift package copy is current
         working-directory: packages/nativescript-wasm3
@@ -282,6 +283,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          package-manager-cache: false
 
       - name: Check for WAMR C sources
         id: sources
