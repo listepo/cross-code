@@ -1,0 +1,49 @@
+{
+  "name": "@cross-code/ns-wasm-edge",
+  "version": "0.1.0",
+  "description": "NativeScript plugin that runs WebAssembly modules with the WasmEdge runtime (https://github.com/WasmEdge/WasmEdge) — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@cross-code/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "nativescript.config.ts",
+    "platforms/ios/NSCWasmEdge/Package.swift",
+    "platforms/ios/NSCWasmEdge/Sources",
+    "platforms/android/include.gradle",
+    "platforms/android/wasmedge.aar",
+    "!**/*.tsbuildinfo"
+  ],
+  "nativescript": {
+    "platforms": {
+      "ios": "8.6.0",
+      "android": "8.6.0"
+    }
+  },
+  "nx": {
+    "name": "ns-wasm-edge",
+    "targets": {
+      "coverage": {
+        "executor": "nx:run-script",
+        "options": { "script": "coverage" }
+      }
+    }
+  },
+  "scripts": {
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@cross-code/ns-wasm-core": "workspace:*",
+    "tslib": "^2.3.0"
+  }
+}

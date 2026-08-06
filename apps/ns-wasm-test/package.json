@@ -30,7 +30,8 @@
     "@nativescript/theme": "^3.1.0",
     "@valor/nativescript-websockets": "2.0.3",
     "@cross-code/ns-wasm-kit-runtime": "file:../../packages/ns-wasm-kit-runtime",
-    "@cross-code/ns-endive": "file:../../packages/ns-endive"
+    "@cross-code/ns-endive": "file:../../packages/ns-endive",
+    "@cross-code/ns-wasm-edge": "file:../../packages/ns-wasm-edge"
   },
   "devDependencies": {
     "@nativescript/android": "9.0.5",

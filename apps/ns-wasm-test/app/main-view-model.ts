@@ -3,6 +3,7 @@ import { WamrExecutionTier, WamrRuntime } from '@cross-code/ns-wamr';
 import { Wasm3Runtime } from '@cross-code/ns-wasm3';
 import { WasmKitRuntime } from '@cross-code/ns-wasm-kit-runtime';
 import { EndiveRuntime } from '@cross-code/ns-endive';
+import { WasmEdgeRuntime } from '@cross-code/ns-wasm-edge';
 
 import {
   createHostImports,
@@ -60,7 +61,7 @@ export class WasmDemoModel extends Observable {
   }
 
   onRun() {
-    const sections = [runWasm3(), runWamr()];
+    const sections = [runWasm3(), runWamr(), runWasmEdge()];
     // WasmKit is Swift-native — only include it on iOS.
     if ((globalThis as any).isIOS) {
       sections.push(runWasmKit());
@@ -154,6 +155,14 @@ function runWasm3(): Section {
     'wasm3',
     () => Wasm3Runtime.version(),
     () => new Wasm3Runtime(),
+  );
+}
+
+function runWasmEdge(): Section {
+  return runSection(
+    'WasmEdge',
+    () => WasmEdgeRuntime.version(),
+    () => new WasmEdgeRuntime(),
   );
 }
 
