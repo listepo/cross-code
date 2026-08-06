@@ -37,12 +37,16 @@
 
 ## NativeScript plugins in this repo
 
-Three sibling plugins live under `packages/`, all sharing the same
-architecture: Rust cargo workspace, UniFFI (uniffi-rs) Kotlin/Swift bindings,
-and a TypeScript adapter. The WASM runtime plugins are mirror images of each
-other (same class shapes, same wire protocol, same error mapping). Everything
-the plugins share is documented in [Shared plugin architecture](#shared-plugin-architecture)
-below; each package's AGENTS.md holds only engine-specific detail.
+Several sibling plugins live under `packages/`, all sharing the same
+TypeScript API (wire protocol, error mapping, and `WasmRuntime` / `WasmModule` /
+`WasmFunction` class shapes). The Rust cargo workspace and UniFFI (uniffi-rs)
+Kotlin/Swift bindings — together with the mirror-image native architecture
+described in [Shared plugin architecture](#shared-plugin-architecture) — apply
+to **ns-wasm3 and ns-wamr**. The newer runtimes (`ns-wasm-kit-runtime`, the
+Swift-native WasmKit interpreter; `ns-endive`, the Java-native Endive
+interpreter) share the same TypeScript adapter pattern, wire protocol, and
+`@cross-code/ns-wasm-core` foundation, but have their own per-engine native
+layers. Only engine-specific detail lives in each package's AGENTS.md.
 
 - **`ns-wasm-core`** (`@cross-code/ns-wasm-core`) — shared foundation package
   providing the wire protocol (`parseSignature`, `toWire`, `fromWire`,
