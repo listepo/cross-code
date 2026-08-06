@@ -9,7 +9,9 @@ let package = Package(
         .visionOS(.v1),
     ],
     products: [
-        .library(name: "NSCWamr", targets: ["NSCWamr"])
+        // Dynamic so `xcodebuild -create-xcframework` produces a framework
+        // bundle the NativeScript CLI can embed (see tools/build-xcframework.sh).
+        .library(name: "NSCWamr", type: .dynamic, targets: ["NSCWamr"])
     ],
     targets: [
         // WAMR (WebAssembly Micro Runtime) interpreter, compiled as C. The
@@ -48,11 +50,15 @@ let package = Package(
             ]
         ),
         // Swift wrapper using native Swift/C interoperability, exposed to the
-        // NativeScript runtime through @objc classes.
+        // NativeScript runtime through @objc classes. The include/ header
+        // (NSCWamr.h + module.modulemap) mirrors that @objc surface so the
+        // framework ships an ObjC module the NativeScript metadata generator
+        // can parse.
         .target(
             name: "NSCWamr",
             dependencies: ["CWamr"],
-            path: "Sources/NSCWamr"
+            path: "Sources/NSCWamr",
+            publicHeadersPath: "include"
         ),
         .testTarget(
             name: "NSCWamrTests",

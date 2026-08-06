@@ -9,7 +9,7 @@ let package = Package(
         .visionOS(.v1),
     ],
     products: [
-        .library(name: "NSCWasm3", targets: ["NSCWasm3"])
+        .library(name: "NSCWasm3", type: .dynamic, targets: ["NSCWasm3"])
     ],
     targets: [
         // wasm3 interpreter, compiled as C. The sources in this target are a
@@ -29,7 +29,8 @@ let package = Package(
         .target(
             name: "NSCWasm3",
             dependencies: ["CWasm3"],
-            path: "Sources/NSCWasm3"
+            path: "Sources/NSCWasm3",
+            publicHeadersPath: "include"
         ),
         .testTarget(
             name: "NSCWasm3Tests",

@@ -6,3 +6,12 @@ resolver = "2"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
+
+# Size + debug-symbol profile for the shipped .so files: LTO fat + -Oz code
+# gen, DWARF kept so the gradle task can ship stripped .so and retain
+# unstripped copies under platforms/android/symbols/<abi>/ for ndk-stack.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+debug = true

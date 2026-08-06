@@ -22,7 +22,9 @@
     "platforms/ios/NSCWasm3/Sources",
     "platforms/android/include.gradle",
     "platforms/android/nativescript-wasm3.aar",
-    "!**/*.tsbuildinfo"
+    "!**/*.tsbuildinfo",
+    "platforms/ios/NSCWasm3.xcframework",
+    "platforms/ios/NSCWasm3.xcframework.dSYMs"
   ],
   "nativescript": {
     "platforms": {
@@ -38,7 +40,8 @@
     "build.android": "cd platforms/android/wasm3-android && ./gradlew :library:deployAar",
     "coverage": "vitest run --coverage",
     "coverage.ios": "cd platforms/ios/NSCWasm3 && swift test --enable-code-coverage && xcrun llvm-cov report .build/debug/NSCWasm3PackageTests.xctest/Contents/MacOS/NSCWasm3PackageTests -instr-profile .build/debug/codecov/default.profdata -ignore-filename-regex='Sources/CWasm3|/usr/'",
-    "coverage.android": "cd platforms/android/wasm3-android && ./gradlew :hosttest:jacocoTestReport"
+    "coverage.android": "cd platforms/android/wasm3-android && ./gradlew :hosttest:jacocoTestReport",
+    "build.xcframework": "bash tools/build-xcframework.sh"
   },
   "keywords": [
     "NativeScript",

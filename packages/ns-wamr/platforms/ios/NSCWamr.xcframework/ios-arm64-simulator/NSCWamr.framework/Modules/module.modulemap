@@ -1,0 +1,6 @@
+framework module NSCWamr {
+  umbrella header "NSCWamr.h"
+
+  export *
+  module * { export * }
+}

@@ -84,14 +84,56 @@ val buildNative = tasks.register<Exec>("buildNative") {
     outputs.dir(outDir)
 }
 
-tasks.named("preBuild") {
+// Strips DWARF from the shipped .so copies (keeps .dynsym for JNI + the
+// symbol table) and retains the unstripped originals for ndk-stack/gdb.
+val stripAndKeepSymbols = tasks.register("stripAndKeepSymbols") {
     dependsOn(buildNative)
+    val ndkBin = (
+        System.getenv("ANDROID_NDK_HOME")
+            ?: (System.getenv("ANDROID_HOME") + "/ndk/29.0.14206865")
+        ) + "/toolchains/llvm/prebuilt/" + (
+        if (org.gradle.internal.os.OperatingSystem.current().isMacOsX) "darwin-x86_64" else "linux-x86_64"
+        ) + "/bin"
+    val jniLibs = layout.buildDirectory.dir("generated/native/jniLibs").get().asFile
+    val symbolsDir = layout.buildDirectory.dir("generated/native/symbols").get().asFile
+    doLast {
+        jniLibs.listFiles()?.forEach { abiDir ->
+            val abi = abiDir.name
+            abiDir.listFiles { f -> f.name.endsWith(".so") }?.forEach { so ->
+                // 1. Keep the unstripped original (full DWARF) for symbolication.
+                val kept = File(symbolsDir, "$abi/${so.name}")
+                kept.parentFile.mkdirs()
+                runProc("cp", "-p", so.absolutePath, kept.absolutePath)
+                // 2. Strip the shipped copy in place (keeps .dynsym + symtab).
+                runProc("$ndkBin/llvm-strip", "--strip-debug", so.absolutePath)
+            }
+        }
+    }
+    outputs.dir(symbolsDir)
+}
+
+// Plain-Java process helper (avoids Gradle DSL exec scoping in doLast).
+fun runProc(vararg cmd: String) {
+    val p = ProcessBuilder(*cmd).inheritIO().start()
+    check(p.waitFor() == 0) { "command failed: ${cmd.joinToString(" ")}" }
+}
+
+// Copies the unstripped .so files (full DWARF) next to the deployed AAR so
+// crashes can be symbolized with ndk-stack.
+val deploySymbols = tasks.register<Copy>("deploySymbols") {
+    dependsOn(stripAndKeepSymbols)
+    from(layout.buildDirectory.dir("generated/native/symbols"))
+    into(rootProject.projectDir.parentFile.resolve("symbols"))
+}
+
+tasks.named("preBuild") {
+    dependsOn(buildNative, stripAndKeepSymbols)
 }
 
 // Copies the release AAR to where the NativeScript CLI picks it up
 // (plugin platforms/android/*.aar).
 tasks.register<Copy>("deployAar") {
-    dependsOn("assembleRelease")
+    dependsOn("assembleRelease", deploySymbols)
     from(layout.buildDirectory.file("outputs/aar/library-release.aar"))
     into(rootProject.projectDir.parentFile)
     rename { "nativescript-wamr.aar" }

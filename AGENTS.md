@@ -186,45 +186,43 @@ fixtures to the native test suites. For WAMR it also creates redirect headers
 in `CWamr/include/` pointing at the four public headers (`wasm_export.h`,
 `wasm_c_api.h`, `bh_platform.h`, `bh_read_file.h`).
 
-### Plugin-level SwiftPM declaration
+### iOS: prebuilt XCFrameworks (SwiftPM replaced)
 
-The NativeScript CLI 8.6+ merges a plugin's own `nativescript.config.ts` into
-the consuming app. Each plugin declares:
+Each plugin ships a **prebuilt dynamic `.xcframework`** in
+`platforms/ios/<NSCWamr|NSCWasm3|NSCWry>.xcframework` (plus
+`<name>.xcframework.dSYMs/` with the debug symbols). The NativeScript CLI
+9.x discovers any `platforms/ios/*.xcframework` in a plugin automatically
+(`FRAMEWORK_EXTENSIONS` in `ios-project-service.js`) — it links the matching
+slice, adds it to **Embed Frameworks** with `CodeSignOnCopy`, and re-signs.
+No `SPMPackages` entry is used anymore (that mechanism predates this change;
+see git history for the old SwiftPM declaration).
 
-```ts
-ios: {
-  SPMPackages: [
-    {
-      name: 'NSCWasm3',
-      libs: ['NSCWasm3'],
-      path: `${__dirname}/platforms/ios/NSCWasm3`,
-    },
-  ];
-}
-```
+Rebuild with `npm run build.xcframework` (per plugin). The script
+(`tools/build-xcframework.sh`) builds each slice with
+`swift build --disable-sandbox --triple <arm64-apple-ios|arm64-apple-ios-simulator>`
++ explicit SDK flags (xcodebuild is unusable in sandboxed terminals), applies
+`-Osize` / thin LTO / `-dead_strip`, strips `-S -x` the shipped binaries,
+runs `dsymutil`, and hand-assembles the XCFramework bundle (device arm64 +
+simulator arm64 — the iOS 26 SDK has no x86_64 slices).
 
-**The path must be absolute.** There is no plugin-relative resolution:
-`ios-project-service.js` collects a plugin's `SPMPackages` entries verbatim,
-and `spm-service.js` then resolves each one against the _app_:
+**Metadata-generator gotchas** (verified against the CLI 9.0.6 generator —
+violating any of these makes the app's metadata silently miss the classes):
 
-```js
-pkg.path = path.resolve(projectData.projectDir, pkg.path);
-```
+- The class declarations must live in a **subheader imported by the umbrella
+  header** (`NSCWamr.h` → `#import "NSCWamrClasses.h"`); classes declared
+  inline in the umbrella header are not recorded.
+- The framework must **not ship a `.swiftmodule`** in `Modules/` — the
+  generator then treats the framework as Swift-only and skips its headers.
+- The `module.modulemap` goes in **`Modules/` only** — a modulemap in
+  `Headers/` makes the generator treat the headers as a clang module and it
+  records nothing (TNSWidgets keeps it in `Modules/` only and works).
+- `include/NSCWamr.h` (+ `NSCWamrClasses.h`) mirror the `@objc` surface by
+  hand — the metadata generator is clang-based and cannot see Swift sources
+  in a prebuilt framework.
 
-A relative `./platforms/ios/NSCWasm3` therefore points at
-`<app>/platforms/ios/NSCWasm3` — which is the CLI's own generated build folder,
-so the failure is the confusing `the package at … cannot be accessed`. The CLI
-loads this config with `Module.prototype._compile`, so `__dirname` is the
-plugin's install directory, and `path.resolve` leaves an absolute path alone.
+**Sources**: `platforms/ios/NSCWamr/` / `platforms/ios/NSCWasm3/`
 
-After changing this, delete the app's generated `platforms/ios` — the bad path
-is already written into `.pbxproj` and a rebuild alone will not correct it.
-
-### iOS Swift Package conventions
-
-**Sources**: `platforms/ios/NSCWasm3/` / `platforms/ios/NSCWamr/`
-
-- Native Swift/C interop (`import CWasm3` / `import CWamr`); no Objective-C
+- Native Swift/C interop (`import CWamr` / `import CWasm3`); no Objective-C
   bridging header — engine C types are accessed directly.
 - All public classes are annotated `@objc(ClassName)` so NativeScript can
   instantiate them from JS without name-mangling: `NSCWasm3Runtime` /
@@ -233,6 +231,8 @@ is already written into `.pbxproj` and a rebuild alone will not correct it.
   trailing `Error:` is stripped and the preceding label becomes an `error`
   out-parameter — so `loadModule(_:error:)` is called from JS as
   `runtime.loadModuleError(bytes)`.
+- The Swift packages remain the canonical test surface: `swift test
+  --disable-sandbox` runs the XCTest suites (CI: `wamr-ios` / `wasm3-ios`).
 
 ### Android: cargo-ndk + Rust JNI pipeline
 
