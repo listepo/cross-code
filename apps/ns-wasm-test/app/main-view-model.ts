@@ -2,6 +2,7 @@ import { Observable } from '@nativescript/core';
 import { WamrExecutionTier, WamrRuntime } from '@cross-code/ns-wamr';
 import { Wasm3Runtime } from '@cross-code/ns-wasm3';
 import { WasmKitRuntime } from '@cross-code/ns-wasm-kit-runtime';
+import { EndiveRuntime } from '@cross-code/ns-endive';
 
 import {
   createHostImports,
@@ -59,7 +60,7 @@ export class WasmDemoModel extends Observable {
   }
 
   onRun() {
-    const sections = [runWasm3(), runWamr(), runWasmKit()];
+    const sections = [runWasm3(), runWamr(), runWasmKit(), runEndive()];
     const checks = sections.flatMap((s) => s.checks);
     const summary = summarize(checks);
 
@@ -153,6 +154,14 @@ function runWasmKit(): Section {
     'WasmKit',
     () => WasmKitRuntime.version(),
     () => new WasmKitRuntime(),
+  );
+}
+
+function runEndive(): Section {
+  return runSection(
+    'Endive',
+    () => EndiveRuntime.version(),
+    () => new EndiveRuntime(),
   );
 }
 
