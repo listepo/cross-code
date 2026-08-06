@@ -61,6 +61,7 @@ vitest.config.*.timestamp*
 .reasonix/desktop-topic-created-at.json
 .reasonix/desktop-topic-title-sources.json
 .reasonix/desktop-topic-titles.json
+.reasonix/tasks/
 
 # DeepSeek CR local config (contains API token)
 .deepseek-cr.config.json
