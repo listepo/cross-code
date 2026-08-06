@@ -60,7 +60,11 @@ export class WasmDemoModel extends Observable {
   }
 
   onRun() {
-    const sections = [runWasm3(), runWamr(), runWasmKit()];
+    const sections = [runWasm3(), runWamr()];
+    // WasmKit is Swift-native — only include it on iOS.
+    if ((globalThis as any).isIOS) {
+      sections.push(runWasmKit());
+    }
     // Endive is Java-native — only include it on Android.
     if ((globalThis as any).isAndroid) {
       sections.push(runEndive());
