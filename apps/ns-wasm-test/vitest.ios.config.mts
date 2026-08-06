@@ -10,6 +10,9 @@ export default defineConfig({
       appPath: '.',
       workers: 1,
       port,
+      // A cold CI runner resolves SwiftPM packages and builds the app before
+      // the device worker can connect; that routinely exceeds the 2m default.
+      connectTimeout: 10 * 60_000,
       include: ['app/tests/**/*.spec.ts'],
       launchCommand: {
         command: 'npx',
