@@ -68,8 +68,16 @@ jobs:
           cache-dependency-path: |
             pnpm-lock.yaml
             apps/ns-wasm-test/pnpm-lock.yaml
+            apps/ns-wry-app/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+
+      # Both apps resolve the plugins through file: dependencies and import
+      # their built dist/. pnpm snapshots file: deps into the app's
+      # node_modules at install time, so dist must already exist before the
+      # apps are installed — build it first, mirroring the device jobs below.
+      - name: Build the plugins
+        run: pnpm exec nx run-many -t build
 
       # The NativeScript app is not a pnpm workspace member (it has its own
       # pnpm-workspace.yaml) — the CLI needs its own node_modules — and its
@@ -77,6 +85,13 @@ jobs:
       # from there.
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test
+        run: pnpm install --frozen-lockfile
+
+      # The wry demo app is not a workspace member either; its typecheck
+      # resolves @nativescript/core and @cross-code/ns-wry from its own
+      # node_modules, which is never installed otherwise.
+      - name: Install the wry demo app's dependencies
+        working-directory: apps/ns-wry-app
         run: pnpm install --frozen-lockfile
 
       # Vitest specs plus the typecheck of all projects — including the test
