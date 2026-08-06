@@ -67,7 +67,7 @@ describe('the fixture module through @cross-code/ns-endive', () => {
   });
 
   it('the shared fixture suite passes', () => {
-    const checks = runFixtureChecks(module as any);
+    const checks = runFixtureChecks(module, log);
     const report = summarize(checks);
     expect(report.failed).toBe(0);
   });
