@@ -4,12 +4,21 @@
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@11.20.0",
-  "description": "NativeScript test app for @cross-code/ns-wasm3 and @cross-code/ns-wamr — runs the shared WebAssembly fixture on-device with Vitest.",
+  "description": "NativeScript test app for @cross-code/ns-wasm3 and @cross-code/ns-wamr \u2014 runs the shared WebAssembly fixture on-device with Vitest.",
   "scripts": {
     "test.ios": "vitest run --config vitest.ios.config.mts",
     "test.android": "vitest run --config vitest.android.config.mts",
     "test.ios:coverage": "vitest run --coverage --config vitest.ios.config.mts",
-    "test.android:coverage": "vitest run --coverage --config vitest.android.config.mts"
+    "test.android:coverage": "vitest run --coverage --config vitest.android.config.mts",
+    "build.ios": "nx run ns-wasm-test:build.ios",
+    "build.android": "nx run ns-wasm-test:build.android",
+    "run.ios": "nx run ns-wasm-test:run.ios",
+    "run.android": "nx run ns-wasm-test:run.android",
+    "debug.ios": "nx run ns-wasm-test:debug.ios",
+    "debug.android": "nx run ns-wasm-test:debug.android",
+    "clean": "nx run ns-wasm-test:clean",
+    "prepare.ios": "nx run ns-wasm-test:prepare.ios",
+    "prepare.android": "nx run ns-wasm-test:prepare.android"
   },
   "dependencies": {
     "@cross-code/ns-wamr": "file:../../packages/ns-wamr",
