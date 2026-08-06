@@ -25,6 +25,7 @@ object NativeWasm3 {
     @JvmStatic external fun freeEnvironment(envHandle: Long)
 
     // -- module -------------------------------------------------------------
+
     /** Parses WASM bytes, returns module handle or throws. */
     @JvmStatic external fun parseModule(envHandle: Long, wasmBytes: ByteArray): Long
     @JvmStatic external fun loadModule(runtimeHandle: Long, moduleHandle: Long): Boolean
@@ -40,6 +41,7 @@ object NativeWasm3 {
     @JvmStatic external fun retType(funcHandle: Long, index: Int): Int
 
     // -- calling ------------------------------------------------------------
+
     /** Returns null on success, or an error string. */
     @JvmStatic external fun call(funcHandle: Long, nArgs: Int, args: LongArray): String?
     /** Returns a LongArray of results, or null on error. */

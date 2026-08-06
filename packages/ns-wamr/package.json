@@ -67,6 +67,12 @@
           "script": "build.android"
         }
       },
+      "lint.android": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "lint.android"
+        }
+      },
       "fixtures": {
         "executor": "nx:run-script",
         "options": {
@@ -113,6 +119,7 @@
     "test.ios": "cd platforms/ios/NSCWamr && swift test --disable-sandbox",
     "test.android": "cd platforms/android/wamr-android && ./gradlew :hosttest:test",
     "build.android": "cd platforms/android/wamr-android && ./gradlew :library:deployAar",
+    "lint.android": "cd platforms/android/wamr-android && ./gradlew detekt ktlintCheck",
     "typings.ios": "cd ../../apps/ns-wasm-test && ns typings ios",
     "typings.android": "cd ../../apps/ns-wasm-test && ns typings android",
     "coverage": "vitest run --coverage",

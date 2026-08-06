@@ -21,6 +21,7 @@ object NativeWamr {
     @JvmStatic external fun wamrInit(): Boolean
 
     // -- runtime lifecycle --------------------------------------------------
+
     /** Returns a runtime handle (opaque jlong), or throws. */
     @JvmStatic external fun createRuntime(stackSize: Int): Long
 
@@ -49,6 +50,7 @@ object NativeWamr {
     @JvmStatic external fun functionRetType(funcHandle: Long, index: Int): Int
 
     // -- calling (two-phase: call + getResults) -----------------------------
+
     /**
      * Calls a WASM function.  `args` is an array of i64-encoded arguments
      * (one per parameter; i32/f32 in low 32 bits, i64/f64 as full 64 bits).
@@ -72,6 +74,7 @@ object NativeWamr {
     @JvmStatic external fun getMemory(runtimeHandle: Long): java.nio.ByteBuffer?
 
     // -- host function linking ----------------------------------------------
+
     /**
      * Links a host import.  `trampoline` is a [HostTrampoline] instance that
      * the Rust JNI layer stores a global reference to and calls back via JNI
@@ -87,6 +90,7 @@ object NativeWamr {
     ): Boolean
 
     // -- globals ------------------------------------------------------------
+
     /**
      * Reads a global.  Returns a LongArray of [type, bits] or null on error.
      * `bits` holds the raw value: i32/f32 in low 32 bits; i64/f64 is the full
@@ -101,12 +105,7 @@ object NativeWamr {
      * Writes a global.  `bits` is the raw 64-bit value (i32/f32 in low 32).
      * Returns true on success, false on error (throws NSCWamrException).
      */
-    @JvmStatic external fun setGlobal(
-        instHandle: Long,
-        name: String,
-        typeCode: Int,
-        bits: Long,
-    ): Boolean
+    @JvmStatic external fun setGlobal(instHandle: Long, name: String, typeCode: Int, bits: Long): Boolean
 
     // -- unload -------------------------------------------------------------
     @JvmStatic external fun unloadModule(moduleHandle: Long, runtimeHandle: Long)

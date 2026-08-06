@@ -2,6 +2,12 @@ package org.nativescript.wamr
 
 import java.io.File
 
+/** Masks a raw slot down to its low 32 bits (i32/f32 values). */
+private const val UINT32_MASK = 0xFFFF_FFFFL
+
+/** Default WAMR stack size per runtime (64 KiB). */
+private const val DEFAULT_STACK_SIZE = 64 * 1024
+
 // NSCWamr — Kotlin wrapper around the WAMR native library (libwamr_jni.so),
 // consumed by the NativeScript Android runtime.
 //
@@ -45,9 +51,9 @@ private object Wire {
 
     /** Encodes a JS-provided value into a raw 64-bit slot, or null if not coercible. */
     fun encode(type: Int, value: Any?): Long? = when (type) {
-        WASM_I32 -> asLong(value)?.let { it.toInt().toLong() and 0xFFFF_FFFFL }
+        WASM_I32 -> asLong(value)?.let { it.toInt().toLong() and UINT32_MASK }
         WASM_I64 -> asLong(value)
-        WASM_F32 -> asDouble(value)?.let { it.toFloat().toRawBits().toLong() and 0xFFFF_FFFFL }
+        WASM_F32 -> asDouble(value)?.let { it.toFloat().toRawBits().toLong() and UINT32_MASK }
         WASM_F64 -> asDouble(value)?.toRawBits()
         else -> null
     }
@@ -81,11 +87,7 @@ private fun checkJniError(err: String?) {
  * WARNING: This object MUST NOT be garbage-collected while the runtime is
  * alive.  The [NSCWamrRuntime] keeps a strong reference in [hostTrampolines].
  */
-class HostTrampoline(
-    val callback: NSCWamrHostFunction,
-    val paramTypes: IntArray,
-    val returnTypes: IntArray,
-) {
+class HostTrampoline(val callback: NSCWamrHostFunction, val paramTypes: IntArray, val returnTypes: IntArray) {
     /**
      * Called from Rust JNI (`wamr_jni_host_trampoline`) when WAMR invokes
      * the host import.
@@ -126,17 +128,18 @@ class HostTrampoline(
 // Runtime
 // ---------------------------------------------------------------------------
 
-class NSCWamrRuntime
-@JvmOverloads
-constructor(
-    stackSizeInBytes: Int = 64 * 1024,
+// The wasiEnabled/executionTier flags are wire-facing API: the TypeScript
+// adapter always passes them, but the current native builds compile WASI and
+// the JIT tiers out. Kept for forward compatibility — hence @Suppress.
+@Suppress("UnusedPrivateProperty")
+class NSCWamrRuntime @JvmOverloads constructor(
+    stackSizeInBytes: Int = DEFAULT_STACK_SIZE,
     // NativeScript's Android bridge can marshal primitive booleans incorrectly
     // when resolving Kotlin constructors. Keep the wire-facing flag numeric
     // and convert it before it reaches the native layer.
     wasiEnabled: Int = 1,
     executionTier: Int = 0,
 ) : AutoCloseable {
-
     internal var runtimeHandle: Long = 0
         private set
 
@@ -222,7 +225,7 @@ constructor(
         val size = NativeWamr.memorySize(runtimeHandle).toLong()
         if (offset < 0 || length < 0 || offset + length.toLong() > size) {
             throw NSCWamrException(
-                "memory read out of bounds (offset $offset, length $length, size $size)"
+                "memory read out of bounds (offset $offset, length $length, size $size)",
             )
         }
         val data = ByteArray(length)
@@ -238,7 +241,7 @@ constructor(
         val size = NativeWamr.memorySize(runtimeHandle).toLong()
         if (offset < 0 || offset + data.size.toLong() > size) {
             throw NSCWamrException(
-                "memory write out of bounds (offset $offset, length ${data.size}, size $size)"
+                "memory write out of bounds (offset $offset, length ${data.size}, size $size)",
             )
         }
         memory.position(offset)
@@ -261,10 +264,7 @@ constructor(
 // Module
 // ---------------------------------------------------------------------------
 
-class NSCWamrModule internal constructor(
-    private val moduleHandle: Long,
-    val runtime: NSCWamrRuntime,
-) {
+class NSCWamrModule internal constructor(private val moduleHandle: Long, val runtime: NSCWamrRuntime) {
     private var instHandle: Long = 0
 
     val name: String
@@ -290,12 +290,7 @@ class NSCWamrModule internal constructor(
      * Links a callback as a WebAssembly import. `signature` uses wasm3
      * notation, e.g. "i(ii)", "F(FF)", "v(I)".
      */
-    fun linkHostFunction(
-        moduleName: String,
-        name: String,
-        signature: String,
-        callback: NSCWamrHostFunction,
-    ) {
+    fun linkHostFunction(moduleName: String, name: String, signature: String, callback: NSCWamrHostFunction) {
         // Deliberately *not* instantiated first: WAMR binds imports when the
         // instance is created, so the native has to be registered before that.
         val (paramTypes, returnTypes) = parseSignature(signature)
@@ -303,7 +298,11 @@ class NSCWamrModule internal constructor(
         runtime.hostTrampolines.add(trampoline)
 
         val ok = NativeWamr.linkHostFunction(
-            runtime.runtimeHandle, moduleName, name, signature, trampoline
+            runtime.runtimeHandle,
+            moduleName,
+            name,
+            signature,
+            trampoline,
         )
         if (!ok) {
             throw NSCWamrException("failed to link host function: $moduleName.$name")
@@ -329,7 +328,7 @@ class NSCWamrModule internal constructor(
         }
         val bits = Wire.encode(globalType, value)
             ?: throw NSCWamrException(
-                "cannot convert value to ${Wire.typeName(globalType)} for global: $name"
+                "cannot convert value to ${Wire.typeName(globalType)} for global: $name",
             )
         if (!NativeWamr.setGlobal(instHandle, name, globalType, bits)) {
             throw NSCWamrException("failed to set global: $name")
@@ -343,15 +342,17 @@ class NSCWamrModule internal constructor(
             val match = Regex("^([vifIF]*)\\(([vifIF]*)\\)\$").find(compact)
                 ?: throw NSCWamrException("invalid wasm signature: \"$signature\"")
             val toTypes: (String) -> IntArray = { chars ->
-                chars.filter { it != 'v' }.map { c ->
-                    when (c) {
-                        'i' -> Wire.WASM_I32
-                        'I' -> Wire.WASM_I64
-                        'f' -> Wire.WASM_F32
-                        'F' -> Wire.WASM_F64
-                        else -> throw NSCWamrException("invalid signature character: $c")
-                    }
-                }.toIntArray()
+                chars
+                    .filter { it != 'v' }
+                    .map { c ->
+                        when (c) {
+                            'i' -> Wire.WASM_I32
+                            'I' -> Wire.WASM_I64
+                            'f' -> Wire.WASM_F32
+                            'F' -> Wire.WASM_F64
+                            else -> throw NSCWamrException("invalid signature character: $c")
+                        }
+                    }.toIntArray()
             }
             return Pair(toTypes(match.groupValues[2]), toTypes(match.groupValues[1]))
         }
@@ -362,9 +363,7 @@ class NSCWamrModule internal constructor(
 // Function
 // ---------------------------------------------------------------------------
 
-class NSCWamrFunction internal constructor(
-    private val funcHandle: Long,
-) {
+class NSCWamrFunction internal constructor(private val funcHandle: Long) {
     val name: String
         get() = NativeWamr.functionName(funcHandle)
 
@@ -392,7 +391,7 @@ class NSCWamrFunction internal constructor(
             val type = NativeWamr.functionArgType(funcHandle, i)
             val bits = Wire.encode(type, args[i])
                 ?: throw NSCWamrException(
-                    "argument $i is not convertible to ${Wire.typeName(type)}"
+                    "argument $i is not convertible to ${Wire.typeName(type)}",
                 )
             argSlots[i] = bits
         }

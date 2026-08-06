@@ -438,6 +438,34 @@ Three test layers, each covering a different slice:
   touch `wire.ts` or an adapter file. Details in
   `apps/ns-wasm-test/AGENTS.md`.
 
+### Kotlin linting (Detekt + Ktlint)
+
+Each Android Gradle project (`platforms/android/<engine>-android/`) runs
+**Detekt** (1.23.8) and **Ktlint** (1.8.0 via ktlint-gradle 14.2.0) over the
+hand-written Kotlin only. Generated code never reaches the linters:
+`build.gradle.kts` restricts both tools' inputs to `**/src/**/*.kt` and
+excludes `build/`, the `hosttest/bin/` copies produced by `build-native.mjs`,
+and the UniFFI-generated `uniffi/` bindings. Build scripts (`*.kts`) are
+intentionally not linted (the ktlint `*KotlinScript*` tasks are disabled).
+
+```bash
+cd platforms/android/<engine>-android && ./gradlew detekt ktlintCheck  # lint
+cd platforms/android/<engine>-android && ./gradlew ktlintFormat        # auto-fix
+pnpm exec nx run <pkg>:lint.android                                     # npm/nx entry point
+```
+
+Config is **shared at the monorepo root** (both engine projects reference it):
+`detekt.yml` (defaults + documented JNI-wrapper overrides: object function
+threshold, trampoline return/throw counts) and `.editorconfig` (ktlint_official
+with documented deviations from the official style guide: no forced
+one-parameter-per-line, expression bodies stay inline when they fit,
+`val x = <expr>` stays on one line, annotations may stay inline, no forced
+blank lines between declarations). Ktlint discovers the root `.editorconfig`
+by walking up from each source file; the Gradle builds point Detekt at the
+root `detekt.yml` via a `repoRoot` path. When you touch the Kotlin sources,
+keep `detekt ktlintCheck` green — CI runs it in the `wasm3-android` and
+`wamr-android` jobs.
+
 Code coverage, per project and per language:
 
 - **TypeScript** — every package's vitest config has a `coverage` block

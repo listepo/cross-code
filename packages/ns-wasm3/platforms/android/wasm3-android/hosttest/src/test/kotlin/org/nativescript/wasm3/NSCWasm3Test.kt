@@ -1,14 +1,13 @@
 package org.nativescript.wasm3
 
+import org.junit.jupiter.api.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Test
 
 class NSCWasm3Test {
-    private fun fixture(name: String): ByteArray =
-        javaClass.getResourceAsStream("/fixtures/$name.wasm")!!.readBytes()
+    private fun fixture(name: String): ByteArray = javaClass.getResourceAsStream("/fixtures/$name.wasm")!!.readBytes()
 
     private fun withSuite(block: (NSCWasm3Runtime, NSCWasm3Module) -> Unit) {
         NSCWasm3Runtime().use { runtime ->

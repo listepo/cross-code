@@ -2,6 +2,12 @@ package org.nativescript.wasm3
 
 import java.io.File
 
+/** Masks a raw slot down to its low 32 bits (i32/f32 values). */
+private const val UINT32_MASK = 0xFFFF_FFFFL
+
+/** Default wasm3 stack size per runtime (64 KiB). */
+private const val DEFAULT_STACK_SIZE = 64 * 1024
+
 // NSCWasm3 — Kotlin wrapper around the wasm3 native library (libwasm3_jni.so),
 // consumed by the NativeScript Android runtime.
 //
@@ -40,9 +46,9 @@ private object Wire {
 
     /** Encodes a JS-provided value into a raw 64-bit slot, or null if not coercible. */
     fun encode(type: Int, value: Any?): Long? = when (type) {
-        NativeWasm3.cM3TypeI32() -> asLong(value)?.let { it.toInt().toLong() and 0xFFFF_FFFFL }
+        NativeWasm3.cM3TypeI32() -> asLong(value)?.let { it.toInt().toLong() and UINT32_MASK }
         NativeWasm3.cM3TypeI64() -> asLong(value)
-        NativeWasm3.cM3TypeF32() -> asDouble(value)?.let { it.toFloat().toRawBits().toLong() and 0xFFFF_FFFFL }
+        NativeWasm3.cM3TypeF32() -> asDouble(value)?.let { it.toFloat().toRawBits().toLong() and UINT32_MASK }
         NativeWasm3.cM3TypeF64() -> asDouble(value)?.toRawBits()
         else -> null
     }
@@ -102,7 +108,7 @@ class HostTrampoline(
 // Runtime
 // ---------------------------------------------------------------------------
 
-class NSCWasm3Runtime @JvmOverloads constructor(stackSizeInBytes: Int = 64 * 1024) : AutoCloseable {
+class NSCWasm3Runtime @JvmOverloads constructor(stackSizeInBytes: Int = DEFAULT_STACK_SIZE) : AutoCloseable {
     internal var envHandle: Long = 0
         private set
     internal var runtimeHandle: Long = 0
@@ -199,25 +205,21 @@ class NSCWasm3Runtime @JvmOverloads constructor(stackSizeInBytes: Int = 64 * 102
 // Module
 // ---------------------------------------------------------------------------
 
-class NSCWasm3Module internal constructor(
-    private val moduleHandle: Long,
-    val runtime: NSCWasm3Runtime,
-) {
+class NSCWasm3Module internal constructor(private val moduleHandle: Long, val runtime: NSCWasm3Runtime) {
     val name: String
         get() = NativeWasm3.moduleName(moduleHandle)
 
     fun findFunction(name: String): NSCWasm3Function = runtime.findFunction(name)
 
-    fun linkHostFunction(
-        moduleName: String,
-        name: String,
-        signature: String,
-        callback: NSCWasm3HostFunction,
-    ) {
+    fun linkHostFunction(moduleName: String, name: String, signature: String, callback: NSCWasm3HostFunction) {
         val (paramTypes, returnTypes) = parseSignature(signature)
         val trampoline = HostTrampoline(callback, paramTypes, returnTypes)
         val ok = NativeWasm3.linkRawFunctionEx(
-            moduleHandle, moduleName, name, signature, trampoline
+            moduleHandle,
+            moduleName,
+            name,
+            signature,
+            trampoline,
         )
         if (!ok) {
             throw NSCWasm3Exception("failed to link host function: $moduleName.$name")
@@ -255,15 +257,17 @@ class NSCWasm3Module internal constructor(
             val match = Regex("^([vifIF]*)\\(([vifIF]*)\\)\$").find(compact)
                 ?: throw NSCWasm3Exception("invalid wasm signature: \"$signature\"")
             val toTypes: (String) -> IntArray = { chars ->
-                chars.filter { it != 'v' }.map { c ->
-                    when (c) {
-                        'i' -> NativeWasm3.cM3TypeI32()
-                        'I' -> NativeWasm3.cM3TypeI64()
-                        'f' -> NativeWasm3.cM3TypeF32()
-                        'F' -> NativeWasm3.cM3TypeF64()
-                        else -> throw NSCWasm3Exception("invalid signature character: $c")
-                    }
-                }.toIntArray()
+                chars
+                    .filter { it != 'v' }
+                    .map { c ->
+                        when (c) {
+                            'i' -> NativeWasm3.cM3TypeI32()
+                            'I' -> NativeWasm3.cM3TypeI64()
+                            'f' -> NativeWasm3.cM3TypeF32()
+                            'F' -> NativeWasm3.cM3TypeF64()
+                            else -> throw NSCWasm3Exception("invalid signature character: $c")
+                        }
+                    }.toIntArray()
             }
             return Pair(toTypes(match.groupValues[2]), toTypes(match.groupValues[1]))
         }
@@ -274,10 +278,7 @@ class NSCWasm3Module internal constructor(
 // Function
 // ---------------------------------------------------------------------------
 
-class NSCWasm3Function internal constructor(
-    private val funcHandle: Long,
-    private val runtime: NSCWasm3Runtime,
-) {
+class NSCWasm3Function internal constructor(private val funcHandle: Long, private val runtime: NSCWasm3Runtime) {
     val name: String
         get() = NativeWasm3.functionName(funcHandle)
 

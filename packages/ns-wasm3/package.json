@@ -38,6 +38,7 @@
     "test.ios": "cd platforms/ios/NSCWasm3 && swift test --disable-sandbox",
     "test.android": "cd platforms/android/wasm3-android && ./gradlew :hosttest:test",
     "build.android": "cd platforms/android/wasm3-android && ./gradlew :library:deployAar",
+    "lint.android": "cd platforms/android/wasm3-android && ./gradlew detekt ktlintCheck",
     "coverage": "vitest run --coverage",
     "coverage.ios": "cd platforms/ios/NSCWasm3 && swift test --enable-code-coverage && xcrun llvm-cov report .build/debug/NSCWasm3PackageTests.xctest/Contents/MacOS/NSCWasm3PackageTests -instr-profile .build/debug/codecov/default.profdata -ignore-filename-regex='Sources/CWasm3|/usr/'",
     "coverage.android": "cd platforms/android/wasm3-android && ./gradlew :hosttest:jacocoTestReport",
@@ -70,6 +71,12 @@
         "executor": "nx:run-script",
         "options": {
           "script": "coverage.android"
+        }
+      },
+      "lint.android": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "lint.android"
         }
       },
       "buck2-build": {

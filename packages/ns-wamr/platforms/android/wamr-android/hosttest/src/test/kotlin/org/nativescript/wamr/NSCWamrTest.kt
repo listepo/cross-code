@@ -1,14 +1,13 @@
 package org.nativescript.wamr
 
+import org.junit.jupiter.api.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Test
 
 class NSCWamrTest {
-    private fun fixture(name: String): ByteArray =
-        javaClass.getResourceAsStream("/fixtures/$name.wasm")!!.readBytes()
+    private fun fixture(name: String): ByteArray = javaClass.getResourceAsStream("/fixtures/$name.wasm")!!.readBytes()
 
     private fun withSuite(block: (NSCWamrRuntime, NSCWamrModule) -> Unit) {
         NSCWamrRuntime().use { runtime ->

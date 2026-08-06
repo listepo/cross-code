@@ -269,6 +269,10 @@ jobs:
         working-directory: packages/ns-wasm3/platforms/android/wasm3-android
         run: ./gradlew :hosttest:test
 
+      - name: Kotlin lint (Detekt + Ktlint)
+        working-directory: packages/ns-wasm3/platforms/android/wasm3-android
+        run: ./gradlew detekt ktlintCheck
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -388,6 +392,11 @@ jobs:
         if: steps.sources.outputs.present == 'true'
         working-directory: packages/ns-wamr/platforms/android/wamr-android
         run: ./gradlew :hosttest:test
+
+      - name: Kotlin lint (Detekt + Ktlint)
+        if: steps.sources.outputs.present == 'true'
+        working-directory: packages/ns-wamr/platforms/android/wamr-android
+        run: ./gradlew detekt ktlintCheck
 
       - uses: actions/upload-artifact@v4
         if: failure() && steps.sources.outputs.present == 'true'

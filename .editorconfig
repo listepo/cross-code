@@ -1,0 +1,41 @@
+# Editor + Ktlint conventions for the hand-written Kotlin sources.
+# Generated code (build/, bin/, uniffi/) is excluded from Ktlint in
+# build.gradle.kts and does not need to obey these rules.
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 4
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+max_line_length = 120
+
+[*.{kt,kts}]
+ktlint_code_style = ktlint_official
+# --- Overrides: keep the Kotlin coding conventions where ktlint_official is
+# stricter than the official style guide. Each deviation is documented below.
+#
+# Keep short parameter lists on one line (wrap only when the signature
+# exceeds max_line_length), matching the Kotlin coding conventions. The
+# ktlint_official default forces one parameter per line for any function
+# or class with 2+ parameters.
+ktlint_function_signature_rule_force_multiline_when_parameter_count_greater_or_equal_than = 100
+ktlint_class_signature_rule_force_multiline_when_parameter_count_greater_or_equal_than = 100
+# Keep expression bodies on the signature line when they fit; only wrap
+# when the first line would exceed max_line_length.
+ktlint_function_signature_body_expression_wrapping = default
+# Keep `val x = <multiline expression>` on one line when it fits; the
+# ktlint_official default forces a line break after the `=`.
+ktlint_standard_multiline-expression-wrapping = disabled
+# Allow annotations on the same line as the declaration (e.g.
+# `@JvmOverloads constructor`). ktlint_official forces them onto their own
+# line, which in turn re-indents the whole class body.
+ktlint_standard_annotation = disabled
+# Blank lines between consecutive declarations are discretionary per the
+# Kotlin guide; ktlint_official demands them (JNI declaration facades and
+# compact class bodies would otherwise gain dozens of noise blank lines).
+ktlint_standard_blank-line-before-declaration = disabled
+ktlint_standard_spacing-between-declarations-with-annotations = disabled
+ktlint_standard_spacing-between-declarations-with-comments = disabled
