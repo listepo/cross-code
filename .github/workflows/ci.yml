@@ -268,15 +268,15 @@ jobs:
         with:
           node-version: 24
 
-      - name: Check for WAMR C sources
-        id: sources
-        run: |
-          if find packages/nativescript-wamr/src/vendors/wamr -name '*.c' -o -name '*.h' | grep -q .; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::WAMR C sources not found — Swift steps will be skipped."
-          fi
+#      - name: Check for WAMR C sources
+#        id: sources
+#        run: |
+#          if find packages/nativescript-wamr/src/vendors/wamr -name '*.c' -o -name '*.h' | grep -q .; then
+#            echo "present=true" >> "$GITHUB_OUTPUT"
+#          else
+#            echo "present=false" >> "$GITHUB_OUTPUT"
+#            echo "::warning::WAMR C sources not found — Swift steps will be skipped."
+#          fi
 
 #      - name: Verify the synced Swift package copy is current
 #        if: steps.sources.outputs.present == 'true'
