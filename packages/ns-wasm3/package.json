@@ -102,6 +102,7 @@
     }
   },
   "dependencies": {
+    "@cross-code/ns-wasm-core": "workspace:*",
     "tslib": "^2.3.0"
   }
 }

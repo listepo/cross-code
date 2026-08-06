@@ -141,6 +141,9 @@
     "coverage.android": "cd platforms/android/wamr-android && ./gradlew :hosttest:jacocoTestReport",
     "build.xcframework": "bash tools/build-xcframework.sh"
   },
+  "dependencies": {
+    "@cross-code/ns-wasm-core": "workspace:*"
+  },
   "devDependencies": {
     "@nativescript/core": "^8.9.0"
   },
