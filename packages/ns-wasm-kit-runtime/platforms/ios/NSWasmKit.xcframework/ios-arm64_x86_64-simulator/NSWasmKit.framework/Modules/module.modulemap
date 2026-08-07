@@ -1,0 +1,6 @@
+framework module NSWasmKit {
+  umbrella header "NSWasmKit.h"
+
+  export *
+  module * { export * }
+}

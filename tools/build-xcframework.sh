@@ -2,7 +2,7 @@
 # Shared xcframework builder for all NativeScript engine plugins.
 #
 # Usage: tools/build-xcframework.sh <ENGINE>
-#   ENGINE = NSCWamr | NSCWasm3 | NSCWry
+#   ENGINE = NSCWamr | NSCWasm3 | NSCWry | NSWasmKit
 #
 # Builds <ENGINE>.xcframework (device arm64 + a universal arm64/x86_64
 # simulator slice) with size optimizations, plus dSYM bundles for
@@ -33,7 +33,17 @@
 #   platforms/ios/<ENGINE>.xcframework.dSYMs/ — kept debug symbols (all slices)
 set -euo pipefail
 
-ENGINE="${1:?usage: build-xcframework.sh <ENGINE> (NSCWamr|NSCWasm3|NSCWry)}"
+ENGINE="${1:?usage: build-xcframework.sh <ENGINE> (NSCWamr|NSCWasm3|NSCWry|NSWasmKit)}"
+
+# Support debug/release via BUCK2_MODIFIER env var
+MODE="${BUCK2_MODIFIER:-release}"
+SWIFT_CONF="$MODE"
+# Release uses -Osize + thin LTO; debug uses -O0 -g
+if [ "$MODE" = "debug" ]; then
+  OPT_FLAGS="-Xswiftc -g -Xcc -g"
+else
+  OPT_FLAGS="-Xswiftc -g -Xswiftc -Osize -Xcc -g -Xcc -flto=thin -Xlinker -dead_strip"
+fi
 
 # Derive the package directory from the engine name: NSCWamr -> ns-wamr
 PKG="ns-$(echo "${ENGINE#NSC}" | tr '[:upper:]' '[:lower:]')"
@@ -50,13 +60,11 @@ rm -rf "$BUILD" "$OUT" "$DSYM_OUT"
 build_slice() { # $1=triple $2=sdk-name $3=output-name
   local triple="$1" sdk_name="$2" out_name="$3"
   local sdk; sdk=$(xcrun --sdk "$sdk_name" --show-sdk-path)
-  swift build --disable-sandbox -c release --product "$ENGINE" --triple "$triple" \
+  swift build --disable-sandbox -c "$SWIFT_CONF" --product "$ENGINE" --triple "$triple" \
     -Xswiftc -sdk -Xswiftc "$sdk" \
     -Xcc -isysroot -Xcc "$sdk" \
-    -Xswiftc -g -Xswiftc -Osize \
-    -Xcc -g -Xcc -flto=thin \
-    -Xlinker -dead_strip
-  local dylib=".build/$triple/release/lib$ENGINE.dylib"
+    $OPT_FLAGS
+  local dylib=".build/$triple/$SWIFT_CONF/lib$ENGINE.dylib"
 
   # Assemble the framework bundle around the dylib.
   local fw="$BUILD/$out_name/$ENGINE.framework"

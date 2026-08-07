@@ -5,10 +5,9 @@
 node = "24.18.1"
 java = "temurin-21.0.2"
 "npm:pnpm" = "11.20.0"
+buck2 = "latest"
 
 [settings]
-# Use Temurin as the default Java distribution
-java.default_distribution = "temurin"
 
 # ── Notes ───────────────────────────────────────────────────────────────────
 # - Swift 6.3+ and Xcode 16+ are managed by macOS / Xcode.app, not mise.
@@ -16,14 +15,3 @@ java.default_distribution = "temurin"
 # - Gradle 9.6.1 is managed by the committed wrapper (gradlew), not mise.
 # - pnpm is managed by mise via the npm backend (see [tools] above).
 #   The version matches "packageManager" in root package.json.
-#
-# Buck2 is NOT available via cargo (the crates.io "buck2" crate v0.1.1 is a
-# placeholder). Install it once with the prebuilt binary (~107 MB, no toolchain
-# needed):
-#
-#   curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-aarch64-apple-darwin.zst | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null && sudo chmod +x /usr/local/bin/buck2
-#
-# Or use the community asdf plugin (mise-compatible, downloads prebuilt):
-#   mise plugin install buck2 https://github.com/izaakschroeder/asdf-buck2
-#   buck2 = "latest"   # then uncomment the line below
-# buck2 = "latest"

@@ -1,0 +1,62 @@
+# Buck2 build definitions for @cross-code/ns-wasm-kit-runtime
+#
+# Each genrule wraps the existing toolchain (swift build).
+# Debug/release is controlled by $BUCK2_MODIFIER injected by nx-buck2 executor.
+# --mode {debug,release} sets .buckconfig [build_mode.*] compiler flags for
+# native cxx_library targets; for genrules we read the env var instead.
+
+# ── Swift @objc wrapper (macOS host, for hosttest) ─────────────────
+
+genrule(
+    name = "nsc-wasmkit-swift-host",
+    srcs = glob([
+        "platforms/ios/NSWasmKit/Sources/**/*.swift",
+        "platforms/ios/NSWasmKit/Package.swift",
+        "platforms/ios/NSWasmKit/Sources/**/include/**/*.h",
+    ]),
+    out = "NSWasmKit.dylib",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; CONF=\"release\"; [ \"$MODE\" = debug ] && CONF=\"debug\"; swift build --disable-sandbox --configuration $CONF --package-path $SRCDIR/platforms/ios/NSWasmKit 2>&1 && cp $SRCDIR/platforms/ios/NSWasmKit/.build/$CONF/libNSWasmKit.dylib $OUT",
+    visibility = ["PUBLIC"],
+)
+
+# ── iOS xcframework — release (device + simulator) ─────────────────
+# Builds NSWasmKit.xcframework with -Osize, thin LTO, and stripped binaries.
+# The NativeScript CLI discovers any platforms/ios/*.xcframework automatically.
+
+genrule(
+    name = "ns-wasmkit-xcframework-release",
+    srcs = glob([
+        "platforms/ios/**/*.swift",
+        "platforms/ios/**/*.h",
+        "platforms/ios/**/module.modulemap",
+        "platforms/ios/**/Package.swift",
+        "tools/build-xcframework.sh",
+    ]),
+    out = "ns-wasmkit-xcframework-release.stamp",
+    cmd = "bash $SRCDIR/tools/build-xcframework.sh 2>&1 && echo 'xcframework (release) built' && touch $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "ns-wasmkit-xcframework-debug",
+    srcs = glob([
+        "platforms/ios/**/*.swift",
+        "platforms/ios/**/*.h",
+        "platforms/ios/**/module.modulemap",
+        "platforms/ios/**/Package.swift",
+        "tools/build-xcframework.sh",
+    ]),
+    out = "ns-wasmkit-xcframework-debug.stamp",
+    cmd = "BUCK2_MODIFIER=debug bash $SRCDIR/tools/build-xcframework.sh 2>&1 && echo 'xcframework (debug) built' && touch $OUT",
+    visibility = ["PUBLIC"],
+)
+
+# ── All targets (aggregate) ────────────────────────────────────────
+
+genrule(
+    name = "all",
+    srcs = [],
+    out = "all.stamp",
+    cmd = "echo 'ns-wasm-kit-runtime: all targets requested' && touch $OUT",
+    visibility = ["PUBLIC"],
+)
