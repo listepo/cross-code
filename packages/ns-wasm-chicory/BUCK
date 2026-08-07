@@ -1,0 +1,39 @@
+# Buck2 build definitions for @cross-code/ns-wasm-chicory
+
+genrule(
+    name = "chicory-android",
+    srcs = glob([
+        "platforms/android/chicory-android/library/src/**/*.kt",
+        "platforms/android/chicory-android/library/build.gradle.kts",
+        "platforms/android/chicory-android/build.gradle.kts",
+        "platforms/android/chicory-android/settings.gradle.kts",
+    ]),
+    out = "nativescript-chicory.aar",
+    cmd = "cd $SRCDIR/platforms/android/chicory-android && ./gradlew :library:deployAar && cp $SRCDIR/platforms/android/nativescript-chicory.aar $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "chicory-test",
+    srcs = glob([
+        "platforms/android/chicory-android/library/src/**/*.kt",
+        "platforms/android/chicory-android/library/build.gradle.kts",
+        "platforms/android/chicory-android/build.gradle.kts",
+        "platforms/android/chicory-android/settings.gradle.kts",
+    ]),
+    out = "test-results.stamp",
+    cmd = "cd $SRCDIR/platforms/android/chicory-android && ./gradlew :library:test && touch $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "all",
+    srcs = [],
+    out = "all.stamp",
+    cmd = "echo 'ns-wasm-chicory: all targets' && touch $OUT",
+    deps = [
+        ":chicory-android",
+        ":chicory-test",
+    ],
+    visibility = ["PUBLIC"],
+)

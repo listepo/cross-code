@@ -144,6 +144,28 @@ Swapping those groups is a common mistake — verify the regex carefully. The
 native layers convert this notation to the engine's own format internally
 (WAMR's native format is `"(params)returns"`).
 
+### TypeScript typing guidelines for native adapters
+
+The workspace uses `noImplicitAny: true` and `strict: true`. Follow these
+conventions when writing TypeScript adapter code that bridges to native layers:
+
+- **Use `unknown` over `any`** for opaque bridge values (error refs, callback
+  handles, runtime proxy objects). Cast to a concrete interface only at the
+  call site.
+- **Define proxy interfaces** in `src/lib/native-proxy.d.ts` for each native
+  class shape (e.g. `NativeChicoryRuntimeProxy`, `IosWasmEdgeFunctionProxy`).
+  The interfaces model the actual bridge methods; the native layer creates
+  the objects, TypeScript only calls them.
+- **Error ref tuples**: iOS error out-params use `[unknown]` tuple typing
+  so they can be spread into method signatures. The `withErrorRef` helper
+  returns the error ref as `[unknown] | null`.
+- **globalThis shape**: Define a `NativeScriptOrg` interface in
+  `native-proxy.d.ts` for `globalThis.org.nativescript.*` access. Cast
+  `globalThis as unknown as NativeScriptOrg` — never `as any`.
+- **Callback narrowing**: When passing a `WireHostCallback` to a native
+  constructor that expects `(args: unknown[]) => unknown[]`, cast explicitly:
+  `cb as (args: unknown[]) => unknown[]`.
+
 ### Missing imports surface at `findFunction`
 
 Both engines compile functions lazily. A missing imported function is
