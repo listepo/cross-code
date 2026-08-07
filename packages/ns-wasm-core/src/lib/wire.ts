@@ -82,8 +82,10 @@ export function fromWire(type: WasmValueType, value: WireValue): WasmValue {
     return big;
   }
   const n = Number(value);
-  if (!Number.isFinite(n)) {
-    throw new WasmError(`invalid ${type} wire value: ${String(value)}`);
+  if (type === 'i32') {
+    if (!Number.isFinite(n)) {
+      throw new WasmError(`invalid i32 wire value: ${String(value)}`);
+    }
   }
   return n;
 }
