@@ -1,4 +1,3 @@
 dependencies {
-    // Chicory is a pure-Java Wasm runtime; the .aar bundles Chicory's
-    // transitive dependencies so no additional Maven dependencies are needed.
+    implementation("com.dylibso.chicory:runtime:1.7.5")
 }

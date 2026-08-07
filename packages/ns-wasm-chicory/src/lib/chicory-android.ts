@@ -26,9 +26,13 @@ function arrayList(): JavaArrayList {
   )();
 }
 
-function javaArrayToJs(list: JavaArrayList): unknown[] {
+function javaArrayToJs(list: unknown): unknown[] {
+  // Host-import arguments cross as a Java Array<Any>, which NativeScript
+  // converts to a plain JS array — not an ArrayList proxy with size()/get().
+  if (Array.isArray(list)) return list as unknown[];
+  const arr = list as JavaArrayList;
   const r: unknown[] = [];
-  for (let i = 0; i < list.size(); i++) r.push(list.get(i));
+  for (let i = 0; i < arr.size(); i++) r.push(arr.get(i));
   return r;
 }
 
@@ -114,9 +118,22 @@ class AndroidFunction implements NativeFunctionAdapter {
 
 function makeAndroidHostCallback(cb: WireHostCallback): unknown {
   const n = ns();
-  if (!n?.NSCChicoryHostCallback) throw new ChicoryError('NSCChicoryHostCallback not available');
-  // The Kotlin layer wraps the callback; pass through `unknown` to avoid narrowing.
-  return new n.NSCChicoryHostCallback(cb as (args: unknown[]) => unknown[]);
+  if (!n?.NSCChicoryHostFunction) throw new ChicoryError('NSCChicoryHostFunction not available');
+  // Create a NSCChicoryHostFunction SAM adapter directly (like wasm3's pattern).
+  return new n.NSCChicoryHostFunction({
+    invoke: (nativeArgs: unknown[]) => {
+      const results = cb(
+        javaArrayToJs(nativeArgs).map((v) => {
+          const n = normalizeAndroidValue(v);
+          if (n === null) throw new ChicoryError('host callback received a null argument');
+          return n;
+        }),
+      );
+      if (results.length === 0) return null;
+      if (results.length === 1) return toJavaWireValue(results[0]);
+      return results.map(toJavaWireValue);
+    },
+  });
 }
 
 class AndroidModule implements NativeModuleAdapter {

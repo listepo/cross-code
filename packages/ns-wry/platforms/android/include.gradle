@@ -1,3 +1,14 @@
-// no external deps — libwry_jni.so is self-contained
+// ns-wry: merged into the NativeScript app's build.gradle.
+// The bundled AAR (nsc-wry.aar) carries the Kotlin wrapper and
+// libwry_jni.so for all ABIs (built via cargo-ndk from Rust).
 dependencies {
+    // No JavaCPP dependency required.
+}
+
+android {
+    packagingOptions {
+        jniLibs {
+            pickFirsts.add("**/libwry_jni.so")
+        }
+    }
 }

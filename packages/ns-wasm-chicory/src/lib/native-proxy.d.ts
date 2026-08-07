@@ -40,9 +40,9 @@ export interface NativeChicoryFunctionProxy {
   call(args: JavaArrayList): JavaArrayList;
 }
 
-/** Shape of the NSCChicoryHostCallback Kotlin class. */
-export interface NativeChicoryHostCallbackProxy {
-  new (cb: (args: unknown[]) => unknown[]): NativeChicoryHostCallbackProxy;
+/** Shape of the NSCChicoryHostFunction Kotlin fun interface as seen from TypeScript. */
+export interface NativeChicoryHostFunctionProxy {
+  new (impl: { invoke: (args: unknown[]) => unknown }): NativeChicoryHostFunctionProxy;
 }
 
 /** Namespace shape for globalThis.org.nativescript.chicory */
@@ -52,7 +52,7 @@ export interface NsChicoryNamespace {
     jsByteArrayToJava(buffer: ArrayBuffer, offset: number, length: number): JavaArrayList;
     javaByteArrayToJs(bytes: JavaArrayList): ArrayBuffer;
   };
-  NSCChicoryHostCallback: NativeChicoryHostCallbackProxy;
+  NSCChicoryHostFunction: NativeChicoryHostFunctionProxy;
 }
 
 /** Shape of the NativeScript globalThis org object */

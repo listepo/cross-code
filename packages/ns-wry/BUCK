@@ -1,13 +1,29 @@
 # Buck2 build definitions for @cross-code/ns-wry
+#
+# buck2 genrule wrapper cd's to buck-out/.../srcs before running the command.
+# Source files are mirrored there at matching paths. Use relative paths from
+# srcs. Do NOT use $SRCDIR (it points to srcs after the wrapper cd).
 
 genrule(
     name = "wry-rust-host",
     srcs = glob([
         "src/vendors/wry-rust/**/*.rs",
         "src/vendors/wry-rust/**/*.toml",
+        "src/vendors/wry-rust/**/*.udl",
     ]),
-    out = "libwry.a",
-    cmd = "echo 'wry Rust build via Cargo' && touch $OUT",
+    out = "wry-rust-host.stamp",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cargo build --manifest-path src/vendors/wry-rust/Cargo.toml -p wry-sys --profile $PROFILE --target-dir src/vendors/wry-rust/target 2>&1 && echo 'wry-rust built ($MODE)' && touch $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "wry-jni-android",
+    srcs = glob([
+        "src/vendors/wry-rust/**/*.rs",
+        "src/vendors/wry-rust/**/*.toml",
+    ]),
+    out = "wry-jni-android.stamp",
+    cmd = "echo 'wry JNI Android build via cargo-ndk' && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
@@ -15,10 +31,11 @@ genrule(
     name = "nsc-wry-swift-host",
     srcs = glob([
         "platforms/ios/NSCWry/Sources/**/*.swift",
+        "platforms/ios/NSCWry/Tests/**/*.swift",
         "platforms/ios/NSCWry/Package.swift",
     ]),
-    out = "NSCWry.dylib",
-    cmd = "echo 'NSCWry Swift build' && touch $OUT",
+    out = "nsc-wry-swift-host.stamp",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; CONF=\"release\"; [ \"$MODE\" = debug ] && CONF=\"debug\"; swift build --disable-sandbox --configuration $CONF --package-path platforms/ios/NSCWry --target NSCWry 2>&1 && echo 'NSCWry Swift built ($MODE)' && touch $OUT",
     visibility = ["PUBLIC"],
 )
 

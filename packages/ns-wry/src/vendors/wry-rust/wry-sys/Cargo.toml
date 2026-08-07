@@ -6,6 +6,6 @@ license.workspace = true
 description = "Low-level Rust bindings and C-shim surface for the wry engine"
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]

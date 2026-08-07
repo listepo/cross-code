@@ -35,7 +35,10 @@
   "scripts": {
     "sync.vendors": "node tools/sync-wry.mjs",
     "test.ios": "cd platforms/ios/NSCWry && swift test --disable-sandbox",
+    "test.android": "cd platforms/android/nsc-wry-android && ./gradlew :hosttest:test --no-daemon",
+    "build.android": "cd platforms/android/nsc-wry-android && ./gradlew :library:deployAar --no-daemon",
     "lint.ios": "swiftlint lint --config ../../.swiftlint.yml platforms/ios/NSCWry/Sources",
+    "lint.android": "cd platforms/android/nsc-wry-android && ./gradlew detekt ktlintCheck --no-daemon",
     "periphery.ios": "cd platforms/ios/NSCWry && periphery scan --config $(git rev-parse --show-toplevel)/.periphery.yml --disable-update-check",
     "coverage": "vitest run --coverage",
     "build.xcframework": "bash tools/build-xcframework.sh"
@@ -66,6 +69,12 @@
         "executor": "nx:run-script",
         "options": {
           "script": "lint.ios"
+        }
+      },
+      "lint.android": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "lint.android"
         }
       },
       "periphery.ios": {

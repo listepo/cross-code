@@ -3,3 +3,12 @@ out-tsc
 node_modules
 test-output
 .build
+/src/vendors/wry-rust/target/
+
+# Gradle project build outputs
+platforms/android/nsc-wry-android/.gradle
+platforms/android/nsc-wry-android/build
+platforms/android/nsc-wry-android/library/build
+platforms/android/nsc-wry-android/hosttest/build
+platforms/android/nsc-wry-android/**/bin/
+platforms/android/nsc-wry-android/local.properties

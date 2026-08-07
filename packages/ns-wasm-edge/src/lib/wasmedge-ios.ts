@@ -56,10 +56,10 @@ function newErrorRef(): [unknown] | null {
 
 function checkErrorRef(errorRef: [unknown] | null, context: string): void {
   if (!errorRef) return;
-  const val = errorRef[0];
-  if (!val) return;
-  const errObj = val as { localizedDescription?: string };
-  const msg = errObj.localizedDescription ?? String(val);
+  const ref = errorRef[0] as { value?: { localizedDescription?: string } } | null | undefined;
+  const error = ref?.value;
+  if (!error) return;
+  const msg = (error as { localizedDescription?: string }).localizedDescription ?? String(error);
   throw new WasmEdgeError(
     `${context}: ${String(msg).replace(/^[\w.]*NSCWasmEdgeException:\s*/, '')}`,
   );
@@ -74,7 +74,10 @@ function rethrow(error: unknown, context: string): never {
 function withErrorRef<T>(context: string, call: (errorArgs: [unknown]) => T): T {
   const errorRef = newErrorRef();
   try {
-    const result = call(errorRef!);
+    // Pass a 1-tuple so call sites can spread `...errorArgs` into the native
+    // method's trailing NSError** argument. Fall back to a null ref when the
+    // runtime exposes no `interop.Reference` (the mock / non-NS runtimes).
+    const result = call(errorRef ?? [null as unknown]);
     checkErrorRef(errorRef, context);
     return result;
   } catch (error) {
@@ -95,7 +98,7 @@ class IosFunction implements NativeFunctionAdapter {
   }
   call(args: WireValue[]): WireValue[] {
     const ctx = `call ${this.name()}`;
-    const result = withErrorRef(ctx, (err) => this.fn.callWithArgumentsError(args, err));
+    const result = withErrorRef(ctx, (err) => this.fn.callWithArgumentsError(args, ...err));
     if (result == null) throw new WasmEdgeError(`${ctx}: returned null`);
     return nsArrayToJs(result) as WireValue[];
   }
@@ -130,18 +133,18 @@ class IosModule implements NativeModuleAdapter {
         name,
         signature,
         makeIosHostCallback(cb),
-        err,
+        ...err,
       ),
     );
   }
   getGlobal(name: string): WireValue {
     return withErrorRef(`getGlobal ${name}`, (err) =>
-      this.module.getGlobalNameError(name, err),
+      this.module.getGlobalNameError(name, ...err),
     ) as WireValue;
   }
   setGlobal(name: string, value: WireValue): void {
     withErrorRef(`setGlobal ${name}`, (err) =>
-      this.module.setGlobalNameValueError(name, value, err),
+      this.module.setGlobalNameValueError(name, value, ...err),
     );
   }
 }
@@ -162,17 +165,17 @@ export class IosRuntime implements NativeRuntimeAdapter {
       }
     ).NSData.dataWithBytesLength(bytes.buffer as ArrayBuffer, bytes.length);
     return new IosModule(
-      withErrorRef('loadModule', (err) => this.runtime.loadModuleBytesError(data, err)),
+      withErrorRef('loadModule', (err) => this.runtime.loadModuleBytesError(data, ...err)),
     );
   }
   loadModuleFromFile(path: string): NativeModuleAdapter {
     return new IosModule(
-      withErrorRef('loadModule', (err) => this.runtime.loadModuleFileError(path, err)),
+      withErrorRef('loadModule', (err) => this.runtime.loadModuleFileError(path, ...err)),
     );
   }
   findFunction(name: string): NativeFunctionAdapter {
     return new IosFunction(
-      withErrorRef('findFunction', (err) => this.runtime.findFunctionError(name, err)),
+      withErrorRef('findFunction', (err) => this.runtime.findFunctionError(name, ...err)),
     );
   }
   memorySize(): number {
@@ -180,14 +183,14 @@ export class IosRuntime implements NativeRuntimeAdapter {
   }
   readMemory(offset: number, length: number): Uint8Array {
     const data = withErrorRef('readMemory', (err) =>
-      this.runtime.readMemoryAtOffsetLengthError(offset, length, err),
+      this.runtime.readMemoryAtOffsetLengthError(offset, length, ...err),
     );
     if (!data) throw new WasmEdgeError('readMemory: returned null');
     return new Uint8Array(iosInterop()!.bufferFromData(data));
   }
   writeMemory(offset: number, bytes: Uint8Array): void {
     withErrorRef('writeMemory', (err) =>
-      this.runtime.writeMemoryAtOffsetDataError(offset, bytes, err),
+      this.runtime.writeMemoryAtOffsetDataError(offset, bytes, ...err),
     );
   }
   dispose(): void {

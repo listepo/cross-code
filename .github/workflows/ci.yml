@@ -9,6 +9,7 @@ on:
 permissions:
   actions: read
   contents: read
+  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -109,6 +110,23 @@ jobs:
         run: |
           rustup component add llvm-tools-preview
           pnpm exec nx run-many -t coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: |
+            packages/ns-wasm-core/test-output/vitest/coverage/lcov.info
+            packages/ns-wasm3/test-output/vitest/coverage/lcov.info
+            packages/ns-wamr/test-output/vitest/coverage/lcov.info
+            packages/ns-wasm-kit-runtime/test-output/vitest/coverage/lcov.info
+            packages/ns-wasm-chicory/test-output/vitest/coverage/lcov.info
+            packages/ns-wasm-edge/test-output/vitest/coverage/lcov.info
+            packages/ns-endive/test-output/vitest/coverage/lcov.info
+            packages/ns-wry/test-output/vitest/coverage/lcov.info
+            packages/vitest-ns/test-output/vitest/coverage/lcov.info
+            packages/vitest-ns-ui/test-output/vitest/coverage/lcov.info
+            packages/ns-wasm-fixture/target/coverage/lcov.info
 
       # Rust is pre-installed on GitHub's ubuntu-latest runner. When debugging
       # locally with `act` the slim image may not have it — install on the fly

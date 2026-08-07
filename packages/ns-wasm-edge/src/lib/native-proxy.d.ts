@@ -67,12 +67,12 @@ export interface NativeScriptOrg {
 /** Shape of the iOS NSCWasmEdgeRuntime class (Swift @objc). */
 export interface IosWasmEdgeRuntimeProxy {
   wasmedgeVersion(): string;
-  loadModuleBytesError(data: unknown, error: [unknown]): IosWasmEdgeModuleProxy;
-  loadModuleFileError(path: string, error: [unknown]): IosWasmEdgeModuleProxy;
-  findFunctionError(name: string, error: [unknown]): IosWasmEdgeFunctionProxy;
+  loadModuleBytesError(data: unknown, error: unknown): IosWasmEdgeModuleProxy;
+  loadModuleFileError(path: string, error: unknown): IosWasmEdgeModuleProxy;
+  findFunctionError(name: string, error: unknown): IosWasmEdgeFunctionProxy;
   memorySize(): number;
-  readMemoryAtOffsetLengthError(offset: number, length: number, error: [unknown]): unknown;
-  writeMemoryAtOffsetDataError(offset: number, data: Uint8Array, error: [unknown]): void;
+  readMemoryAtOffsetLengthError(offset: number, length: number, error: unknown): unknown;
+  writeMemoryAtOffsetDataError(offset: number, data: Uint8Array, error: unknown): void;
 }
 
 /** Shape of the iOS NSCWasmEdgeModule class. */
@@ -83,10 +83,10 @@ export interface IosWasmEdgeModuleProxy {
     name: string,
     sig: string,
     cb: unknown,
-    error: [unknown],
+    error: unknown,
   ): void;
-  getGlobalNameError(name: string, error: [unknown]): unknown;
-  setGlobalNameValueError(name: string, value: unknown, error: [unknown]): void;
+  getGlobalNameError(name: string, error: unknown): unknown;
+  setGlobalNameValueError(name: string, value: unknown, error: unknown): void;
 }
 
 /** Shape of the iOS NSCWasmEdgeFunction class. */
@@ -94,7 +94,7 @@ export interface IosWasmEdgeFunctionProxy {
   name: string;
   paramTypes: unknown;
   returnTypes: unknown;
-  callWithArgumentsError(args: unknown[], error: [unknown]): unknown;
+  callWithArgumentsError(args: unknown[], error: unknown): unknown;
 }
 
 /** Shape of the iOS NSCWasmEdgeHostCallback class. */
