@@ -29,11 +29,8 @@ npm exec nx run-many -t build test -p ns-wry
 # iOS XCTests (macOS only)
 npm run test.ios
 
-# Android JVM host tests (no emulator)
-npm run test.android
-
-# Android: cross-compile all ABIs via cargo-ndk
-npm run build.android
+# Android support is not scaffolded yet; no Android build or host-test target
+# is available for this package.
 ```
 
 ## Architecture
@@ -44,5 +41,5 @@ src/vendors/wry-rust/         Rust workspace (cargo)
   wry-ffi/                    UniFFI IDL → Swift / Kotlin bindings
   wry-jni/                    JNI glue for Android
 platforms/ios/NSCWry/         Swift Package (no CocoaPods)
-platforms/android/            Gradle project + prebuilt .aar
+platforms/android/            NativeScript integration placeholder
 ```

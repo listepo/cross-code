@@ -66,16 +66,61 @@ importers:
         specifier: ^8.8.5
         version: 8.8.5
 
+  packages/ns-endive:
+    dependencies:
+      '@cross-code/ns-wasm-core':
+        specifier: workspace:*
+        version: link:../ns-wasm-core
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
   packages/ns-wamr:
+    dependencies:
+      '@cross-code/ns-wasm-core':
+        specifier: workspace:*
+        version: link:../ns-wasm-core
     devDependencies:
       '@nativescript/core':
         specifier: ^8.9.0
         version: 8.9.9
 
+  packages/ns-wasm-chicory:
+    dependencies:
+      '@cross-code/ns-wasm-core':
+        specifier: workspace:*
+        version: link:../ns-wasm-core
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
+  packages/ns-wasm-core: {}
+
+  packages/ns-wasm-edge:
+    dependencies:
+      '@cross-code/ns-wasm-core':
+        specifier: workspace:*
+        version: link:../ns-wasm-core
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
   packages/ns-wasm-fixture: {}
+
+  packages/ns-wasm-kit-runtime:
+    dependencies:
+      '@cross-code/ns-wasm-core':
+        specifier: workspace:*
+        version: link:../ns-wasm-core
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
 
   packages/ns-wasm3:
     dependencies:
+      '@cross-code/ns-wasm-core':
+        specifier: workspace:*
+        version: link:../ns-wasm-core
       tslib:
         specifier: ^2.3.0
         version: 2.8.1

@@ -37,8 +37,6 @@
     "test.ios": "cd platforms/ios/NSCWry && swift test --disable-sandbox",
     "lint.ios": "swiftlint lint --config ../../.swiftlint.yml platforms/ios/NSCWry/Sources",
     "periphery.ios": "cd platforms/ios/NSCWry && periphery scan --config $(git rev-parse --show-toplevel)/.periphery.yml --disable-update-check",
-    "test.android": "cd platforms/android/nsc-wry-android && ./gradlew :hosttest:test",
-    "build.android": "cd platforms/android/nsc-wry-android && ./gradlew :library:deployAar",
     "coverage": "vitest run --coverage",
     "build.xcframework": "bash tools/build-xcframework.sh"
   },

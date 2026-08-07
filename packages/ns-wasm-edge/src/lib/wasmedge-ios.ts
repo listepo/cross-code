@@ -76,7 +76,13 @@ export class IosRuntime implements NativeRuntimeAdapter {
   loadModuleFromFile(path: string): NativeModuleAdapter { return new IosModule(withErrorRef('loadModule', (err) => this.runtime.loadModuleFileError(path, ...err))); }
   findFunction(name: string): NativeFunctionAdapter { return new IosFunction(withErrorRef('findFunction', (err) => this.runtime.findFunctionError(name, ...err))); }
   memorySize(): number { return Number(this.runtime.memorySize()); }
-  readMemory(offset: number, length: number): Uint8Array { return new Uint8Array(withErrorRef('readMemory', (err) => this.runtime.readMemoryAtOffsetLengthError(offset, length, ...err))); }
+  readMemory(offset: number, length: number): Uint8Array {
+    const data = withErrorRef('readMemory', (err) =>
+      this.runtime.readMemoryAtOffsetLengthError(offset, length, ...err),
+    );
+    if (!data) throw new WasmEdgeError('readMemory: returned null');
+    return new Uint8Array(iosInterop()?.bufferFromData(data));
+  }
   writeMemory(offset: number, bytes: Uint8Array): void { withErrorRef('writeMemory', (err) => this.runtime.writeMemoryAtOffsetDataError(offset, bytes, ...err)); }
   dispose(): void {}
 }

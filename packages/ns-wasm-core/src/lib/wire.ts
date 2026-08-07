@@ -70,7 +70,12 @@ export function toWire(value: WasmArg, context: string): WireValue {
 export function fromWire(type: WasmValueType, value: WireValue): WasmValue {
   if (type === 'i64') {
     const s = String(value);
-    const big = BigInt(s);
+    let big: bigint;
+    try {
+      big = BigInt(s);
+    } catch {
+      throw new WasmError(`invalid i64 wire value: "${s}"`);
+    }
     if (String(big) !== s) {
       throw new WasmError(`invalid i64 wire value: "${s}"`);
     }

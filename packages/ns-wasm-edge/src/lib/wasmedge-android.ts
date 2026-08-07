@@ -62,7 +62,11 @@ class AndroidModule implements NativeModuleAdapter {
     try { this.module.linkHostFunction(mod, name, signature, makeAndroidHostCallback(cb)); } catch (error) { rethrow(error, `linkHostFunction ${mod}.${name}`); }
   }
   getGlobal(name: string): WireValue {
-    try { return normalizeAndroidValue(this.module.getGlobal(name)); } catch (error) { rethrow(error, `getGlobal ${name}`); throw null as never; }
+    try {
+      const value = normalizeAndroidValue(this.module.getGlobal(name));
+      if (value === null) throw new WasmEdgeError(`getGlobal ${name}: returned null`);
+      return value;
+    } catch (error) { rethrow(error, `getGlobal ${name}`); }
   }
   setGlobal(name: string, value: WireValue): void {
     try { this.module.setGlobal(name, toJavaWireValue(value)); } catch (error) { rethrow(error, `setGlobal ${name}`); }

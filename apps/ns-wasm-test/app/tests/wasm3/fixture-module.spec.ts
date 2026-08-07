@@ -126,7 +126,7 @@ describe('the fixture module through @cross-code/ns-wasm3', () => {
 
   it('refuses to link an import the module does not declare', () => {
     expect(() =>
-      module.linkHostFunction('env', 'not_imported', 'v()', () => undefined),
+      module.linkHostFunction('env', 'not_imported', 'v()', () => []),
     ).toThrow(Wasm3Error);
   });
 

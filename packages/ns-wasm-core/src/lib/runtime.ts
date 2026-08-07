@@ -6,7 +6,7 @@
 // under engine-prefixed names (Wasm3Runtime, WamrRuntime, …).
 
 import {
-  WasmError,
+  fromWire,
   fromWireAll,
   hostResultToWire,
   parseSignature,
@@ -15,7 +15,6 @@ import {
   type WasmArg,
   type WasmValue,
   type WasmValueType,
-  type WireValue,
 } from './wire.js';
 import type {
   WireHostCallback,

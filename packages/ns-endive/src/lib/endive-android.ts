@@ -136,10 +136,11 @@ class AndroidModule implements NativeModuleAdapter {
 
   getGlobal(name: string): WireValue {
     try {
-      return normalizeAndroidValue(this.module.getGlobal(name));
+      const value = normalizeAndroidValue(this.module.getGlobal(name));
+      if (value === null) throw new EndiveError(`getGlobal ${name}: returned null`);
+      return value;
     } catch (error) {
       rethrow(error, `getGlobal ${name}`);
-      throw null as never;
     }
   }
 

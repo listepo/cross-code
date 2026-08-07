@@ -44,20 +44,16 @@ describe('the fixture module through @cross-code/ns-endive', () => {
   });
 
   it('all value types through the fixture module', () => {
-    expect(callFixture('add_i32', module, 2, 40)).toBe(42);
-    expect(callFixture('add_i64', module, '9007199254740993', '2')).toBe(
+    expect(callFixture(module, 'add_i32', 2, 40)).toBe(42);
+    expect(callFixture(module, 'add_i64', 9007199254740993n, 2n)).toBe(
       9007199254740995n,
     );
-    expect(callFixture('mul_f32', module, 1.5, 2.0)).toBeCloseTo(3.0);
-    expect(callFixture('div_f64', module, 1.0, 8.0)).toBeCloseTo(0.125);
+    expect(callFixture(module, 'mul_f32', 1.5, 2.0)).toBeCloseTo(3.0);
+    expect(callFixture(module, 'add_f64', 0.1, 0.2)).toBe(0.1 + 0.2);
   });
 
   it('host imports work', () => {
-    module.linkHostFunction('env', 'host_add', 'i(ii)', (args) => {
-      return (args[0] as number) + (args[1] as number);
-    });
-    const result = callFixture('call_host_add', module, 3, 4);
-    expect(result).toBe(7);
+    expect(callFixture(module, 'call_transform_i32', 3)).toBe(6);
   });
 
   it('invalid module bytes throw', () => {

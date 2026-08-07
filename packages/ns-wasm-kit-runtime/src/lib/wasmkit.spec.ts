@@ -32,6 +32,7 @@ function installIosFake() {
     Reference: class {
       value: any = null;
     },
+    bufferFromData: (data: any) => data.bytes,
   };
 
   g.NSMutableArray = class {

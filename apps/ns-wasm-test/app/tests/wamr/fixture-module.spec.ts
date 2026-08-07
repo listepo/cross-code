@@ -137,7 +137,7 @@ describe('the fixture module through @cross-code/ns-wamr', () => {
 
   it('refuses to link an import the module does not declare', () => {
     expect(() =>
-      module.linkHostFunction('env', 'not_imported', 'v()', () => undefined),
+      module.linkHostFunction('env', 'not_imported', 'v()', () => []),
     ).toThrow(WamrError);
   });
 

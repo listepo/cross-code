@@ -11,8 +11,8 @@ describe('the fixture module through @cross-code/ns-wasm-edge', () => {
   beforeEach(() => { runtime = new WasmEdgeRuntime(); log = []; module = runtime.loadModule(appWasmPath(FIXTURE_WASM), createHostImports(log)); });
   afterEach(() => { if (runtime) runtime.dispose(); });
   it('reports version', () => { expect(WasmEdgeRuntime.version()).toMatch(/\d/); });
-  it('all value types', () => { expect(callFixture('add_i32', module, 2, 40)).toBe(42); expect(callFixture('add_i64', module, '9007199254740993', '2')).toBe(9007199254740995n); expect(callFixture('mul_f32', module, 1.5, 2.0)).toBeCloseTo(3.0); expect(callFixture('div_f64', module, 1.0, 8.0)).toBeCloseTo(0.125); });
-  it('host imports', () => { module.linkHostFunction('env', 'host_add', 'i(ii)', (args) => (args[0] as number) + (args[1] as number)); expect(callFixture('call_host_add', module, 3, 4)).toBe(7); });
+  it('all value types', () => { expect(callFixture(module, 'add_i32', 2, 40)).toBe(42); expect(callFixture(module, 'add_i64', 9007199254740993n, 2n)).toBe(9007199254740995n); expect(callFixture(module, 'mul_f32', 1.5, 2.0)).toBeCloseTo(3.0); expect(callFixture(module, 'add_f64', 0.1, 0.2)).toBe(0.1 + 0.2); });
+  it('host imports', () => { expect(callFixture(module, 'call_transform_i32', 3)).toBe(6); });
   it('invalid bytes throw', () => { expect(() => runtime.loadModule(new Uint8Array([0, 1, 2, 3]))).toThrow(WasmEdgeError); });
   it('shared fixture suite passes', () => { const checks = runFixtureChecks(module, log); expect(summarize(checks).failed).toBe(0); });
 });

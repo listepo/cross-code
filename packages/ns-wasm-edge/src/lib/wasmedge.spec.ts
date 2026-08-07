@@ -6,7 +6,10 @@ const g = globalThis as any;
 afterEach(() => { delete g.NSCWasmEdgeRuntime; delete g.NSCWasmEdgeHostCallback; delete g.NSMutableArray; delete g.NSData; delete g.interop; });
 
 function installIosFake() {
-  g.interop = { Reference: class { value: any = null; } };
+  g.interop = {
+    Reference: class { value: any = null; },
+    bufferFromData: (data: any) => data.bytes,
+  };
   g.NSMutableArray = class { private items: any[] = []; static alloc() { return { init() { return new g.NSMutableArray(); } }; } addObject(v: any) { this.items.push(v); } get count() { return 1; } objectAtIndex() { return this.items[0]; } };
   g.NSData = class { private data: Uint8Array; constructor(data: Uint8Array) { this.data = data; } static dataWithBytesLength(bytes: Uint8Array) { return new g.NSData(bytes); } get bytes() { return this.data.buffer; } get length() { return this.data.length; } };
   g.NSCWasmEdgeHostCallback = class { static extend(c: { invoke(args: any[]): any[] }) { return class { static new() { const i = Object.create(this.prototype); (i as any).invoke = c.invoke; return i; } }; } };

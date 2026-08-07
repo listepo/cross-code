@@ -4,6 +4,12 @@
 # its own pnpm-lock.yaml.
 packages: []
 
+# The app consumes local plugins through `file:`. Their source manifests use
+# `workspace:*` for the shared core, which is otherwise resolved against this
+# intentionally isolated workspace. Pin that transitive dependency locally.
+overrides:
+  '@cross-code/ns-wasm-core': file:../../packages/ns-wasm-core
+
 # pnpm 11 blocks dependency build scripts by default (ERR_PNPM_IGNORED_BUILDS).
 # These packages ship native binaries or CLI glue used by the app build.
 allowBuilds:

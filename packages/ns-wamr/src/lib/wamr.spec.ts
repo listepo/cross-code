@@ -367,9 +367,9 @@ describe('WamrRuntime on Android', () => {
     const module = runtime.loadModule([1]);
 
     const received: unknown[] = [];
-    module.linkHostFunction('env', 'host_add', 'i(ii)', (a, b) => {
-      received.push(a, b);
-      return (a as number) + (b as number);
+    module.linkHostFunction('env', 'host_add', 'i(ii)', (args) => {
+      received.push(...args);
+      return [(args[0] as number) + (args[1] as number)];
     });
     expect(runtime.call('call_host_add', 3, 4)).toBe(7);
     expect(received).toEqual([3, 4]);
@@ -434,9 +434,9 @@ describe('WamrRuntime on Android', () => {
     const module = runtime.loadModule([1]);
 
     const received: unknown[] = [];
-    module.linkHostFunction('env', 'host_add', 'i(ii)', (a, b) => {
-      received.push(a, b);
-      return (a as number) + (b as number);
+    module.linkHostFunction('env', 'host_add', 'i(ii)', (args) => {
+      received.push(...args);
+      return [(args[0] as number) + (args[1] as number)];
     });
 
     expect(runtime.call('call_host_add', 3, 4)).toBe(7);
@@ -490,7 +490,9 @@ describe('WamrRuntime on iOS', () => {
     const runtime = new WamrRuntime();
     const module = runtime.loadModule(new Uint8Array([0, 97, 115, 109]));
 
-    module.linkHostFunction('env', 'host_add', 'i(ii)', (a, b) => (a as number) + (b as number));
+    module.linkHostFunction('env', 'host_add', 'i(ii)', (args) => [
+      (args[0] as number) + (args[1] as number),
+    ]);
     expect(runtime.call('call_host_add', 20, 22)).toBe(42);
   });
 

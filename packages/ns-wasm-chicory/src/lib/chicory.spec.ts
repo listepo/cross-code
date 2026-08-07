@@ -8,7 +8,10 @@ function installAndroidFake() {
   const ns = (g.org = { nativescript: { chicory: {} } } as any).nativescript.chicory;
   const mem = new Uint8Array(64 * 1024);
   ns.NSCChicoryRuntime = class { private _m = mem; constructor() {} static chicoryVersion() { return '0.1.0'; } static jsByteArrayToJava(buf: ArrayBuffer, off: number, len: number) { const a = new g.java.util.ArrayList(); const b = new Uint8Array(buf, off, len); for (let i = 0; i < b.length; i++) a.add(b[i]); return a; } static javaByteArrayToJs(bytes: any) { const arr = new Uint8Array(bytes.size()); for (let i = 0; i < arr.length; i++) arr[i] = bytes.get(i); return arr.buffer; } loadModuleFromBytes() { return {}; } loadModuleFromFile() { return {}; } findFunction(n: string) { return { name() { return n; } }; } memorySize() { return this._m.length; } readMemory(o: number, len: number) { const a = new g.java.util.ArrayList(); const b = this._m.slice(o, o + len); for (let i = 0; i < b.length; i++) a.add(b[i]); return a; } writeMemory(o: number, bytes: any) { const arr = new Uint8Array(bytes.size()); for (let i = 0; i < arr.length; i++) arr[i] = bytes.get(i); this._m.set(arr, o); } dispose() {} };
-  ns.NSCChicoryHostCallback = class { constructor(private cb: (a: any[]) => any[]) {} };
+  ns.NSCChicoryHostCallback = class {
+    constructor(private readonly cb: (args: any[]) => any[]) {}
+    invoke(args: any[]) { return this.cb(args); }
+  };
 }
 describe('ChicoryRuntime (Android fake)', () => {
   beforeEach(() => { installAndroidFake(); });

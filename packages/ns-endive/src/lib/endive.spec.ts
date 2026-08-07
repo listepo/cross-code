@@ -43,6 +43,7 @@ function installAndroidFake() {
   };
 
   const ns = (g.org = { nativescript: { endive: {} } } as any).nativescript.endive;
+  const module = { name: () => 'fake.wasm' };
 
   ns.NSCEndiveRuntime = class {
     private _memory: Uint8Array;
@@ -59,8 +60,8 @@ function installAndroidFake() {
       for (let i = 0; i < arr.length; i++) arr[i] = bytes.get(i);
       return arr.buffer;
     }
-    loadModuleFromBytes(_bytes: any) { return {}; }
-    loadModuleFromFile(_path: string) { return {}; }
+    loadModuleFromBytes(_bytes: any) { return module; }
+    loadModuleFromFile(_path: string) { return module; }
     findFunction(name: string) { return { name() { return name; } }; }
     memorySize() { return this._memory.length; }
     readMemory(offset: number, length: number) {
