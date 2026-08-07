@@ -1,3 +1,9 @@
+// The wrapper translates any underlying Chicory/JVM error into
+// NSCChicoryException so the NativeScript bridge reports it consistently;
+// catching the generic engine exceptions and rethrowing a domain error is the
+// point of these blocks.
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
+
 package org.nativescript.chicory
 
 import com.dylibso.chicory.runtime.ExportFunction
@@ -6,6 +12,8 @@ import com.dylibso.chicory.runtime.Instance
 import com.dylibso.chicory.runtime.Memory
 import com.dylibso.chicory.runtime.Store
 import com.dylibso.chicory.wasm.Parser
+import com.dylibso.chicory.wasm.types.ExternalType
+import com.dylibso.chicory.wasm.types.FunctionImport
 import com.dylibso.chicory.wasm.types.FunctionType
 import com.dylibso.chicory.wasm.types.MutabilityType
 import com.dylibso.chicory.wasm.types.ValType
@@ -97,21 +105,35 @@ class HostTrampoline(
 
         val result: Any? = try {
             callback.invoke(jsArgs)
-        } catch (_: Throwable) {
-            return null
+        } catch (e: Throwable) {
+            // Re-wrap the original error so the device test surface can
+            // report the underlying cause.
+            throw NSCChicoryException(
+                "host ${paramTypeNames.size}x${returnTypeNames.size}: ${e::class.java.simpleName}: ${e.message}",
+            )
         }
 
-        val returned: List<Any?> = when (result) {
-            null -> emptyList()
-            is Array<*> -> result.toList()
-            is List<*> -> result
+        // For void-returning functions the bridge value is unreliable (NS
+        // may surface `null`, `Unit`, or an empty proxy) — short-circuit.
+        val returned: List<Any?> = when {
+            returnTypeNames.isEmpty() -> emptyList()
+            result == null -> emptyList()
+            result is Array<*> -> result.toList()
+            result is List<*> -> result
             else -> listOf(result)
         }
 
         if (returned.size != returnTypeNames.size) return null
         val out = LongArray(returned.size)
         for (i in returned.indices) {
-            out[i] = Wire.encode(returnTypeNames[i], returned[i])
+            val encoded = try {
+                Wire.encode(returnTypeNames[i], returned[i])
+            } catch (e: Throwable) {
+                throw NSCChicoryException(
+                    "host encode ${returnTypeNames[i]}(${returned[i]}): ${e.message}",
+                )
+            }
+            out[i] = encoded
         }
         return out
     }
@@ -131,7 +153,7 @@ class NSCChicoryRuntime(
     private var closed = false
 
     companion object {
-        private const val CHICORY_VERSION = "chicory"
+        private const val CHICORY_VERSION = "1.7.5"
 
         @JvmStatic
         fun chicoryVersion(): String = CHICORY_VERSION
@@ -139,7 +161,11 @@ class NSCChicoryRuntime(
 
     fun loadModuleFromBytes(bytes: ByteArray): NSCChicoryModule {
         val copy = bytes.copyOf()
-        val wasmModule = Parser.parse(ByteArrayInputStream(copy))
+        val wasmModule = try {
+            Parser.parse(ByteArrayInputStream(copy))
+        } catch (e: Exception) {
+            throw NSCChicoryException("failed to parse wasm module: ${e.message}")
+        }
         val module = NSCChicoryModule(wasmModule, this)
         moduleBytes.add(copy)
         modules.add(module)
@@ -176,14 +202,22 @@ class NSCChicoryRuntime(
         ensureInstantiated()
         val inst = currentInstance() ?: throw NSCChicoryException("no memory")
         val mem = inst.memory() ?: throw NSCChicoryException("no memory")
-        return mem.readBytes(offset, length)
+        return try {
+            mem.readBytes(offset, length)
+        } catch (e: Exception) {
+            throw NSCChicoryException("readMemory($offset, $length): ${e.message}")
+        }
     }
 
     fun writeMemory(offset: Int, data: ByteArray) {
         ensureInstantiated()
         val inst = currentInstance() ?: throw NSCChicoryException("no memory")
         val mem = inst.memory() ?: throw NSCChicoryException("no memory")
-        mem.write(offset, data)
+        try {
+            mem.write(offset, data)
+        } catch (e: Exception) {
+            throw NSCChicoryException("writeMemory($offset, ${data.size}): ${e.message}")
+        }
     }
 
     fun dispose() {
@@ -251,10 +285,44 @@ class NSCChicoryModule internal constructor(
     fun ensureInstantiated() {
         if (instance != null) return
         val store = runtime.store()
+
+        // Chicory resolves every import eagerly at `Store.instantiate` — an
+        // unlinked import fails the whole module. Link trap stubs for any
+        // function imports not already registered by linkHostFunction, so
+        // exports that do not depend on them keep working and a missing import
+        // only traps when it is actually called.
         for (hf in linkedFunctions) {
             store.addFunction(hf)
         }
-        instance = store.instantiate(name, wasmModule)
+
+        val importSection = wasmModule.importSection()
+        for (i in 0 until importSection.importCount()) {
+            val imp = importSection.getImport(i)
+            if (
+                imp is FunctionImport &&
+                linkedFunctions.none { it.module() == imp.module() && it.name() == imp.name() }
+            ) {
+                val funcType = wasmModule.typeSection().getType(imp.typeIndex())
+                store.addFunction(
+                    HostFunction(
+                        imp.module(),
+                        imp.name(),
+                        funcType,
+                        com.dylibso.chicory.runtime.WasmFunctionHandle { _, _ ->
+                            throw NSCChicoryException(
+                                "missing host import: ${imp.module()}.${imp.name()}",
+                            )
+                        },
+                    ),
+                )
+            }
+        }
+
+        instance = try {
+            store.instantiate(name, wasmModule)
+        } catch (e: Exception) {
+            throw NSCChicoryException("failed to instantiate module: ${e.message}")
+        }
     }
 
     fun instance(): Instance? = instance
@@ -274,7 +342,11 @@ class NSCChicoryModule internal constructor(
     fun getGlobal(name: String): Any {
         ensureInstantiated()
         val inst = instance!!
-        val globalInst = inst.exports().global(name)
+        val globalInst = try {
+            inst.exports().global(name)
+        } catch (e: Exception) {
+            throw NSCChicoryException("global not found: $name")
+        }
         val typeName = globalInst.type.toTypeString()
         return Wire.decode(typeName, globalInst.value)
     }
@@ -282,7 +354,11 @@ class NSCChicoryModule internal constructor(
     fun setGlobal(name: String, value: Any?) {
         ensureInstantiated()
         val inst = instance!!
-        val globalInst = inst.exports().global(name)
+        val globalInst = try {
+            inst.exports().global(name)
+        } catch (e: Exception) {
+            throw NSCChicoryException("global not found: $name")
+        }
         val typeName = globalInst.type.toTypeString()
         globalInst.setValue(Wire.encode(typeName, value))
     }
@@ -319,21 +395,27 @@ class NSCChicoryFunction internal constructor(
     /** Calls the function.  Accepts a Java ArrayList from NativeScript. */
     @Suppress("SpreadOperator") // Chicory's ExportFunction.apply() requires varargs
     fun call(args: ArrayList<Any>): ArrayList<Any> {
-        val longArgs = LongArray(paramTypes.size) { i ->
-            Wire.encode(paramTypes[i], args[i])
-        }
-
-        val results = exportFunction.apply(*longArgs)
-
-        val out = ArrayList<Any>(returnTypes.size)
-        for (i in returnTypes.indices) {
-            if (i < results.size) {
-                out.add(Wire.decode(returnTypes[i], results[i]))
-            } else {
-                out.add(0)
+        try {
+            val longArgs = LongArray(paramTypes.size) { i ->
+                Wire.encode(paramTypes[i], args[i])
             }
+
+            val results = exportFunction.apply(*longArgs)
+
+            val out = ArrayList<Any>(returnTypes.size)
+            for (i in returnTypes.indices) {
+                if (i < results.size) {
+                    out.add(Wire.decode(returnTypes[i], results[i]))
+                } else {
+                    out.add(0)
+                }
+            }
+            return out
+        } catch (e: NSCChicoryException) {
+            throw e
+        } catch (e: Exception) {
+            throw NSCChicoryException("call $name: ${e.message}")
         }
-        return out
     }
 }
 

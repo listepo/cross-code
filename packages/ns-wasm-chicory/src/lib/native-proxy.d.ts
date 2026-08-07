@@ -13,20 +13,18 @@ export interface JavaArrayList {
 /** Shape of the NSCChicoryRuntime Kotlin class as seen from TypeScript. */
 export interface NativeChicoryRuntimeProxy {
   chicoryVersion(): string;
-  jsByteArrayToJava(buffer: ArrayBuffer, offset: number, length: number): JavaArrayList;
-  javaByteArrayToJs(bytes: JavaArrayList): ArrayBuffer;
-  loadModuleFromBytes(bytes: JavaArrayList): NativeChicoryModuleProxy;
+  loadModuleFromBytes(bytes: unknown): NativeChicoryModuleProxy;
   loadModuleFromFile(path: string): NativeChicoryModuleProxy;
   findFunction(name: string): NativeChicoryFunctionProxy;
   memorySize(): number;
-  readMemory(offset: number, length: number): JavaArrayList;
-  writeMemory(offset: number, bytes: JavaArrayList): void;
+  readMemory(offset: number, length: number): unknown;
+  writeMemory(offset: number, bytes: unknown): void;
   dispose(): void;
 }
 
 /** Shape of the NSCChicoryModule Kotlin class. */
 export interface NativeChicoryModuleProxy {
-  name(): string;
+  getName(): string;
   linkHostFunction(mod: string, name: string, sig: string, cb: unknown): void;
   getGlobal(name: string): unknown;
   setGlobal(name: string, value: unknown): void;
@@ -34,9 +32,9 @@ export interface NativeChicoryModuleProxy {
 
 /** Shape of the NSCChicoryFunction Kotlin class. */
 export interface NativeChicoryFunctionProxy {
-  name(): string;
-  paramTypes(): JavaArrayList;
-  returnTypes(): JavaArrayList;
+  getName(): string;
+  getParamTypes(): JavaArrayList;
+  getReturnTypes(): JavaArrayList;
   call(args: JavaArrayList): JavaArrayList;
 }
 
@@ -49,8 +47,6 @@ export interface NativeChicoryHostFunctionProxy {
 export interface NsChicoryNamespace {
   NSCChicoryRuntime: (new (stackSizeInBytes: number) => NativeChicoryRuntimeProxy) & {
     chicoryVersion(): string;
-    jsByteArrayToJava(buffer: ArrayBuffer, offset: number, length: number): JavaArrayList;
-    javaByteArrayToJs(bytes: JavaArrayList): ArrayBuffer;
   };
   NSCChicoryHostFunction: NativeChicoryHostFunctionProxy;
 }

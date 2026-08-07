@@ -8,7 +8,7 @@ function installAndroidFake() {
   const ns = (g.org = { nativescript: { chicory: {} } } as any).nativescript.chicory;
   const mem = new Uint8Array(64 * 1024);
   const hostFns: any[] = [];
-  ns.NSCChicoryRuntime = class { private _m = mem; constructor() {} static chicoryVersion() { return '0.1.0'; } static jsByteArrayToJava(buf: ArrayBuffer, off: number, len: number) { const a = new g.java.util.ArrayList(); const b = new Uint8Array(buf, off, len); for (let i = 0; i < b.length; i++) a.add(b[i]); return a; } static javaByteArrayToJs(bytes: any) { const arr = new Uint8Array(bytes.size()); for (let i = 0; i < arr.length; i++) arr[i] = bytes.get(i); return arr.buffer; } loadModuleFromBytes() { return { name: () => 'test', linkHostFunction(mod: string, name: string, sig: string, hostFn: any) { hostFns.push({ mod, name, sig, hostFn }); } }; } loadModuleFromFile() { return { name: () => 'test', linkHostFunction(mod: string, name: string, sig: string, hostFn: any) { hostFns.push({ mod, name, sig, hostFn }); } }; } findFunction(n: string) { return { name() { return n; } }; } memorySize() { return this._m.length; } readMemory(o: number, len: number) { const a = new g.java.util.ArrayList(); const b = this._m.slice(o, o + len); for (let i = 0; i < b.length; i++) a.add(b[i]); return a; } writeMemory(o: number, bytes: any) { const arr = new Uint8Array(bytes.size()); for (let i = 0; i < arr.length; i++) arr[i] = bytes.get(i); this._m.set(arr, o); } dispose() {} };
+  ns.NSCChicoryRuntime = class { private _m = mem; constructor() {} static chicoryVersion() { return '0.1.0'; } loadModuleFromBytes() { return { getName: () => 'test', linkHostFunction(mod: string, name: string, sig: string, hostFn: any) { hostFns.push({ mod, name, sig, hostFn }); } }; } loadModuleFromFile() { return { getName: () => 'test', linkHostFunction(mod: string, name: string, sig: string, hostFn: any) { hostFns.push({ mod, name, sig, hostFn }); } }; } findFunction(n: string) { return { getName: () => n }; } memorySize() { return this._m.length; } readMemory(o: number, len: number) { const a = new g.java.util.ArrayList(); const b = this._m.slice(o, o + len); for (let i = 0; i < b.length; i++) a.add(b[i]); return a; } writeMemory(o: number, bytes: any) { const src = bytes instanceof Uint8Array ? Array.from(bytes) : Array.from({ length: bytes.size() }, (_: any, i: number) => bytes.get(i)); this._m.set(src, o); } dispose() {} };
   // Kotlin `fun interface NSCChicoryHostFunction` — instantiated from JS with
   // an object literal, mirroring the wasm3/wamr host-callback pattern.
   ns.NSCChicoryHostFunction = class {
@@ -43,8 +43,8 @@ describe('ChicoryRuntime (Android fake)', () => {
     // NativeScript converts Kotlin's Array<Any> into a plain JS array.
     const out = hostFn.impl.invoke([1, 2]);
     expect(seen[0]).toEqual([1, 2]);
-    expect(out).toBeInstanceOf(g.java.lang.Double);
-    expect(out.doubleValue()).toBe(3);
+    // The adapter returns plain JS values so the NS bridge can convert them.
+    expect(out).toBe(3);
     r.dispose();
   });
   it('normalizes i64 args and multi-value returns through the host function', () => {

@@ -27,35 +27,46 @@ function arrayList(): JavaArrayList {
 }
 
 function javaArrayToJs(list: unknown): unknown[] {
-  // Host-import arguments cross as a Java Array<Any>, which NativeScript
-  // converts to a plain JS array — not an ArrayList proxy with size()/get().
+  if (list == null) return [];
   if (Array.isArray(list)) return list as unknown[];
+  // Host-import arguments cross as a Java Array<Any>, which NativeScript
+  // converts to a plain JS-like wrapper with .length and indexed access —
+  // not an ArrayList proxy with size()/get().
   const arr = list as JavaArrayList;
-  const r: unknown[] = [];
-  for (let i = 0; i < arr.size(); i++) r.push(arr.get(i));
-  return r;
+  if (typeof arr.size === 'function') {
+    const r: unknown[] = [];
+    for (let i = 0; i < arr.size(); i++) r.push(arr.get(i));
+    return r;
+  }
+  const result: unknown[] = [];
+  const length = (list as { length?: number }).length ?? 0;
+  for (let i = 0; i < length; i++) result.push((list as { [index: number]: unknown })[i]);
+  return result;
 }
 
-function toJavaBytes(source: Uint8Array): JavaArrayList {
-  try {
-    return ns()?.NSCChicoryRuntime.jsByteArrayToJava(
-      source.buffer as ArrayBuffer,
-      source.byteOffset,
-      source.byteLength,
-    )!;
-  } catch {
-    const bytes = arrayList();
-    for (let i = 0; i < source.length; i++) bytes.add(source[i]);
-    return bytes;
+function toJavaBytes(bytes: Uint8Array): unknown {
+  const ArrayCreate =
+    (globalThis as unknown as { Array?: { create?: (type: string, length: number) => unknown } })
+      .Array?.create ?? (Array as unknown as { create?: (type: string, length: number) => unknown }).create;
+  if (typeof ArrayCreate === 'function') {
+    const javaBytes = ArrayCreate('byte', bytes.length) as { [index: number]: number };
+    for (let i = 0; i < bytes.length; i++) {
+      const v = bytes[i];
+      javaBytes[i] = v > 127 ? v - 256 : v;
+    }
+    return javaBytes;
   }
+  return bytes;
 }
 
-function fromJavaBytes(javaBytes: JavaArrayList): Uint8Array {
-  try {
-    return new Uint8Array(ns()!.NSCChicoryRuntime.javaByteArrayToJs(javaBytes));
-  } catch {
-    return Uint8Array.from(javaArrayToJs(javaBytes) as number[]);
-  }
+function fromJavaBytes(javaBytes: unknown): Uint8Array {
+  // Kotlin ByteArray may cross as a Java array proxy (length + index) or an
+  // ArrayList proxy (size()/get()) depending on the bridge path.
+  const values = javaArrayToJs(javaBytes) as number[];
+  const result = new Uint8Array(values.length);
+  for (let i = 0; i < values.length; i++)
+    result[i] = (Number(values[i]) + 256) & 0xff;
+  return result;
 }
 
 function normalizeAndroidValue(value: unknown): WireValue | null {
@@ -90,13 +101,13 @@ function rethrow(error: unknown, context: string): never {
 class AndroidFunction implements NativeFunctionAdapter {
   constructor(private readonly fn: NativeChicoryFunctionProxy) {}
   name(): string {
-    return String(this.fn.name());
+    return String(this.fn.getName());
   }
   paramTypes(): WasmValueType[] {
-    return javaArrayToJs(this.fn.paramTypes()).map(String) as WasmValueType[];
+    return javaArrayToJs(this.fn.getParamTypes()).map(String) as WasmValueType[];
   }
   returnTypes(): WasmValueType[] {
-    return javaArrayToJs(this.fn.returnTypes()).map(String) as WasmValueType[];
+    return javaArrayToJs(this.fn.getReturnTypes()).map(String) as WasmValueType[];
   }
   call(args: WireValue[]): WireValue[] {
     const ctx = `call ${this.name()}`;
@@ -119,7 +130,8 @@ class AndroidFunction implements NativeFunctionAdapter {
 function makeAndroidHostCallback(cb: WireHostCallback): unknown {
   const n = ns();
   if (!n?.NSCChicoryHostFunction) throw new ChicoryError('NSCChicoryHostFunction not available');
-  // Create a NSCChicoryHostFunction SAM adapter directly (like wasm3's pattern).
+  // Create a NSCChicoryHostFunction SAM adapter directly. Return plain JS
+  // values (not java.lang.Double etc.) so the NS bridge can convert them.
   return new n.NSCChicoryHostFunction({
     invoke: (nativeArgs: unknown[]) => {
       const results = cb(
@@ -129,9 +141,12 @@ function makeAndroidHostCallback(cb: WireHostCallback): unknown {
           return n;
         }),
       );
-      if (results.length === 0) return null;
-      if (results.length === 1) return toJavaWireValue(results[0]);
-      return results.map(toJavaWireValue);
+      if (results.length === 0) return undefined;
+      if (results.length === 1) {
+        const v = results[0];
+        return typeof v === 'number' || typeof v === 'string' ? v : String(v);
+      }
+      return results.map((v) => (typeof v === 'number' || typeof v === 'string' ? v : String(v)));
     },
   });
 }
@@ -139,7 +154,7 @@ function makeAndroidHostCallback(cb: WireHostCallback): unknown {
 class AndroidModule implements NativeModuleAdapter {
   constructor(private readonly module: NativeChicoryModuleProxy) {}
   name(): string {
-    return String(this.module.name());
+    return String(this.module.getName());
   }
   linkHostFunction(mod: string, name: string, signature: string, cb: WireHostCallback): void {
     try {

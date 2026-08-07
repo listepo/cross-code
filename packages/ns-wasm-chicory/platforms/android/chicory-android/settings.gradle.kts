@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "chicory-android"
 
-include(":library")
+include(":library", ":hosttest")
