@@ -2,11 +2,15 @@
  * The Rust fixture module driven through @cross-code/ns-wasm-chicory
  * (Android-only — pure-Java runtime).
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it } from 'vitest';
 import { ChicoryError, ChicoryRuntime, type ChicoryModule } from '@cross-code/ns-wasm-chicory';
 import { callFixture, createHostImports, runFixtureChecks, summarize, type HostCall } from '../../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM } from '../../wasm/wasm-assets';
-describe('the fixture module through @cross-code/ns-wasm-chicory', () => {
+import { CHICORY, describeRuntime } from '../runtime-support';
+// Chicory is pure Java, so this suite is Android-only — and skips even there
+// until the plugin's .aar lands. See ../runtime-support.ts.
+const describeChicory = describeRuntime(CHICORY);
+describeChicory('the fixture module through @cross-code/ns-wasm-chicory', () => {
   let runtime: ChicoryRuntime; let module: ChicoryModule; let log: HostCall[];
   beforeEach(() => { runtime = new ChicoryRuntime(); log = []; module = runtime.loadModule(appWasmPath(FIXTURE_WASM), createHostImports(log)); });
   afterEach(() => { if (runtime) runtime.dispose(); });

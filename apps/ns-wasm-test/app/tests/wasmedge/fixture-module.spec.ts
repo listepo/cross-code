@@ -1,12 +1,17 @@
 /**
  * The Rust fixture module driven through @cross-code/ns-wasm-edge.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it } from 'vitest';
 import { WasmEdgeError, WasmEdgeRuntime, type WasmEdgeModule } from '@cross-code/ns-wasm-edge';
 import { callFixture, createHostImports, runFixtureChecks, summarize, type HostCall } from '../../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM } from '../../wasm/wasm-assets';
+import { describeRuntime, WASMEDGE } from '../runtime-support';
 
-describe('the fixture module through @cross-code/ns-wasm-edge', () => {
+// WasmEdge targets both platforms, so this suite skips only until the plugin's
+// xcframework / .aar land. See ../runtime-support.ts.
+const describeWasmEdge = describeRuntime(WASMEDGE);
+
+describeWasmEdge('the fixture module through @cross-code/ns-wasm-edge', () => {
   let runtime: WasmEdgeRuntime; let module: WasmEdgeModule; let log: HostCall[];
   beforeEach(() => { runtime = new WasmEdgeRuntime(); log = []; module = runtime.loadModule(appWasmPath(FIXTURE_WASM), createHostImports(log)); });
   afterEach(() => { if (runtime) runtime.dispose(); });

@@ -5,7 +5,7 @@
  * Vitest discovers this file in Node, then @cross-code/vitest-ns
  * executes it inside a NativeScript Worker on the selected device.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it } from 'vitest';
 import {
   EndiveError,
   EndiveRuntime,
@@ -20,8 +20,13 @@ import {
   type HostCall,
 } from '../../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM } from '../../wasm/wasm-assets';
+import { describeRuntime, ENDIVE } from '../runtime-support';
 
-describe('the fixture module through @cross-code/ns-endive', () => {
+// Endive runs on the JVM, so this suite is Android-only — and skips even there
+// until the plugin's .aar lands. See ../runtime-support.ts.
+const describeEndive = describeRuntime(ENDIVE);
+
+describeEndive('the fixture module through @cross-code/ns-endive', () => {
   let runtime: EndiveRuntime;
   let module: EndiveModule;
   let log: HostCall[];

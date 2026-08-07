@@ -4,8 +4,9 @@
 # Usage: tools/build-xcframework.sh <ENGINE>
 #   ENGINE = NSCWamr | NSCWasm3 | NSCWry
 #
-# Builds <ENGINE>.xcframework (device arm64 + simulator arm64 + simulator
-# x86_64) with size optimizations, plus dSYM bundles for symbolication.
+# Builds <ENGINE>.xcframework (device arm64 + a universal arm64/x86_64
+# simulator slice) with size optimizations, plus dSYM bundles for
+# symbolication.
 # The engine name selects the package (ns-<engine-lowercase>) and product.
 #
 # The NativeScript CLI (9.x) picks up any platforms/ios/*.xcframework from a
@@ -14,9 +15,14 @@
 #
 # Notes:
 # - The iOS 26 SDK still supports x86_64 simulator compilation for Intel Macs
-#   and Rosetta-mode simulators on Apple Silicon. We ship an x86_64 simulator
-#   slice so the framework links on every macOS host. The xcframework has
-#   three slices: ios-arm64 (device), ios-arm64-simulator, ios-x86_64-simulator.
+#   and Rosetta-mode simulators on Apple Silicon. We ship x86_64 simulator
+#   code so the framework links on every macOS host. The two simulator
+#   architectures MUST be lipo'd into a single universal slice: an
+#   xcframework that lists ios-arm64-simulator and ios-x86_64-simulator as
+#   separate libraries is rejected by Xcode with "Both 'ios-arm64-simulator'
+#   and 'ios-x86_64-simulator' represent two equivalent library definitions"
+#   (same platform + same variant). The bundle therefore has two slices:
+#   ios-arm64 (device) and ios-arm64_x86_64-simulator.
 # - xcodebuild cannot be used from sandboxed terminals (nested sandbox-exec is
 #   blocked), so each slice is built with `swift build --triple` + explicit
 #   SDK flags, and the .xcframework bundle is assembled by hand (its layout is
@@ -75,27 +81,40 @@ build_slice() { # $1=triple $2=sdk-name $3=output-name
     -c "Add :CFBundleVersion string 1" \
     -c "Add :CFBundleShortVersionString string 0.1.0" \
     "$fw/Info.plist" >/dev/null
-
-  # dSYM from the UNSTRIPPED binary (release builds with -g carry DWARF).
-  dsymutil "$fw/$ENGINE" -o "$BUILD/$out_name/$ENGINE.framework.dSYM" >/dev/null 2>&1 || true
 }
+
+SIM=ios-arm64_x86_64-simulator
 
 # ── 1. Device slice (arm64) ─────────────────────────────────────────────
 build_slice arm64-apple-ios iphoneos ios-arm64
 
-# ── 2. Simulator slice (arm64) ──────────────────────────────────────────
-build_slice arm64-apple-ios-simulator iphonesimulator ios-arm64-simulator
+# ── 2. Simulator slices — built per-arch, merged into one universal slice ─
+#      x86_64 is needed for Intel Macs and Rosetta-mode simulators.
+build_slice arm64-apple-ios-simulator iphonesimulator sim-arm64
+build_slice x86_64-apple-ios-simulator iphonesimulator sim-x86_64
 
-# ── 3. Simulator slice (x86_64) — needed for Intel Macs and Rosetta sims ─
-build_slice x86_64-apple-ios-simulator iphonesimulator ios-x86_64-simulator
+# ── 3. Merge the simulator architectures into ONE universal slice. Two
+#      separate simulator libraries are "equivalent library definitions" to
+#      Xcode (same platform + variant) and make the whole xcframework fail
+#      to load; a single fat binary is the layout xcodebuild itself emits. ─
+ditto "$BUILD/sim-arm64/$ENGINE.framework" "$BUILD/$SIM/$ENGINE.framework"
+lipo -create "$BUILD/sim-arm64/$ENGINE.framework/$ENGINE" \
+             "$BUILD/sim-x86_64/$ENGINE.framework/$ENGINE" \
+     -output "$BUILD/$SIM/$ENGINE.framework/$ENGINE"
 
-# ── 4. Strip the shipped binaries: local symbols + DWARF (keeps exported
+# ── 4. dSYMs from the UNSTRIPPED binaries (release builds with -g carry
+#      DWARF); dsymutil handles the universal simulator binary. ──────────
+for slice in ios-arm64 "$SIM"; do
+  dsymutil "$BUILD/$slice/$ENGINE.framework/$ENGINE" \
+    -o "$BUILD/$slice/$ENGINE.framework.dSYM" >/dev/null 2>&1 || true
+done
+
+# ── 5. Strip the shipped binaries: local symbols + DWARF (keeps exported
 #      dynamic symbols + ObjC runtime metadata; dSYMs retain everything). ─
 strip -S -x "$BUILD/ios-arm64/$ENGINE.framework/$ENGINE"
-strip -S -x "$BUILD/ios-arm64-simulator/$ENGINE.framework/$ENGINE"
-strip -S -x "$BUILD/ios-x86_64-simulator/$ENGINE.framework/$ENGINE"
+strip -S -x "$BUILD/$SIM/$ENGINE.framework/$ENGINE"
 
-# ── 5. Assemble the XCFramework bundle by hand ──────────────────────────
+# ── 6. Assemble the XCFramework bundle by hand ──────────────────────────
 mkdir -p "$OUT"
 cat > "$OUT/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -116,23 +135,11 @@ cat > "$OUT/Info.plist" <<PLIST
 		</dict>
 		<dict>
 			<key>LibraryIdentifier</key>
-			<string>ios-arm64-simulator</string>
+			<string>$SIM</string>
 			<key>LibraryPath</key>
 			<string>$ENGINE.framework</string>
 			<key>SupportedArchitectures</key>
-			<array><string>arm64</string></array>
-			<key>SupportedPlatform</key>
-			<string>ios</string>
-			<key>SupportedPlatformVariant</key>
-			<string>simulator</string>
-		</dict>
-		<dict>
-			<key>LibraryIdentifier</key>
-			<string>ios-x86_64-simulator</string>
-			<key>LibraryPath</key>
-			<string>$ENGINE.framework</string>
-			<key>SupportedArchitectures</key>
-			<array><string>x86_64</string></array>
+			<array><string>arm64</string><string>x86_64</string></array>
 			<key>SupportedPlatform</key>
 			<string>ios</string>
 			<key>SupportedPlatformVariant</key>
@@ -147,11 +154,10 @@ cat > "$OUT/Info.plist" <<PLIST
 </plist>
 PLIST
 ditto "$BUILD/ios-arm64/$ENGINE.framework" "$OUT/ios-arm64/$ENGINE.framework"
-ditto "$BUILD/ios-arm64-simulator/$ENGINE.framework" "$OUT/ios-arm64-simulator/$ENGINE.framework"
-ditto "$BUILD/ios-x86_64-simulator/$ENGINE.framework" "$OUT/ios-x86_64-simulator/$ENGINE.framework"
+ditto "$BUILD/$SIM/$ENGINE.framework" "$OUT/$SIM/$ENGINE.framework"
 
-# ── 6. Keep the dSYMs produced by dsymutil (all slices). ────────────────
-for slice in ios-arm64 ios-arm64-simulator ios-x86_64-simulator; do
+# ── 7. Keep the dSYMs produced by dsymutil (all slices). ────────────────
+for slice in ios-arm64 "$SIM"; do
   ditto "$BUILD/$slice/$ENGINE.framework.dSYM" "$DSYM_OUT/$slice/$ENGINE.framework.dSYM"
 done
 
