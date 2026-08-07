@@ -73,7 +73,7 @@ export const ENDIVE: RuntimeSupport = {
 /** Chicory is a pure-Java interpreter. */
 export const CHICORY: RuntimeSupport = {
   platforms: ['android'],
-  nativeLayer: 'pending',
+  nativeLayer: 'shipped',
   isLoaded: () =>
     g().org?.nativescript?.chicory?.NSCChicoryRuntime != null ||
     g().NSCChicoryRuntime != null,

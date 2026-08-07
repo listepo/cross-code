@@ -3,11 +3,66 @@
   "version": "0.1.0",
   "description": "NativeScript plugin that runs WebAssembly modules with the Chicory interpreter (https://github.com/dylibso/chicory) — a pure-Java runtime, Android-only.",
   "type": "module",
-  "main": "./dist/index.js", "module": "./dist/index.js", "types": "./dist/index.d.ts",
-  "exports": { "./package.json": "./package.json", ".": { "@cross-code/source": "./src/index.ts", "types": "./dist/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" } },
-  "files": ["dist","platforms/android/include.gradle","platforms/ios/NSCChicory/Package.swift","platforms/ios/NSCChicory/Sources","!**/*.tsbuildinfo"],
-  "nativescript": { "platforms": { "ios": "8.6.0", "android": "8.6.0" } },
-  "nx": { "name": "ns-wasm-chicory", "targets": { "coverage": { "executor": "nx:run-script", "options": { "script": "coverage" } } } },
-  "scripts": { "coverage": "vitest run --coverage" },
-  "dependencies": { "@cross-code/ns-wasm-core": "workspace:*", "tslib": "^2.3.0" }
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@cross-code/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "platforms/android/include.gradle",
+    "platforms/android/nativescript-chicory.aar",
+    "!**/*.tsbuildinfo"
+  ],
+  "nativescript": {
+    "platforms": {
+      "android": "8.6.0"
+    }
+  },
+  "nx": {
+    "name": "ns-wasm-chicory",
+    "targets": {
+      "test.android": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "test.android"
+        }
+      },
+      "build.android": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "build.android"
+        }
+      },
+      "lint.android": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "lint.android"
+        }
+      },
+      "coverage": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test.android": "cd platforms/android/chicory-android && ./gradlew :library:test",
+    "build.android": "cd platforms/android/chicory-android && ./gradlew :library:deployAar",
+    "lint.android": "cd platforms/android/chicory-android && ./gradlew detekt ktlintCheck",
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@cross-code/ns-wasm-core": "workspace:*",
+    "tslib": "^2.3.0"
+  }
 }
