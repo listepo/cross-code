@@ -53,8 +53,7 @@ fn main() {
         } else {
             &target
         };
-        bindings_builder =
-            bindings_builder.clang_arg(format!("--target={clang_target}{api}"));
+        bindings_builder = bindings_builder.clang_arg(format!("--target={clang_target}{api}"));
         if let Ok(sysroot) = env::var("CARGO_NDK_SYSROOT_PATH") {
             bindings_builder = bindings_builder.clang_arg(format!("--sysroot={sysroot}"));
         }
@@ -110,19 +109,28 @@ fn main() {
         platform_dir.clone(),
         wamr_core.join("shared").join("utils"),
         wamr_core.join("shared").join("mem-alloc"),
-        wamr_core.join("shared").join("platform").join("common").join("posix"),
-        wamr_core.join("shared").join("platform").join("common").join("libc-util"),
-        wamr_core.join("shared").join("platform").join("common").join("memory"),
+        wamr_core
+            .join("shared")
+            .join("platform")
+            .join("common")
+            .join("posix"),
+        wamr_core
+            .join("shared")
+            .join("platform")
+            .join("common")
+            .join("libc-util"),
+        wamr_core
+            .join("shared")
+            .join("platform")
+            .join("common")
+            .join("memory"),
         wamr_core.join("iwasm").join("common"),
         wamr_core.join("iwasm").join("interpreter"),
     ];
 
     let mut build = cc::Build::new();
 
-    build
-        .flag("-std=gnu11")
-        .warnings(false)
-        .opt_level(2);
+    build.flag("-std=gnu11").warnings(false).opt_level(2);
 
     // Set deployment target to match the Swift package minimum
     if target_os == "macos" {
@@ -132,7 +140,7 @@ fn main() {
     }
 
     for dir in &include_dirs {
-        build.flag(&format!("-I{}", dir.display()));
+        build.flag(format!("-I{}", dir.display()));
     }
 
     // WAMR defines for interpreter-only build on POSIX (macOS/Linux).
@@ -215,7 +223,12 @@ fn main() {
     build.file(ems_dir.join("ems_gc.c"));
     build.file(ems_dir.join("ems_hmu.c"));
     build.file(ems_dir.join("ems_kfc.c"));
-    build.file(wamr_core.join("shared").join("mem-alloc").join("mem_alloc.c"));
+    build.file(
+        wamr_core
+            .join("shared")
+            .join("mem-alloc")
+            .join("mem_alloc.c"),
+    );
 
     // Utilities (bh_*)
     let utils_dir = wamr_core.join("shared").join("utils");

@@ -61,11 +61,7 @@ pub unsafe fn nsc_global_get(
 ///
 /// # Safety
 /// `global` must be a valid IM3Global pointer.
-pub unsafe fn nsc_global_set(
-    global: IM3Global,
-    i_type: i32,
-    i_bits: u64,
-) -> *const c_char {
+pub unsafe fn nsc_global_set(global: IM3Global, i_type: i32, i_bits: u64) -> *const c_char {
     let mut tagged: M3TaggedValue = unsafe { std::mem::zeroed() };
     tagged.type_ = i_type as M3ValueType;
 

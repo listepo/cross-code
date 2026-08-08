@@ -1,14 +1,12 @@
 //! wry-jni — JNI bindings for the wry engine, loaded by Kotlin via
 //! `System.loadLibrary("wry_jni")`.  Built with `cargo-ndk`.
 
-use jni::JNIEnv;
 use jni::objects::{JClass, JString};
 use jni::sys::jstring;
+use jni::JNIEnv;
 
 fn get_string(env: &mut JNIEnv, s: &JString) -> String {
-    env.get_string(s)
-        .map(|js| js.into())
-        .unwrap_or_default()
+    env.get_string(s).map(|js| js.into()).unwrap_or_default()
 }
 
 #[no_mangle]

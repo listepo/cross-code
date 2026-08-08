@@ -244,9 +244,7 @@ impl WamrModule {
         }
 
         // Create execution environment
-        let exec_env = unsafe {
-            wamr_sys::wasm_runtime_create_exec_env(inst, self.stack_size)
-        };
+        let exec_env = unsafe { wamr_sys::wasm_runtime_create_exec_env(inst, self.stack_size) };
 
         if exec_env.is_null() {
             unsafe { wamr_sys::wasm_runtime_deinstantiate(inst) };
@@ -287,19 +285,12 @@ unsafe impl Send for WamrModuleInstance {}
 unsafe impl Sync for WamrModuleInstance {}
 
 impl WamrModuleInstance {
-    pub fn find_function(
-        self: Arc<Self>,
-        name: String,
-    ) -> Result<Arc<WamrFunction>, WamrError> {
-        let c_name = CString::new(name.clone()).map_err(|_| {
-            WamrError::InvalidArgument {
-                message: "Function name contains null byte".into(),
-            }
+    pub fn find_function(self: Arc<Self>, name: String) -> Result<Arc<WamrFunction>, WamrError> {
+        let c_name = CString::new(name.clone()).map_err(|_| WamrError::InvalidArgument {
+            message: "Function name contains null byte".into(),
         })?;
 
-        let func = unsafe {
-            wamr_sys::wasm_runtime_lookup_function(self.ptr, c_name.as_ptr())
-        };
+        let func = unsafe { wamr_sys::wasm_runtime_lookup_function(self.ptr, c_name.as_ptr()) };
 
         if func.is_null() {
             return Err(WamrError::FunctionNotFound {
@@ -308,28 +299,18 @@ impl WamrModuleInstance {
         }
 
         // Get signature
-        let param_count =
-            unsafe { wamr_sys::wasm_func_get_param_count(func, self.ptr) };
-        let result_count =
-            unsafe { wamr_sys::wasm_func_get_result_count(func, self.ptr) };
+        let param_count = unsafe { wamr_sys::wasm_func_get_param_count(func, self.ptr) };
+        let result_count = unsafe { wamr_sys::wasm_func_get_result_count(func, self.ptr) };
 
         let mut param_types: Vec<u8> = vec![0u8; param_count as usize];
         let mut result_types: Vec<u8> = vec![0u8; result_count as usize];
 
         unsafe {
             if param_count > 0 {
-                wamr_sys::wasm_func_get_param_types(
-                    func,
-                    self.ptr,
-                    param_types.as_mut_ptr(),
-                );
+                wamr_sys::wasm_func_get_param_types(func, self.ptr, param_types.as_mut_ptr());
             }
             if result_count > 0 {
-                wamr_sys::wasm_func_get_result_types(
-                    func,
-                    self.ptr,
-                    result_types.as_mut_ptr(),
-                );
+                wamr_sys::wasm_func_get_result_types(func, self.ptr, result_types.as_mut_ptr());
             }
         }
 
@@ -346,7 +327,6 @@ impl WamrModuleInstance {
 
         Ok(Arc::new(WamrFunction {
             ptr: func,
-            instance_ptr: self.ptr,
             exec_env: self.exec_env,
             signature: FunctionSignature {
                 raw: sig,
@@ -357,20 +337,14 @@ impl WamrModuleInstance {
     }
 
     pub fn get_global(&self, name: String) -> Result<WasmValue, WamrError> {
-        let c_name = CString::new(name).map_err(|_| {
-            WamrError::InvalidArgument {
-                message: "Global name contains null byte".into(),
-            }
+        let c_name = CString::new(name).map_err(|_| WamrError::InvalidArgument {
+            message: "Global name contains null byte".into(),
         })?;
 
         let mut global: wamr_sys::wasm_global_inst_t = unsafe { std::mem::zeroed() };
 
         let ok = unsafe {
-            wamr_sys::wasm_runtime_get_export_global_inst(
-                self.ptr,
-                c_name.as_ptr(),
-                &mut global,
-            )
+            wamr_sys::wasm_runtime_get_export_global_inst(self.ptr, c_name.as_ptr(), &mut global)
         };
 
         if !ok {
@@ -379,11 +353,10 @@ impl WamrModuleInstance {
             });
         }
 
-        let kind = WasmValueType::from_wasm_code(global.kind).ok_or(
-            WamrError::GlobalAccessFailed {
+        let kind =
+            WasmValueType::from_wasm_code(global.kind).ok_or(WamrError::GlobalAccessFailed {
                 message: format!("Unknown global type: {}", global.kind),
-            },
-        )?;
+            })?;
 
         if global.global_data.is_null() {
             return Err(WamrError::GlobalAccessFailed {
@@ -395,7 +368,11 @@ impl WamrModuleInstance {
             match kind {
                 WasmValueType::I32 => {
                     let v = *(global.global_data as *const i32);
-                    Ok(WasmValue { kind, bits_lo: v as u32, bits_hi: 0 })
+                    Ok(WasmValue {
+                        kind,
+                        bits_lo: v as u32,
+                        bits_hi: 0,
+                    })
                 }
                 WasmValueType::I64 => {
                     let v = *(global.global_data as *const i64);
@@ -407,7 +384,11 @@ impl WamrModuleInstance {
                 }
                 WasmValueType::F32 => {
                     let v = *(global.global_data as *const f32);
-                    Ok(WasmValue { kind, bits_lo: v.to_bits(), bits_hi: 0 })
+                    Ok(WasmValue {
+                        kind,
+                        bits_lo: v.to_bits(),
+                        bits_hi: 0,
+                    })
                 }
                 WasmValueType::F64 => {
                     let v = *(global.global_data as *const f64);
@@ -422,7 +403,7 @@ impl WamrModuleInstance {
         }
     }
 
-    pub fn set_global(&self, name: String, _value: WasmValue) -> Result<(), WamrError> {
+    pub fn set_global(&self, _name: String, _value: WasmValue) -> Result<(), WamrError> {
         // WAMR's `wasm_runtime_set_global` requires writing directly to the
         // global data pointer. This is more complex and will be implemented
         // in a follow-up.
@@ -439,11 +420,7 @@ impl WamrModuleInstance {
 
     pub fn read_memory(&self, offset: u32, length: u32) -> Result<Vec<u8>, WamrError> {
         let ok = unsafe {
-            wamr_sys::wasm_runtime_validate_app_addr(
-                self.ptr,
-                offset as u64,
-                length as u64,
-            )
+            wamr_sys::wasm_runtime_validate_app_addr(self.ptr, offset as u64, length as u64)
         };
 
         if !ok {
@@ -455,9 +432,7 @@ impl WamrModuleInstance {
             });
         }
 
-        let native = unsafe {
-            wamr_sys::wasm_runtime_addr_app_to_native(self.ptr, offset as u64)
-        };
+        let native = unsafe { wamr_sys::wasm_runtime_addr_app_to_native(self.ptr, offset as u64) };
 
         if native.is_null() {
             return Err(WamrError::MemoryAccessFailed {
@@ -475,11 +450,7 @@ impl WamrModuleInstance {
     pub fn write_memory(&self, offset: u32, data: Vec<u8>) -> Result<(), WamrError> {
         let length = data.len() as u32;
         let ok = unsafe {
-            wamr_sys::wasm_runtime_validate_app_addr(
-                self.ptr,
-                offset as u64,
-                length as u64,
-            )
+            wamr_sys::wasm_runtime_validate_app_addr(self.ptr, offset as u64, length as u64)
         };
 
         if !ok {
@@ -491,9 +462,7 @@ impl WamrModuleInstance {
             });
         }
 
-        let native = unsafe {
-            wamr_sys::wasm_runtime_addr_app_to_native(self.ptr, offset as u64)
-        };
+        let native = unsafe { wamr_sys::wasm_runtime_addr_app_to_native(self.ptr, offset as u64) };
 
         if native.is_null() {
             return Err(WamrError::MemoryAccessFailed {
@@ -529,7 +498,6 @@ impl Drop for WamrModuleInstance {
 
 pub struct WamrFunction {
     ptr: wamr_sys::wasm_function_inst_t,
-    instance_ptr: *mut wamr_sys::WASMModuleInstanceCommon,
     exec_env: *mut wamr_sys::WASMExecEnv,
     signature: FunctionSignature,
 }
@@ -543,12 +511,7 @@ impl WamrFunction {
     }
 
     pub fn call_raw(&self, args: Vec<u32>) -> Result<Vec<u32>, WamrError> {
-        let result_slot_count: usize = self
-            .signature
-            .results
-            .iter()
-            .map(|t| t.slot_count())
-            .sum();
+        let result_slot_count: usize = self.signature.results.iter().map(|t| t.slot_count()).sum();
 
         if result_slot_count == 0 {
             // Void return — use wasm_runtime_call_wasm (no result buffer)

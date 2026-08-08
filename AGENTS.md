@@ -533,6 +533,32 @@ casts are the assertions). Periphery found and removed real dead code in
 keep `lint.ios` and `periphery.ios` green; CI runs both in the `wasm3-ios`
 and `wamr-ios` jobs.
 
+### Rust linting (Clippy + Rustfmt)
+
+Each Rust workspace — `ns-wasm3` (`src/vendors/wasm3-rust`), `ns-wamr`
+(`src/vendors/wamr-rust`), `ns-wry` (`src/vendors/wry-rust`), and the fixture
+crate `ns-wasm-fixture` (`src/test-types`) — is linted with **Clippy** and
+checked with **Rustfmt**. Generated code never reaches the tools: bindgen
+output is written to `OUT_DIR` and `#![allow(clippy::all)]` covers the
+`include!`s, the one committed reference copy
+(`wamr-sys/src/bindings.rs`) is `#![rustfmt::skip]`, and UniFFI scaffolding
+(`include_scaffolding!` / `setup_scaffolding!`) expands in `OUT_DIR`. The JNI
+crates (`wasm3-jni`, `wamr-jni`) allow `clippy::not_unsafe_ptr_arg_deref`
+crate-wide — `#[no_mangle] extern "system"` entry points deref raw JVM-owned
+pointer args by design.
+
+```bash
+pnpm exec nx run <pkg>:lint.rust    # cargo clippy --all-targets --all-features -- -D warnings
+pnpm exec nx run <pkg>:fmt.rust     # cargo fmt --all -- --check
+pnpm exec nx run <pkg>:format.rust  # cargo fmt --all (auto-fix)
+pnpm exec nx run-many -t lint.rust fmt.rust -p ns-wasm3 ns-wamr ns-wry ns-wasm-fixture
+```
+
+CI runs the `run-many` form in the `unit-tests` job (Rust is preinstalled on
+the GitHub runner). Requires the `clippy` and `rustfmt` rustup components
+(`rustup component add clippy rustfmt`). The `fmt.rust`/`format.rust` scripts
+honour `#![rustfmt::skip]` on generated files — don't reformat them by hand.
+
 Code coverage, per project and per language:
 
 - **TypeScript** — every package's vitest config has a `coverage` block

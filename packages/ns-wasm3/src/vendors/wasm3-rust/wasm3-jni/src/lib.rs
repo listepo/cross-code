@@ -8,6 +8,11 @@
 //!
 //! All opaque wasm3 pointers are `jlong`.  Errors throw `NSCWasm3Exception`.
 
+// `#[no_mangle] extern "system"` JNI entry points deref the raw jbyteArray /
+// jlongArray args they receive — the JVM owns and validates those pointers,
+// so the `not_unsafe_ptr_arg_deref` lint does not apply here.
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 use jni::objects::{
     GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValue, JValueOwned,
 };
@@ -57,16 +62,16 @@ fn check_m3_result_with_runtime(
     let fallback = unsafe { ptr_to_str(result) };
     let mut info: M3ErrorInfo = unsafe { std::mem::zeroed() };
     unsafe { m3_GetErrorInfo(runtime, &mut info) };
-        let detail = unsafe { ptr_to_str(info.message) };
-        let message = if detail.is_empty() {
-            fallback.to_string()
-        } else if fallback.is_empty() || detail.contains(fallback) {
-            detail.to_string()
-        } else {
-            format!("{fallback}: {detail}")
-        };
-        throw(env, &message);
-        false
+    let detail = unsafe { ptr_to_str(info.message) };
+    let message = if detail.is_empty() {
+        fallback.to_string()
+    } else if fallback.is_empty() || detail.contains(fallback) {
+        detail.to_string()
+    } else {
+        format!("{fallback}: {detail}")
+    };
+    throw(env, &message);
+    false
 }
 
 fn read_long_array(env: &mut JNIEnv, arr: &JLongArray) -> Result<Vec<i64>, String> {
@@ -75,14 +80,18 @@ fn read_long_array(env: &mut JNIEnv, arr: &JLongArray) -> Result<Vec<i64>, Strin
         return Ok(vec![]);
     }
     let mut buf = vec![0i64; len];
-    env.get_long_array_region(arr, 0, &mut buf).map_err(|e| e.to_string())?;
+    env.get_long_array_region(arr, 0, &mut buf)
+        .map_err(|e| e.to_string())?;
     Ok(buf)
 }
 
 fn new_long_array(env: &mut JNIEnv, data: &[i64]) -> Result<jlongArray, String> {
-    let arr = env.new_long_array(data.len() as i32).map_err(|e| e.to_string())?;
+    let arr = env
+        .new_long_array(data.len() as i32)
+        .map_err(|e| e.to_string())?;
     if !data.is_empty() {
-        env.set_long_array_region(&arr, 0, data).map_err(|e| e.to_string())?;
+        env.set_long_array_region(&arr, 0, data)
+            .map_err(|e| e.to_string())?;
     }
     Ok(arr.into_raw())
 }
@@ -93,7 +102,7 @@ fn new_long_array(env: &mut JNIEnv, data: &[i64]) -> Result<jlongArray, String> 
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_version(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _class: JClass,
 ) -> jni::sys::jstring {
     let ver = unsafe { ptr_to_str(M3_VERSION.as_ptr() as *const c_char) };
@@ -104,28 +113,32 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_version(
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_cM3TypeI32(
-    _env: JNIEnv, _class: JClass,
+    _env: JNIEnv,
+    _class: JClass,
 ) -> jint {
     M3ValueType_c_m3Type_i32 as jint
 }
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_cM3TypeI64(
-    _env: JNIEnv, _class: JClass,
+    _env: JNIEnv,
+    _class: JClass,
 ) -> jint {
     M3ValueType_c_m3Type_i64 as jint
 }
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_cM3TypeF32(
-    _env: JNIEnv, _class: JClass,
+    _env: JNIEnv,
+    _class: JClass,
 ) -> jint {
     M3ValueType_c_m3Type_f32 as jint
 }
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_cM3TypeF64(
-    _env: JNIEnv, _class: JClass,
+    _env: JNIEnv,
+    _class: JClass,
 ) -> jint {
     M3ValueType_c_m3Type_f64 as jint
 }
@@ -321,7 +334,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_freeModule(
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_moduleName(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _class: JClass,
     module_ptr: jlong,
 ) -> jni::sys::jstring {
@@ -368,7 +381,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_findFunction(
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_functionName(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _class: JClass,
     func_ptr: jlong,
 ) -> jni::sys::jstring {
@@ -479,7 +492,8 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_call(
 
     if !res.is_null() {
         let msg = unsafe { ptr_to_str(res) };
-        return env.new_string(msg)
+        return env
+            .new_string(msg)
             .map(|s| s.into_raw())
             .unwrap_or(std::ptr::null_mut());
     }
@@ -500,10 +514,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_getResults(
     }
 
     let mut ret_vals: Vec<u64> = vec![0u64; n_rets as usize];
-    let mut ret_ptrs: Vec<*mut u64> = ret_vals
-        .iter_mut()
-        .map(|v| v as *mut u64)
-        .collect();
+    let mut ret_ptrs: Vec<*mut u64> = ret_vals.iter_mut().map(|v| v as *mut u64).collect();
 
     let res = unsafe {
         m3_GetResults(
@@ -555,7 +566,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_getMemory(
     if ptr.is_null() || mem_size == 0 {
         return std::ptr::null_mut();
     }
-    match unsafe { env.new_direct_byte_buffer(ptr as *mut u8, mem_size as usize) } {
+    match unsafe { env.new_direct_byte_buffer(ptr, mem_size as usize) } {
         Ok(buf) => buf.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
@@ -686,25 +697,40 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_linkRawFunctionEx
 
     let c_module = match java_str_to_cstring(&mut env, &module_name) {
         Ok(s) => s,
-        Err(e) => { throw(&mut env, &e); return 0; }
+        Err(e) => {
+            throw(&mut env, &e);
+            return 0;
+        }
     };
     let c_name = match java_str_to_cstring(&mut env, &name) {
         Ok(s) => s,
-        Err(e) => { throw(&mut env, &e); return 0; }
+        Err(e) => {
+            throw(&mut env, &e);
+            return 0;
+        }
     };
     let c_sig = match java_str_to_cstring(&mut env, &signature) {
         Ok(s) => s,
-        Err(e) => { throw(&mut env, &e); return 0; }
+        Err(e) => {
+            throw(&mut env, &e);
+            return 0;
+        }
     };
 
     let global_ref = match env.new_global_ref(callback) {
         Ok(r) => r,
-        Err(e) => { throw(&mut env, &format!("failed to create global ref: {}", e)); return 0; }
+        Err(e) => {
+            throw(&mut env, &format!("failed to create global ref: {}", e));
+            return 0;
+        }
     };
 
     let jvm = match env.get_java_vm() {
         Ok(vm) => vm,
-        Err(e) => { throw(&mut env, &format!("failed to get JavaVM: {}", e)); return 0; }
+        Err(e) => {
+            throw(&mut env, &format!("failed to get JavaVM: {}", e));
+            return 0;
+        }
     };
 
     let ctx = Box::new(HostCtx {
@@ -731,7 +757,8 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_linkRawFunctionEx
 
     let id = NEXT_HOST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let mut map = HOST_CTX_REGISTRY.lock().unwrap();
-    map.get_or_insert_with(HashMap::new).insert(id, ctx_ptr as usize);
+    map.get_or_insert_with(HashMap::new)
+        .insert(id, ctx_ptr as usize);
 
     JNI_TRUE
 }
@@ -823,7 +850,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_globalSet(
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_getErrorInfo(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _class: JClass,
     runtime_ptr: jlong,
 ) -> jni::sys::jstring {

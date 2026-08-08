@@ -23,6 +23,9 @@
   "scripts": {
     "build.wasm": "wasm-pack build src/test-types --target bundler --out-dir pkg && rm -f src/test-types/pkg/.gitignore && cargo run --quiet --manifest-path src/test-types/Cargo.toml --bin gen_globals -- src/test-types/pkg",
     "test.wasm": "cargo test --manifest-path src/test-types/Cargo.toml",
+    "lint.rust": "cargo clippy --manifest-path src/test-types/Cargo.toml --all-targets --all-features -- -D warnings",
+    "fmt.rust": "cargo fmt --manifest-path src/test-types/Cargo.toml -- --check",
+    "format.rust": "cargo fmt --manifest-path src/test-types/Cargo.toml",
     "coverage": "bash tools/coverage.sh"
   },
   "nx": {
@@ -32,6 +35,24 @@
         "executor": "nx:run-script",
         "options": {
           "script": "coverage"
+        }
+      },
+      "lint.rust": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "lint.rust"
+        }
+      },
+      "fmt.rust": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "fmt.rust"
+        }
+      },
+      "format.rust": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "format.rust"
         }
       }
     }

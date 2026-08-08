@@ -42,10 +42,14 @@ pub unsafe extern "C" fn nsc_wamr_version() -> *const std::os::raw::c_char {
     let bytes = v.as_bytes();
     let len = bytes.len().min(63);
     unsafe {
-        std::ptr::copy_nonoverlapping(bytes.as_ptr() as *const c_char, VERSION_BUF.as_mut_ptr(), len);
-        VERSION_BUF[len] = 0;
+        std::ptr::copy_nonoverlapping(
+            bytes.as_ptr() as *const c_char,
+            std::ptr::addr_of_mut!(VERSION_BUF) as *mut c_char,
+            len,
+        );
+        (*std::ptr::addr_of_mut!(VERSION_BUF))[len] = 0;
     }
-    unsafe { VERSION_BUF.as_ptr() }
+    std::ptr::addr_of!(VERSION_BUF) as *const std::os::raw::c_char
 }
 
 #[no_mangle]
@@ -88,7 +92,9 @@ pub unsafe extern "C" fn nsc_wamr_instantiate(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_module_name(_module: wasm_module_t) -> *const std::os::raw::c_char {
+pub unsafe extern "C" fn nsc_wamr_module_name(
+    _module: wasm_module_t,
+) -> *const std::os::raw::c_char {
     // Returns a static empty string — same as before
     b"\0".as_ptr() as *const std::os::raw::c_char
 }
@@ -103,7 +109,9 @@ pub unsafe extern "C" fn nsc_wamr_find_function(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_function_name(_func: wasm_function_inst_t) -> *const std::os::raw::c_char {
+pub unsafe extern "C" fn nsc_wamr_function_name(
+    _func: wasm_function_inst_t,
+) -> *const std::os::raw::c_char {
     b"\0".as_ptr() as *const std::os::raw::c_char
 }
 
@@ -227,7 +235,10 @@ pub unsafe extern "C" fn nsc_wamr_get_global(
     let n = unsafe { CStr::from_ptr(name) }.to_string_lossy();
     match shim::get_global(inst, &n) {
         Ok((t, b)) => {
-            unsafe { *type_out = t; *bits_out = b; }
+            unsafe {
+                *type_out = t;
+                *bits_out = b;
+            }
             std::ptr::null()
         }
         Err(e) => {
@@ -242,7 +253,9 @@ pub unsafe extern "C" fn nsc_wamr_get_global_type(
     inst: wasm_module_inst_t,
     name: *const std::os::raw::c_char,
 ) -> i32 {
-    if inst.is_null() || name.is_null() { return -1; }
+    if inst.is_null() || name.is_null() {
+        return -1;
+    }
     let n = unsafe { CStr::from_ptr(name) }.to_string_lossy();
     shim::get_global_type(inst, &n)
 }

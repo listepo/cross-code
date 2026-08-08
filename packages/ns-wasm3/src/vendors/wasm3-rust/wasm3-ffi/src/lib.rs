@@ -146,7 +146,6 @@ fn m3_result_to_option(result: *const c_char) -> Option<String> {
 pub struct Wasm3Runtime {
     environment: IM3Environment,
     runtime: IM3Runtime,
-    config: RuntimeConfig,
 }
 
 unsafe impl Send for Wasm3Runtime {}
@@ -162,9 +161,8 @@ impl Wasm3Runtime {
             });
         }
 
-        let runtime = unsafe {
-            m3_NewRuntime(environment, config.default_stack_size, std::ptr::null_mut())
-        };
+        let runtime =
+            unsafe { m3_NewRuntime(environment, config.default_stack_size, std::ptr::null_mut()) };
         if runtime.is_null() {
             unsafe { m3_FreeEnvironment(environment) };
             return Err(Wasm3Error::InitFailed {
@@ -175,11 +173,13 @@ impl Wasm3Runtime {
         Ok(Wasm3Runtime {
             environment,
             runtime,
-            config,
         })
     }
 
-    pub fn load_module(self: Arc<Self>, wasm_bytes: Vec<u8>) -> Result<Arc<Wasm3Module>, Wasm3Error> {
+    pub fn load_module(
+        self: Arc<Self>,
+        wasm_bytes: Vec<u8>,
+    ) -> Result<Arc<Wasm3Module>, Wasm3Error> {
         if wasm_bytes.is_empty() {
             return Err(Wasm3Error::ModuleParseFailed {
                 message: "empty WASM bytecode".into(),
@@ -288,14 +288,9 @@ unsafe impl Send for Wasm3ModuleInstance {}
 unsafe impl Sync for Wasm3ModuleInstance {}
 
 impl Wasm3ModuleInstance {
-    pub fn find_function(
-        self: Arc<Self>,
-        name: String,
-    ) -> Result<Arc<Wasm3Function>, Wasm3Error> {
-        let c_name = CString::new(name.clone()).map_err(|_| {
-            Wasm3Error::InvalidArgument {
-                message: "function name contains null byte".into(),
-            }
+    pub fn find_function(self: Arc<Self>, name: String) -> Result<Arc<Wasm3Function>, Wasm3Error> {
+        let c_name = CString::new(name.clone()).map_err(|_| Wasm3Error::InvalidArgument {
+            message: "function name contains null byte".into(),
         })?;
 
         let mut func: IM3Function = std::ptr::null_mut();
@@ -314,24 +309,30 @@ impl Wasm3ModuleInstance {
         let n_args = unsafe { m3_GetArgCount(func) } as usize;
         let n_rets = unsafe { m3_GetRetCount(func) } as usize;
         let params: Vec<WasmValueType> = (0..n_args)
-            .filter_map(|i| WasmValueType::from_m3_type(unsafe { m3_GetArgType(func, i as u32) } as i32))
+            .filter_map(|i| {
+                WasmValueType::from_m3_type(unsafe { m3_GetArgType(func, i as u32) } as i32)
+            })
             .collect();
         let results: Vec<WasmValueType> = (0..n_rets)
-            .filter_map(|i| WasmValueType::from_m3_type(unsafe { m3_GetRetType(func, i as u32) } as i32))
+            .filter_map(|i| {
+                WasmValueType::from_m3_type(unsafe { m3_GetRetType(func, i as u32) } as i32)
+            })
             .collect();
         let sig = build_signature_string(&params, &results);
 
         Ok(Arc::new(Wasm3Function {
             ptr: func,
-            signature: FunctionSignature { raw: sig, params, results },
+            signature: FunctionSignature {
+                raw: sig,
+                params,
+                results,
+            },
         }))
     }
 
     pub fn get_global(&self, name: String) -> Result<WasmValue, Wasm3Error> {
-        let c_name = CString::new(name).map_err(|_| {
-            Wasm3Error::InvalidArgument {
-                message: "global name contains null byte".into(),
-            }
+        let c_name = CString::new(name).map_err(|_| Wasm3Error::InvalidArgument {
+            message: "global name contains null byte".into(),
         })?;
 
         let global = unsafe { m3_FindGlobal(self.module, c_name.as_ptr()) };
@@ -358,10 +359,8 @@ impl Wasm3ModuleInstance {
     }
 
     pub fn set_global(&self, name: String, value: WasmValue) -> Result<(), Wasm3Error> {
-        let c_name = CString::new(name).map_err(|_| {
-            Wasm3Error::InvalidArgument {
-                message: "global name contains null byte".into(),
-            }
+        let c_name = CString::new(name).map_err(|_| Wasm3Error::InvalidArgument {
+            message: "global name contains null byte".into(),
         })?;
 
         let global = unsafe { m3_FindGlobal(self.module, c_name.as_ptr()) };
@@ -400,11 +399,20 @@ impl Wasm3ModuleInstance {
         }
         if offset as u64 + length as u64 > mem_size as u64 {
             return Err(Wasm3Error::MemoryAccessFailed {
-                message: format!("read out of bounds: offset={}, length={}, size={}", offset, length, mem_size),
+                message: format!(
+                    "read out of bounds: offset={}, length={}, size={}",
+                    offset, length, mem_size
+                ),
             });
         }
         let mut buf = vec![0u8; length as usize];
-        unsafe { std::ptr::copy_nonoverlapping((ptr as *const u8).add(offset as usize), buf.as_mut_ptr(), length as usize) };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (ptr as *const u8).add(offset as usize),
+                buf.as_mut_ptr(),
+                length as usize,
+            )
+        };
         Ok(buf)
     }
 
@@ -418,10 +426,17 @@ impl Wasm3ModuleInstance {
         }
         if offset as u64 + data.len() as u64 > mem_size as u64 {
             return Err(Wasm3Error::MemoryAccessFailed {
-                message: format!("write out of bounds: offset={}, len={}, size={}", offset, data.len(), mem_size),
+                message: format!(
+                    "write out of bounds: offset={}, len={}, size={}",
+                    offset,
+                    data.len(),
+                    mem_size
+                ),
             });
         }
-        unsafe { std::ptr::copy_nonoverlapping(data.as_ptr(), (ptr as *mut u8).add(offset as usize), data.len()) };
+        unsafe {
+            std::ptr::copy_nonoverlapping(data.as_ptr(), ptr.add(offset as usize), data.len())
+        };
         Ok(())
     }
 
@@ -440,20 +455,14 @@ impl Wasm3ModuleInstance {
         name: String,
         signature: String,
     ) -> Result<(), Wasm3Error> {
-        let c_module = CString::new(module_name).map_err(|_| {
-            Wasm3Error::InvalidArgument {
-                message: "module name contains null byte".into(),
-            }
+        let c_module = CString::new(module_name).map_err(|_| Wasm3Error::InvalidArgument {
+            message: "module name contains null byte".into(),
         })?;
-        let c_name = CString::new(name).map_err(|_| {
-            Wasm3Error::InvalidArgument {
-                message: "function name contains null byte".into(),
-            }
+        let c_name = CString::new(name).map_err(|_| Wasm3Error::InvalidArgument {
+            message: "function name contains null byte".into(),
         })?;
-        let c_sig = CString::new(signature).map_err(|_| {
-            Wasm3Error::InvalidArgument {
-                message: "signature contains null byte".into(),
-            }
+        let c_sig = CString::new(signature).map_err(|_| Wasm3Error::InvalidArgument {
+            message: "signature contains null byte".into(),
         })?;
 
         let result = unsafe {
@@ -500,13 +509,7 @@ impl Wasm3Function {
             .map(|v| v as *const u64 as *const std::os::raw::c_void)
             .collect();
 
-        let result = unsafe {
-            m3_Call(
-                self.ptr,
-                n_args,
-                arg_ptrs.as_mut_ptr() as *mut *const std::os::raw::c_void,
-            )
-        };
+        let result = unsafe { m3_Call(self.ptr, n_args, arg_ptrs.as_mut_ptr()) };
 
         if let Some(err) = m3_result_to_option(result) {
             return Err(Wasm3Error::CallFailed { message: err });
@@ -522,13 +525,7 @@ impl Wasm3Function {
             .map(|v| v as *mut u64 as *const std::os::raw::c_void)
             .collect();
 
-        let result = unsafe {
-            m3_GetResults(
-                self.ptr,
-                n_rets,
-                ret_ptrs.as_mut_ptr() as *mut *const std::os::raw::c_void,
-            )
-        };
+        let result = unsafe { m3_GetResults(self.ptr, n_rets, ret_ptrs.as_mut_ptr()) };
 
         if let Some(err) = m3_result_to_option(result) {
             return Err(Wasm3Error::CallFailed { message: err });

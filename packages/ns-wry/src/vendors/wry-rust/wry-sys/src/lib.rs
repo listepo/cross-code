@@ -28,19 +28,28 @@ pub extern "C" fn wry_runtime_new(stack_size: u32) -> usize {
 /// Evaluates a script. Returns a heap-allocated C string that the caller must free.
 /// Returns null on error.
 #[no_mangle]
-pub extern "C" fn wry_eval(_handle: usize, _script: *const std::os::raw::c_char) -> *mut std::os::raw::c_char {
+pub extern "C" fn wry_eval(
+    _handle: usize,
+    _script: *const std::os::raw::c_char,
+) -> *mut std::os::raw::c_char {
     std::ptr::null_mut()
 }
 
 /// Loads a URL. Returns 0 on success.
 #[no_mangle]
-pub extern "C" fn wry_load_url(_handle: usize, _url: *const std::os::raw::c_char) -> std::os::raw::c_int {
+pub extern "C" fn wry_load_url(
+    _handle: usize,
+    _url: *const std::os::raw::c_char,
+) -> std::os::raw::c_int {
     0
 }
 
 /// Sets HTML content. Returns 0 on success.
 #[no_mangle]
-pub extern "C" fn wry_set_html(_handle: usize, _html: *const std::os::raw::c_char) -> std::os::raw::c_int {
+pub extern "C" fn wry_set_html(
+    _handle: usize,
+    _html: *const std::os::raw::c_char,
+) -> std::os::raw::c_int {
     0
 }
 

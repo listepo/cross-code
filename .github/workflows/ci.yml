@@ -142,6 +142,15 @@ jobs:
       - name: Rust unit tests
         run: pnpm exec nx run ns-wasm-fixture:test.wasm
 
+      # Clippy + rustfmt over the hand-written Rust in all four Rust projects
+      # (ns-wasm3, ns-wamr, ns-wry, ns-wasm-fixture). Generated bindings
+      # (bindgen output, UniFFI scaffolding) are excluded: bindgen output is
+      # `#![rustfmt::skip]` and `clippy::all` is allowed around the includes.
+      - name: Rust lint (Clippy) + format check
+        run: |
+          rustup component add clippy rustfmt
+          pnpm exec nx run-many -t lint.rust fmt.rust -p ns-wasm3 ns-wamr ns-wry ns-wasm-fixture
+
       # globals.wasm is committed but generated, and the generator is
       # deterministic — so a stale copy is a hard error rather than a surprise
       # on someone's device. (test_types_bg.wasm needs wasm-pack to rebuild and

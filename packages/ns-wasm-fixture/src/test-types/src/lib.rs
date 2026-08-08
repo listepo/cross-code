@@ -40,106 +40,274 @@ extern "C" {
 
 // ── i32 exports ──────────────────────────────────────────────────────────────
 
-#[wasm_bindgen] pub fn add_i32(a: i32, b: i32) -> i32 { a.wrapping_add(b) }
-#[wasm_bindgen] pub fn sub_i32(a: i32, b: i32) -> i32 { a.wrapping_sub(b) }
-#[wasm_bindgen] pub fn mul_i32(a: i32, b: i32) -> i32 { a.wrapping_mul(b) }
-#[wasm_bindgen] pub fn neg_i32(x: i32) -> i32 { x.wrapping_neg() }
-#[wasm_bindgen] pub fn identity_i32(x: i32) -> i32 { x }
-#[wasm_bindgen] pub fn i32_max() -> i32 { i32::MAX }
-#[wasm_bindgen] pub fn i32_min() -> i32 { i32::MIN }
+#[wasm_bindgen]
+pub fn add_i32(a: i32, b: i32) -> i32 {
+    a.wrapping_add(b)
+}
+#[wasm_bindgen]
+pub fn sub_i32(a: i32, b: i32) -> i32 {
+    a.wrapping_sub(b)
+}
+#[wasm_bindgen]
+pub fn mul_i32(a: i32, b: i32) -> i32 {
+    a.wrapping_mul(b)
+}
+#[wasm_bindgen]
+pub fn neg_i32(x: i32) -> i32 {
+    x.wrapping_neg()
+}
+#[wasm_bindgen]
+pub fn identity_i32(x: i32) -> i32 {
+    x
+}
+#[wasm_bindgen]
+pub fn i32_max() -> i32 {
+    i32::MAX
+}
+#[wasm_bindgen]
+pub fn i32_min() -> i32 {
+    i32::MIN
+}
 
 // ── i64 exports ──────────────────────────────────────────────────────────────
 
-#[wasm_bindgen] pub fn add_i64(a: i64, b: i64) -> i64 { a.wrapping_add(b) }
-#[wasm_bindgen] pub fn sub_i64(a: i64, b: i64) -> i64 { a.wrapping_sub(b) }
-#[wasm_bindgen] pub fn mul_i64(a: i64, b: i64) -> i64 { a.wrapping_mul(b) }
-#[wasm_bindgen] pub fn neg_i64(x: i64) -> i64 { x.wrapping_neg() }
-#[wasm_bindgen] pub fn identity_i64(x: i64) -> i64 { x }
-#[wasm_bindgen] pub fn i64_max() -> i64 { i64::MAX }
-#[wasm_bindgen] pub fn i64_min() -> i64 { i64::MIN }
+#[wasm_bindgen]
+pub fn add_i64(a: i64, b: i64) -> i64 {
+    a.wrapping_add(b)
+}
+#[wasm_bindgen]
+pub fn sub_i64(a: i64, b: i64) -> i64 {
+    a.wrapping_sub(b)
+}
+#[wasm_bindgen]
+pub fn mul_i64(a: i64, b: i64) -> i64 {
+    a.wrapping_mul(b)
+}
+#[wasm_bindgen]
+pub fn neg_i64(x: i64) -> i64 {
+    x.wrapping_neg()
+}
+#[wasm_bindgen]
+pub fn identity_i64(x: i64) -> i64 {
+    x
+}
+#[wasm_bindgen]
+pub fn i64_max() -> i64 {
+    i64::MAX
+}
+#[wasm_bindgen]
+pub fn i64_min() -> i64 {
+    i64::MIN
+}
 
 // ── f32 exports ──────────────────────────────────────────────────────────────
 
-#[wasm_bindgen] pub fn add_f32(a: f32, b: f32) -> f32 { a + b }
-#[wasm_bindgen] pub fn sub_f32(a: f32, b: f32) -> f32 { a - b }
-#[wasm_bindgen] pub fn mul_f32(a: f32, b: f32) -> f32 { a * b }
-#[wasm_bindgen] pub fn neg_f32(x: f32) -> f32 { -x }
-#[wasm_bindgen] pub fn identity_f32(x: f32) -> f32 { x }
-#[wasm_bindgen] pub fn f32_max() -> f32 { f32::MAX }
-#[wasm_bindgen] pub fn f32_min_positive() -> f32 { f32::MIN_POSITIVE }
-#[wasm_bindgen] pub fn f32_nan() -> f32 { f32::NAN }
-#[wasm_bindgen] pub fn f32_inf() -> f32 { f32::INFINITY }
-#[wasm_bindgen] pub fn f32_neg_inf() -> f32 { f32::NEG_INFINITY }
+#[wasm_bindgen]
+pub fn add_f32(a: f32, b: f32) -> f32 {
+    a + b
+}
+#[wasm_bindgen]
+pub fn sub_f32(a: f32, b: f32) -> f32 {
+    a - b
+}
+#[wasm_bindgen]
+pub fn mul_f32(a: f32, b: f32) -> f32 {
+    a * b
+}
+#[wasm_bindgen]
+pub fn neg_f32(x: f32) -> f32 {
+    -x
+}
+#[wasm_bindgen]
+pub fn identity_f32(x: f32) -> f32 {
+    x
+}
+#[wasm_bindgen]
+pub fn f32_max() -> f32 {
+    f32::MAX
+}
+#[wasm_bindgen]
+pub fn f32_min_positive() -> f32 {
+    f32::MIN_POSITIVE
+}
+#[wasm_bindgen]
+pub fn f32_nan() -> f32 {
+    f32::NAN
+}
+#[wasm_bindgen]
+pub fn f32_inf() -> f32 {
+    f32::INFINITY
+}
+#[wasm_bindgen]
+pub fn f32_neg_inf() -> f32 {
+    f32::NEG_INFINITY
+}
 
 // ── f64 exports ──────────────────────────────────────────────────────────────
 
-#[wasm_bindgen] pub fn add_f64(a: f64, b: f64) -> f64 { a + b }
-#[wasm_bindgen] pub fn sub_f64(a: f64, b: f64) -> f64 { a - b }
-#[wasm_bindgen] pub fn mul_f64(a: f64, b: f64) -> f64 { a * b }
-#[wasm_bindgen] pub fn neg_f64(x: f64) -> f64 { -x }
-#[wasm_bindgen] pub fn identity_f64(x: f64) -> f64 { x }
-#[wasm_bindgen] pub fn f64_max() -> f64 { f64::MAX }
-#[wasm_bindgen] pub fn f64_min_positive() -> f64 { f64::MIN_POSITIVE }
-#[wasm_bindgen] pub fn f64_nan() -> f64 { f64::NAN }
-#[wasm_bindgen] pub fn f64_inf() -> f64 { f64::INFINITY }
-#[wasm_bindgen] pub fn f64_neg_inf() -> f64 { f64::NEG_INFINITY }
+#[wasm_bindgen]
+pub fn add_f64(a: f64, b: f64) -> f64 {
+    a + b
+}
+#[wasm_bindgen]
+pub fn sub_f64(a: f64, b: f64) -> f64 {
+    a - b
+}
+#[wasm_bindgen]
+pub fn mul_f64(a: f64, b: f64) -> f64 {
+    a * b
+}
+#[wasm_bindgen]
+pub fn neg_f64(x: f64) -> f64 {
+    -x
+}
+#[wasm_bindgen]
+pub fn identity_f64(x: f64) -> f64 {
+    x
+}
+#[wasm_bindgen]
+pub fn f64_max() -> f64 {
+    f64::MAX
+}
+#[wasm_bindgen]
+pub fn f64_min_positive() -> f64 {
+    f64::MIN_POSITIVE
+}
+#[wasm_bindgen]
+pub fn f64_nan() -> f64 {
+    f64::NAN
+}
+#[wasm_bindgen]
+pub fn f64_inf() -> f64 {
+    f64::INFINITY
+}
+#[wasm_bindgen]
+pub fn f64_neg_inf() -> f64 {
+    f64::NEG_INFINITY
+}
 
 // ── void and mixed-type exports ───────────────────────────────────────────────
 
-#[wasm_bindgen] pub fn noop() {}
+#[wasm_bindgen]
+pub fn noop() {}
 
 /// Takes all four value types; returns their sum as f64.
-#[wasm_bindgen] pub fn mixed_args(a: i32, b: i64, c: f32, d: f64) -> f64 {
+#[wasm_bindgen]
+pub fn mixed_args(a: i32, b: i64, c: f32, d: f64) -> f64 {
     a as f64 + b as f64 + c as f64 + d
 }
 
 // ── call-through exports — void imports ──────────────────────────────────────
 
-#[wasm_bindgen] pub fn call_log_i32(x: i32) { unsafe { log_i32(x) } }
-#[wasm_bindgen] pub fn call_log_i64(x: i64) { unsafe { log_i64(x) } }
-#[wasm_bindgen] pub fn call_log_f32(x: f32) { unsafe { log_f32(x) } }
-#[wasm_bindgen] pub fn call_log_f64(x: f64) { unsafe { log_f64(x) } }
+#[wasm_bindgen]
+pub fn call_log_i32(x: i32) {
+    unsafe { log_i32(x) }
+}
+#[wasm_bindgen]
+pub fn call_log_i64(x: i64) {
+    unsafe { log_i64(x) }
+}
+#[wasm_bindgen]
+pub fn call_log_f32(x: f32) {
+    unsafe { log_f32(x) }
+}
+#[wasm_bindgen]
+pub fn call_log_f64(x: f64) {
+    unsafe { log_f64(x) }
+}
 
 // ── call-through exports — value-returning imports ───────────────────────────
 
-#[wasm_bindgen] pub fn call_transform_i32(x: i32) -> i32 { unsafe { transform_i32(x) } }
-#[wasm_bindgen] pub fn call_transform_i64(x: i64) -> i64 { unsafe { transform_i64(x) } }
-#[wasm_bindgen] pub fn call_transform_f32(x: f32) -> f32 { unsafe { transform_f32(x) } }
-#[wasm_bindgen] pub fn call_transform_f64(x: f64) -> f64 { unsafe { transform_f64(x) } }
+#[wasm_bindgen]
+pub fn call_transform_i32(x: i32) -> i32 {
+    unsafe { transform_i32(x) }
+}
+#[wasm_bindgen]
+pub fn call_transform_i64(x: i64) -> i64 {
+    unsafe { transform_i64(x) }
+}
+#[wasm_bindgen]
+pub fn call_transform_f32(x: f32) -> f32 {
+    unsafe { transform_f32(x) }
+}
+#[wasm_bindgen]
+pub fn call_transform_f64(x: f64) -> f64 {
+    unsafe { transform_f64(x) }
+}
 
 // ── mutable integer counters (tests module-level state) ──────────────────────
 
 static mut COUNTER_I32: i32 = 0;
 static mut COUNTER_I64: i64 = 0;
 
-#[wasm_bindgen] pub fn counter_i32_inc(delta: i32) -> i32 {
-    unsafe { COUNTER_I32 = COUNTER_I32.wrapping_add(delta); COUNTER_I32 }
+#[wasm_bindgen]
+pub fn counter_i32_inc(delta: i32) -> i32 {
+    unsafe {
+        COUNTER_I32 = COUNTER_I32.wrapping_add(delta);
+        COUNTER_I32
+    }
 }
-#[wasm_bindgen] pub fn counter_i32_get() -> i32 { unsafe { COUNTER_I32 } }
-#[wasm_bindgen] pub fn counter_i32_reset() { unsafe { COUNTER_I32 = 0 } }
+#[wasm_bindgen]
+pub fn counter_i32_get() -> i32 {
+    unsafe { COUNTER_I32 }
+}
+#[wasm_bindgen]
+pub fn counter_i32_reset() {
+    unsafe { COUNTER_I32 = 0 }
+}
 
-#[wasm_bindgen] pub fn counter_i64_inc(delta: i64) -> i64 {
-    unsafe { COUNTER_I64 = COUNTER_I64.wrapping_add(delta); COUNTER_I64 }
+#[wasm_bindgen]
+pub fn counter_i64_inc(delta: i64) -> i64 {
+    unsafe {
+        COUNTER_I64 = COUNTER_I64.wrapping_add(delta);
+        COUNTER_I64
+    }
 }
-#[wasm_bindgen] pub fn counter_i64_get() -> i64 { unsafe { COUNTER_I64 } }
-#[wasm_bindgen] pub fn counter_i64_reset() { unsafe { COUNTER_I64 = 0 } }
+#[wasm_bindgen]
+pub fn counter_i64_get() -> i64 {
+    unsafe { COUNTER_I64 }
+}
+#[wasm_bindgen]
+pub fn counter_i64_reset() {
+    unsafe { COUNTER_I64 = 0 }
+}
 
 // ── mutable float accumulators (tests f32/f64 state) ─────────────────────────
 
 static mut ACCUM_F32: f32 = 0.0;
 static mut ACCUM_F64: f64 = 0.0;
 
-#[wasm_bindgen] pub fn accum_f32_add(x: f32) -> f32 {
-    unsafe { ACCUM_F32 += x; ACCUM_F32 }
+#[wasm_bindgen]
+pub fn accum_f32_add(x: f32) -> f32 {
+    unsafe {
+        ACCUM_F32 += x;
+        ACCUM_F32
+    }
 }
-#[wasm_bindgen] pub fn accum_f32_get() -> f32 { unsafe { ACCUM_F32 } }
-#[wasm_bindgen] pub fn accum_f32_reset() { unsafe { ACCUM_F32 = 0.0 } }
+#[wasm_bindgen]
+pub fn accum_f32_get() -> f32 {
+    unsafe { ACCUM_F32 }
+}
+#[wasm_bindgen]
+pub fn accum_f32_reset() {
+    unsafe { ACCUM_F32 = 0.0 }
+}
 
-#[wasm_bindgen] pub fn accum_f64_add(x: f64) -> f64 {
-    unsafe { ACCUM_F64 += x; ACCUM_F64 }
+#[wasm_bindgen]
+pub fn accum_f64_add(x: f64) -> f64 {
+    unsafe {
+        ACCUM_F64 += x;
+        ACCUM_F64
+    }
 }
-#[wasm_bindgen] pub fn accum_f64_get() -> f64 { unsafe { ACCUM_F64 } }
-#[wasm_bindgen] pub fn accum_f64_reset() { unsafe { ACCUM_F64 = 0.0 } }
+#[wasm_bindgen]
+pub fn accum_f64_get() -> f64 {
+    unsafe { ACCUM_F64 }
+}
+#[wasm_bindgen]
+pub fn accum_f64_reset() {
+    unsafe { ACCUM_F64 = 0.0 }
+}
 
 // ── linear memory helpers ─────────────────────────────────────────────────────
 
@@ -155,22 +323,30 @@ static mut SCRATCH: [u8; MEM_SCRATCH_LEN as usize] = [0; MEM_SCRATCH_LEN as usiz
 pub const MEM_SCRATCH_LEN: i32 = 1024;
 
 /// Byte offset of the scratch region within the module's linear memory.
-#[wasm_bindgen] pub fn mem_scratch_ptr() -> i32 {
+#[wasm_bindgen]
+pub fn mem_scratch_ptr() -> i32 {
     core::ptr::addr_of!(SCRATCH) as i32
 }
 /// Byte length of the scratch region.
-#[wasm_bindgen] pub fn mem_scratch_len() -> i32 { MEM_SCRATCH_LEN }
+#[wasm_bindgen]
+pub fn mem_scratch_len() -> i32 {
+    MEM_SCRATCH_LEN
+}
 
-#[wasm_bindgen] pub fn mem_write_u8(offset: i32, value: i32) {
+#[wasm_bindgen]
+pub fn mem_write_u8(offset: i32, value: i32) {
     unsafe { *(offset as *mut u8) = (value & 0xff) as u8 }
 }
-#[wasm_bindgen] pub fn mem_read_u8(offset: i32) -> i32 {
+#[wasm_bindgen]
+pub fn mem_read_u8(offset: i32) -> i32 {
     unsafe { *(offset as *const u8) as i32 }
 }
-#[wasm_bindgen] pub fn mem_write_i32(offset: i32, value: i32) {
+#[wasm_bindgen]
+pub fn mem_write_i32(offset: i32, value: i32) {
     unsafe { *(offset as *mut i32) = value }
 }
-#[wasm_bindgen] pub fn mem_read_i32(offset: i32) -> i32 {
+#[wasm_bindgen]
+pub fn mem_read_i32(offset: i32) -> i32 {
     unsafe { *(offset as *const i32) }
 }
 
@@ -225,7 +401,8 @@ pub mod globals {
     pub const G_I64: i64 = 4_294_967_296;
     /// Initial value of `g_f32`.
     pub const G_F32: f32 = 1.5;
-    /// Initial value of `g_f64`.
+    /// Initial value of `g_f64` — deliberately 3.14 (not PI) as a fixed test value.
+    #[allow(clippy::approx_constant)]
     pub const G_F64: f64 = 3.14;
 
     /// Exported global names, in export (and index) order.
@@ -346,7 +523,18 @@ pub mod globals {
 
         #[test]
         fn uleb_round_trips() {
-            for n in [0u64, 1, 63, 64, 127, 128, 255, 4096, 624_485, u64::from(u32::MAX)] {
+            for n in [
+                0u64,
+                1,
+                63,
+                64,
+                127,
+                128,
+                255,
+                4096,
+                624_485,
+                u64::from(u32::MAX),
+            ] {
                 let encoded = uleb(n);
                 assert_eq!(read_uleb(&encoded), (n, encoded.len()), "n = {n}");
             }
@@ -380,7 +568,7 @@ pub mod globals {
         fn section_prefixes_id_and_payload_length() {
             assert_eq!(section(6, &[0xAA, 0xBB]), [6, 2, 0xAA, 0xBB]);
             // A payload over 127 bytes takes a multi-byte length.
-            let big = section(7, &vec![0u8; 200]);
+            let big = section(7, &[0u8; 200]);
             assert_eq!(&big[..3], [7, 0xC8, 0x01]);
             assert_eq!(big.len(), 203);
         }
@@ -429,7 +617,7 @@ pub mod globals {
             let wasm = globals_wasm();
             let payload = section_payload(&wasm, GLOBAL_SECTION);
 
-            let (count, mut cursor) = read_uleb(&payload);
+            let (count, mut cursor) = read_uleb(payload);
             assert_eq!(count, 4);
 
             let expected: [(u8, u8, Vec<u8>); 4] = [
@@ -455,7 +643,7 @@ pub mod globals {
             let wasm = globals_wasm();
             let payload = section_payload(&wasm, EXPORT_SECTION);
 
-            let (count, mut cursor) = read_uleb(&payload);
+            let (count, mut cursor) = read_uleb(payload);
             assert_eq!(count as usize, NAMES.len());
 
             for (index, name) in NAMES.iter().enumerate() {

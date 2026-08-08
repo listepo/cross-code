@@ -85,6 +85,24 @@
           "script": "lint.android"
         }
       },
+      "lint.rust": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "lint.rust"
+        }
+      },
+      "fmt.rust": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "fmt.rust"
+        }
+      },
+      "format.rust": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "format.rust"
+        }
+      },
       "fixtures": {
         "executor": "nx:run-script",
         "options": {
@@ -134,6 +152,9 @@
     "test.android": "cd platforms/android/wamr-android && ./gradlew :hosttest:test",
     "build.android": "cd platforms/android/wamr-android && ./gradlew :library:deployAar",
     "lint.android": "cd platforms/android/wamr-android && ./gradlew detekt ktlintCheck",
+    "lint.rust": "cd src/vendors/wamr-rust && cargo clippy --all-targets --all-features -- -D warnings",
+    "fmt.rust": "cd src/vendors/wamr-rust && cargo fmt --all -- --check",
+    "format.rust": "cd src/vendors/wamr-rust && cargo fmt --all",
     "typings.ios": "cd ../../apps/ns-wasm-test && ns typings ios",
     "typings.android": "cd ../../apps/ns-wasm-test && ns typings android",
     "coverage": "vitest run --coverage",
