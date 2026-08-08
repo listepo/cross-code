@@ -75,3 +75,6 @@ reasonix.toml
 .buck-out/
 /buck-out
 .buck-out/
+
+# VS Code multi-root workspace
+*.code-workspace
