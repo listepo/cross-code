@@ -78,3 +78,5 @@ reasonix.toml
 
 # VS Code multi-root workspace
 *.code-workspace
+
+vite.config.*.timestamp*
