@@ -35,10 +35,14 @@
   "scripts": {
     "sync.vendors": "node tools/sync-wry.mjs",
     "test.ios": "cd platforms/ios/NSCWry && swift test --disable-sandbox",
+    "test.android": "cd platforms/android/nsc-wry-android && ./gradlew :hosttest:test --no-daemon",
+    "build.android": "cd platforms/android/nsc-wry-android && ./gradlew :library:deployAar --no-daemon",
     "lint.ios": "swiftlint lint --config ../../.swiftlint.yml platforms/ios/NSCWry/Sources",
+    "lint.android": "cd platforms/android/nsc-wry-android && ./gradlew detekt ktlintCheck --no-daemon",
+    "lint.rust": "cd src/vendors/wry-rust && cargo clippy --all-features --lib --tests -- -D warnings",
+    "fmt.rust": "cd src/vendors/wry-rust && find . -name '*.rs' -not -path './target/*' -not -path './.git/*' -not -name 'uniffi-bindgen.rs' -print0 | xargs -0 rustfmt --check --edition 2021",
+    "format.rust": "cd src/vendors/wry-rust && find . -name '*.rs' -not -path './target/*' -not -path './.git/*' -not -name 'uniffi-bindgen.rs' -print0 | xargs -0 rustfmt --edition 2021",
     "periphery.ios": "cd platforms/ios/NSCWry && periphery scan --config $(git rev-parse --show-toplevel)/.periphery.yml --disable-update-check",
-    "test.android": "cd platforms/android/nsc-wry-android && ./gradlew :hosttest:test",
-    "build.android": "cd platforms/android/nsc-wry-android && ./gradlew :library:deployAar",
     "coverage": "vitest run --coverage",
     "build.xcframework": "bash tools/build-xcframework.sh"
   },
@@ -70,10 +74,34 @@
           "script": "lint.ios"
         }
       },
+      "lint.android": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "lint.android"
+        }
+      },
       "periphery.ios": {
         "executor": "nx:run-script",
         "options": {
           "script": "periphery.ios"
+        }
+      },
+      "lint.rust": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "lint.rust"
+        }
+      },
+      "fmt.rust": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "fmt.rust"
+        }
+      },
+      "format.rust": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "format.rust"
         }
       }
     }

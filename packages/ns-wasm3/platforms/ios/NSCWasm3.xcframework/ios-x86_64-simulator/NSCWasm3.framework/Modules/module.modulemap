@@ -1,6 +1,0 @@
-framework module NSCWasm3 {
-  umbrella header "NSCWasm3.h"
-
-  export *
-  module * { export * }
-}

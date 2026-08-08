@@ -4,16 +4,31 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@cross-code/ns-wasm-core': file:../../packages/ns-wasm-core
+
 importers:
 
   .:
     dependencies:
+      '@cross-code/ns-endive':
+        specifier: file:../../packages/ns-endive
+        version: file:../../packages/ns-endive
       '@cross-code/ns-wamr':
         specifier: file:../../packages/ns-wamr
         version: file:../../packages/ns-wamr
+      '@cross-code/ns-wasm-chicory':
+        specifier: file:../../packages/ns-wasm-chicory
+        version: file:../../packages/ns-wasm-chicory
+      '@cross-code/ns-wasm-edge':
+        specifier: file:../../packages/ns-wasm-edge
+        version: file:../../packages/ns-wasm-edge
       '@cross-code/ns-wasm-fixture':
         specifier: file:../../packages/ns-wasm-fixture
         version: file:../../packages/ns-wasm-fixture
+      '@cross-code/ns-wasm-kit-runtime':
+        specifier: file:../../packages/ns-wasm-kit-runtime
+        version: file:../../packages/ns-wasm-kit-runtime
       '@cross-code/ns-wasm3':
         specifier: file:../../packages/ns-wasm3
         version: file:../../packages/ns-wasm3
@@ -137,11 +152,26 @@ packages:
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
 
+  '@cross-code/ns-endive@file:../../packages/ns-endive':
+    resolution: {directory: ../../packages/ns-endive, type: directory}
+
   '@cross-code/ns-wamr@file:../../packages/ns-wamr':
     resolution: {directory: ../../packages/ns-wamr, type: directory}
 
+  '@cross-code/ns-wasm-chicory@file:../../packages/ns-wasm-chicory':
+    resolution: {directory: ../../packages/ns-wasm-chicory, type: directory}
+
+  '@cross-code/ns-wasm-core@file:../../packages/ns-wasm-core':
+    resolution: {directory: ../../packages/ns-wasm-core, type: directory}
+
+  '@cross-code/ns-wasm-edge@file:../../packages/ns-wasm-edge':
+    resolution: {directory: ../../packages/ns-wasm-edge, type: directory}
+
   '@cross-code/ns-wasm-fixture@file:../../packages/ns-wasm-fixture':
     resolution: {directory: ../../packages/ns-wasm-fixture, type: directory}
+
+  '@cross-code/ns-wasm-kit-runtime@file:../../packages/ns-wasm-kit-runtime':
+    resolution: {directory: ../../packages/ns-wasm-kit-runtime, type: directory}
 
   '@cross-code/ns-wasm3@file:../../packages/ns-wasm3':
     resolution: {directory: ../../packages/ns-wasm3, type: directory}
@@ -2245,12 +2275,37 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@cross-code/ns-wamr@file:../../packages/ns-wamr': {}
+  '@cross-code/ns-endive@file:../../packages/ns-endive':
+    dependencies:
+      '@cross-code/ns-wasm-core': file:../../packages/ns-wasm-core
+      tslib: 2.8.1
+
+  '@cross-code/ns-wamr@file:../../packages/ns-wamr':
+    dependencies:
+      '@cross-code/ns-wasm-core': file:../../packages/ns-wasm-core
+
+  '@cross-code/ns-wasm-chicory@file:../../packages/ns-wasm-chicory':
+    dependencies:
+      '@cross-code/ns-wasm-core': file:../../packages/ns-wasm-core
+      tslib: 2.8.1
+
+  '@cross-code/ns-wasm-core@file:../../packages/ns-wasm-core': {}
+
+  '@cross-code/ns-wasm-edge@file:../../packages/ns-wasm-edge':
+    dependencies:
+      '@cross-code/ns-wasm-core': file:../../packages/ns-wasm-core
+      tslib: 2.8.1
 
   '@cross-code/ns-wasm-fixture@file:../../packages/ns-wasm-fixture': {}
 
+  '@cross-code/ns-wasm-kit-runtime@file:../../packages/ns-wasm-kit-runtime':
+    dependencies:
+      '@cross-code/ns-wasm-core': file:../../packages/ns-wasm-core
+      tslib: 2.8.1
+
   '@cross-code/ns-wasm3@file:../../packages/ns-wasm3':
     dependencies:
+      '@cross-code/ns-wasm-core': file:../../packages/ns-wasm-core
       tslib: 2.8.1
 
   '@cross-code/vitest-ns-ui@file:../../packages/vitest-ns-ui(@cross-code/vitest-ns@file:../../packages/vitest-ns(@babel/core@7.29.7(supports-color@8.1.1))(@vitest/runner@4.1.10)(supports-color@8.1.1)(vitest@4.1.10)(webpack@5.109.2))(@nativescript/core@9.0.20)':

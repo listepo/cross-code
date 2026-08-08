@@ -1,13 +1,38 @@
 namespace wry;
 
+/// Returns the engine version string.
+string wry_version();
+
 interface WryRuntime {
-  [Throws=WryError]
   constructor(u32 stack_size);
 
-  string version();
+  /// Initializes the WebView engine.
+  [Throws=WryError]
+  void init();
+
+  /// Evaluates a JavaScript string in the current WebView context.
+  [Throws=WryError]
+  string eval(string script);
+
+  /// Loads a URL in the WebView.
+  [Throws=WryError]
+  void load_url(string url);
+
+  /// Sets the HTML content directly.
+  [Throws=WryError]
+  void set_html(string html);
+
+  /// Returns whether the WebView is currently loaded.
+  boolean is_loaded();
+
+  /// Releases all native resources.
+  void dispose();
 };
 
 [Error]
 enum WryError {
   "Generic",
+  "NotInitialized",
+  "EvalFailed",
+  "LoadFailed",
 };

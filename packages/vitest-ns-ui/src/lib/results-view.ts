@@ -6,7 +6,10 @@ import {
   ScrollView,
   StackLayout,
 } from '@nativescript/core';
-import type { NativeScriptTestEventSource } from '@cross-code/vitest-ns/protocol';
+import type {
+  NativeScriptTestDescriptor,
+  NativeScriptTestEventSource,
+} from '@cross-code/vitest-ns/protocol';
 import {
   NativeScriptTestResultModel,
   type NativeScriptResultSnapshot,
@@ -17,23 +20,94 @@ export interface VitestResultsViewOptions {
   source?: NativeScriptTestEventSource;
 }
 
-const COLORS = {
-  background: new Color('#0b1020'),
-  panel: new Color('#151c31'),
-  text: new Color('#f4f7ff'),
-  muted: new Color('#9ca9c9'),
-  passed: new Color('#57d38c'),
-  failed: new Color('#ff6b7a'),
-  running: new Color('#72a7ff'),
-  skipped: new Color('#c4a7e7'),
+const MONO = 'SF Mono, Menlo, Consolas, monospace';
+
+const C = {
+  bg: new Color('#1a1b26'),
+  surface: new Color('#24283b'),
+  border: new Color('#414868'),
+  text: new Color('#c0caf5'),
+  dim: new Color('#565f89'),
+  pass: new Color('#9ece6a'),
+  fail: new Color('#f7768e'),
+  run: new Color('#7aa2f7'),
+  skipDim: new Color('#9d7cd8'),
 };
 
-function statusColor(status: string): Color {
-  if (status === 'passed') return COLORS.passed;
-  if (status === 'failed') return COLORS.failed;
-  if (status === 'running') return COLORS.running;
-  if (status === 'skipped' || status === 'todo') return COLORS.skipped;
-  return COLORS.muted;
+function stColor(s: string): Color {
+  switch (s) {
+    case 'passed': return C.pass;
+    case 'failed': return C.fail;
+    case 'running': return C.run;
+    case 'skipped':
+    case 'todo': return C.skipDim;
+    default: return C.dim;
+  }
+}
+
+function stIcon(s: string): string {
+  switch (s) {
+    case 'passed': return '✓';
+    case 'failed': return '✗';
+    case 'running': return '↻';
+    case 'skipped':
+    case 'todo': return '○';
+    default: return '·';
+  }
+}
+
+interface TreeNode {
+  name: string;
+  fullName: string;
+  tests: NativeScriptTestDescriptor[];
+  children: Map<string, TreeNode>;
+}
+
+function buildTree(tests: readonly NativeScriptTestDescriptor[]): TreeNode {
+  const root: TreeNode = { name: '', fullName: '', tests: [], children: new Map() };
+  for (const test of tests) {
+    const parts = test.fullName.split(' > ');
+    let cur = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const p = parts[i];
+      if (!cur.children.has(p)) {
+        cur.children.set(p, {
+          name: p,
+          fullName: parts.slice(0, i + 1).join(' > '),
+          tests: [],
+          children: new Map(),
+        });
+      }
+      cur = cur.children.get(p)!;
+    }
+    cur.tests.push(test);
+  }
+  return root;
+}
+
+function hasFailed(n: TreeNode): boolean {
+  for (const t of n.tests) if (t.state === 'failed') return true;
+  for (const c of n.children.values()) if (hasFailed(c)) return true;
+  return false;
+}
+
+function nodeSt(n: TreeNode): string {
+  if (hasFailed(n)) return 'failed';
+  for (const t of n.tests) if (t.state === 'running') return 'running';
+  for (const c of n.children.values()) {
+    const s = nodeSt(c);
+    if (s === 'running' || s === 'failed') return s;
+  }
+  return 'passed';
+}
+
+function label(text: string, color: Color, size: number, mono = false): Label {
+  const l = new Label();
+  l.text = text;
+  l.color = color;
+  l.fontSize = size;
+  if (mono) l.fontFamily = MONO;
+  return l;
 }
 
 export class VitestResultsView extends GridLayout {
@@ -50,22 +124,25 @@ export class VitestResultsView extends GridLayout {
     super();
     this.model = options.model ?? new NativeScriptTestResultModel();
     this.rows = 'auto, *';
-    this.backgroundColor = COLORS.background;
-    this.padding = 16;
+    this.backgroundColor = C.bg;
+    this.padding = 12;
 
     const header = new StackLayout();
     header.padding = 14;
-    header.backgroundColor = COLORS.panel;
-    header.borderRadius = 12;
+    header.backgroundColor = C.surface;
+    header.borderRadius = 8;
 
-    this.titleLabel.fontSize = 22;
+    this.titleLabel.fontFamily = MONO;
+    this.titleLabel.fontSize = 14;
     this.titleLabel.fontWeight = '700';
-    this.titleLabel.color = COLORS.text;
-    this.summaryLabel.fontSize = 14;
-    this.summaryLabel.color = COLORS.muted;
+    this.titleLabel.color = C.text;
+    this.summaryLabel.fontFamily = MONO;
+    this.summaryLabel.fontSize = 12;
+    this.summaryLabel.color = C.dim;
     this.summaryLabel.marginTop = 6;
-    this.errorLabel.fontSize = 13;
-    this.errorLabel.color = COLORS.failed;
+    this.errorLabel.fontFamily = MONO;
+    this.errorLabel.fontSize = 12;
+    this.errorLabel.color = C.fail;
     this.errorLabel.textWrap = true;
     this.errorLabel.marginTop = 6;
 
@@ -76,20 +153,18 @@ export class VitestResultsView extends GridLayout {
     this.addChild(header);
 
     const scroll = new ScrollView();
-    scroll.marginTop = 12;
+    scroll.marginTop = 8;
     scroll.content = this.testList;
     GridLayout.setRow(scroll, 1);
     this.addChild(scroll);
 
-    this.detachModel = this.model.subscribe((snapshot) =>
-      this.render(snapshot),
-    );
+    this.detachModel = this.model.subscribe((snap) => this.render(snap));
     if (options.source) this.connect(options.source);
   }
 
   connect(source: NativeScriptTestEventSource): void {
     this.detachSource?.();
-    this.detachSource = source.subscribe((event) => this.model.apply(event));
+    this.detachSource = source.subscribe((e) => this.model.apply(e));
   }
 
   disconnect(): void {
@@ -102,49 +177,114 @@ export class VitestResultsView extends GridLayout {
     this.detachModel();
   }
 
-  private render(snapshot: NativeScriptResultSnapshot): void {
-    const { summary } = snapshot;
-    this.titleLabel.text = `Vitest · ${snapshot.status}`;
-    this.titleLabel.color = statusColor(snapshot.status);
+  private render(snap: NativeScriptResultSnapshot): void {
+    const { summary: s } = snap;
+    this.titleLabel.text = ` vitest ${snap.status === 'running' ? '↻' : snap.status === 'passed' ? '✓' : '✗'} `;
+    this.titleLabel.color = stColor(snap.status);
     this.summaryLabel.text =
-      `${summary.passed} passed · ${summary.failed} failed · ` +
-      `${summary.skipped} skipped · ${summary.total} total · ` +
-      `${snapshot.files} file(s)`;
-    this.errorLabel.text = snapshot.error ?? '';
+      `${s.passed} passed  ${s.failed} failed  ${s.skipped} skipped  ${s.total} total`;
+    this.errorLabel.text = snap.error ?? '';
 
     this.testList.removeChildren();
-    snapshot.tests.forEach((test) => {
-      const row = new StackLayout();
-      row.padding = 12;
-      row.marginBottom = 8;
-      row.backgroundColor = COLORS.panel;
-      row.borderRadius = 10;
+    const tree = buildTree(snap.tests);
+    this.renderTree(tree, this.testList, 0, []);
+  }
 
-      const name = new Label();
-      name.text = `${test.state === 'passed' ? '✓' : test.state === 'failed' ? '×' : '•'} ${test.fullName}`;
-      name.textWrap = true;
-      name.color = statusColor(test.state);
-      name.fontSize = 15;
+  private renderTree(node: TreeNode, parent: StackLayout, depth: number, prefix: string[]): void {
+    const keys = [...node.children.keys()];
+    const testCount = node.tests.length;
+
+    keys.forEach((key, idx) => {
+      const child = node.children.get(key)!;
+      const isLast = idx === keys.length - 1 && testCount === 0;
+      const branch = isLast ? '└─ ' : '├─ ';
+      const status = nodeSt(child);
+
+      const container = new StackLayout();
+      container.marginBottom = 2;
+
+      const row = new StackLayout();
+      row.orientation = 'horizontal';
+      row.paddingLeft = 12 + depth * 16;
+      row.paddingTop = 4;
+      row.paddingBottom = 4;
+
+      const indent = label(prefix.join('') + branch, C.dim, 12, true);
+      indent.verticalAlignment = 'middle';
+
+      const chevron = label('▸ ', C.dim, 12, true);
+      chevron.verticalAlignment = 'middle';
+
+      const name = label(child.name, stColor(status), 12, true);
+      name.fontWeight = '600';
+      name.verticalAlignment = 'middle';
+
+      row.addChild(indent);
+      row.addChild(chevron);
       row.addChild(name);
+      container.addChild(row);
+
+      const childBox = new StackLayout();
+      childBox.visibility = 'collapsed';
+      container.addChild(childBox);
+
+      let open = false;
+      row.on('tap', () => {
+        open = !open;
+        chevron.text = open ? '▾ ' : '▸ ';
+        childBox.visibility = open ? 'visible' : 'collapsed';
+      });
+
+      const nextPrefix = [...prefix, isLast ? '   ' : '│  '];
+      this.renderTree(child, childBox, depth + 1, nextPrefix);
+      this.renderLeaves(child, childBox, depth + 1, nextPrefix);
+      parent.addChild(container);
+    });
+
+    this.renderLeaves(node, parent, depth, prefix);
+  }
+
+  private renderLeaves(node: TreeNode, parent: StackLayout, depth: number, prefix: string[]): void {
+    node.tests.forEach((test, idx) => {
+      const isLast = idx === node.tests.length - 1;
+      const branch = isLast ? '└─ ' : '├─ ';
+
+      const row = new StackLayout();
+      row.orientation = 'horizontal';
+      row.paddingLeft = 12 + depth * 16;
+      row.paddingTop = 3;
+      row.paddingBottom = 3;
+
+      const indent = label(prefix.join('') + branch, C.dim, 12, true);
+      indent.verticalAlignment = 'middle';
+
+      const icon = label(stIcon(test.state) + ' ', stColor(test.state), 12, true);
+      icon.verticalAlignment = 'middle';
+
+      const name = label(test.name, stColor(test.state), 12, true);
+      name.verticalAlignment = 'middle';
+
+      row.addChild(indent);
+      row.addChild(icon);
+      row.addChild(name);
+      parent.addChild(row);
 
       if (test.duration !== undefined || test.error) {
-        const detail = new Label();
-        detail.text = [
-          test.duration === undefined
-            ? undefined
-            : `${test.duration.toFixed(1)}ms`,
-          test.error,
-        ]
-          .filter((value): value is string => Boolean(value))
-          .join(' · ');
-        detail.textWrap = true;
-        detail.color = test.error ? COLORS.failed : COLORS.muted;
-        detail.fontSize = 12;
-        detail.marginTop = 4;
-        row.addChild(detail);
+        const parts: string[] = [];
+        if (test.duration !== undefined) parts.push(`${test.duration.toFixed(0)}ms`);
+        if (test.error) parts.push(test.error);
+
+        const detail = label(parts.join(' '), test.error ? C.fail : C.dim, 10, true);
+        detail.marginLeft = 12 + depth * 16 + 36;
+        detail.marginBottom = 2;
+        parent.addChild(detail);
       }
 
-      this.testList.addChild(row);
+      row.on('tap', () => {
+        const expanded = name.textWrap;
+        name.textWrap = !expanded;
+        name.text = expanded ? test.name : test.fullName;
+      });
     });
   }
 }

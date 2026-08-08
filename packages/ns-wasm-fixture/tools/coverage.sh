@@ -52,6 +52,12 @@ fi
     --ignore-filename-regex='/.cargo/registry|/rustc/|/library/|/test-types/tests/' \
     "$BIN"
 
+"$LLVM_BIN/llvm-cov" export \
+    --instr-profile="$COV_DIR/test_types.profdata" \
+    --format=lcov \
+    --ignore-filename-regex='/.cargo/registry|/rustc/|/library/|/test-types/tests/' \
+    "$BIN" > "$COV_DIR/lcov.info"
+
 "$LLVM_BIN/llvm-cov" show \
     --instr-profile="$COV_DIR/test_types.profdata" \
     --format=html \

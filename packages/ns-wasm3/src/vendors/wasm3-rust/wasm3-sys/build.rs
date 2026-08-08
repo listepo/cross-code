@@ -42,8 +42,7 @@ fn main() {
         } else {
             &target
         };
-        bindings_builder =
-            bindings_builder.clang_arg(format!("--target={clang_target}{api}"));
+        bindings_builder = bindings_builder.clang_arg(format!("--target={clang_target}{api}"));
         if let Ok(sysroot) = env::var("CARGO_NDK_SYSROOT_PATH") {
             bindings_builder = bindings_builder.clang_arg(format!("--sysroot={sysroot}"));
         }
@@ -80,10 +79,7 @@ fn main() {
 
     let mut build = cc::Build::new();
 
-    build
-        .flag("-std=gnu11")
-        .warnings(false)
-        .opt_level(2);
+    build.flag("-std=gnu11").warnings(false).opt_level(2);
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if target_os == "macos" {
@@ -92,7 +88,7 @@ fn main() {
         build.flag("-mios-version-min=13.0");
     }
 
-    build.flag(&format!("-I{}", vendor_dir.display()));
+    build.flag(format!("-I{}", vendor_dir.display()));
 
     // Define d_m3VerboseErrorMessages=1 for useful error strings
     build.define("d_m3VerboseErrorMessages", "1");
@@ -108,9 +104,7 @@ fn main() {
     let sources = std::fs::read_dir(&vendor_dir)
         .expect("failed to read wasm3 vendor dir")
         .filter_map(|entry| entry.ok())
-        .filter(|e| {
-            e.path().extension().map_or(false, |ext| ext == "c")
-        })
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "c"))
         .map(|e| e.path());
 
     for source in sources {

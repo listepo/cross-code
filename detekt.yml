@@ -13,9 +13,11 @@ build:
 complexity:
   # NativeWasm3/NativeWamr are flat JNI declaration facades: one
   # `external fun` per native entry point (~30). The default object
-  # threshold of 11 doesn't fit.
+  # threshold of 11 doesn't fit.  NSCChicory* wrapper classes also
+  # exceed the default class threshold.
   TooManyFunctions:
     thresholdInObjects: 40
+    thresholdInClasses: 20
 
 style:
   # HostTrampoline.invoke returns early on each trap condition (bad result

@@ -1,26 +1,41 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compileOnSave": false,
-  "files": [],
-  "references": [
-    {
-      "path": "./packages/ns-wasm3"
-    },
-    {
-      "path": "./packages/ns-wasm-fixture"
-    },
-    {
-      "path": "./packages/ns-wamr"
-    },
-    {
-      "path": "./packages/vitest-ns"
-    },
-    {
-      "path": "./packages/vitest-ns-ui"
-    },
-    {
-      "path": "./packages/ns-wry"
-    }
-  ],
-  "compilerOptions": {}
+    "extends": "./tsconfig.base.json",
+    "compileOnSave": false,
+    "files": [],
+    "references": [
+        {
+            "path": "./packages/ns-wasm3"
+        },
+        {
+            "path": "./packages/ns-wasm-fixture"
+        },
+        {
+            "path": "./packages/ns-wamr"
+        },
+        {
+            "path": "./packages/vitest-ns"
+        },
+        {
+            "path": "./packages/vitest-ns-ui"
+        },
+        {
+            "path": "./packages/ns-wry"
+        },
+        {
+            "path": "./packages/ns-wasm-kit-runtime"
+        },
+        {
+            "path": "./packages/ns-wasm-chicory"
+        },
+        {
+            "path": "./packages/ns-wasm-core"
+        },
+        {
+            "path": "./packages/ns-wasm-edge"
+        },
+        {
+            "path": "./packages/ns-endive"
+        }
+    ],
+    "compilerOptions": {}
 }

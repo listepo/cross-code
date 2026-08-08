@@ -2,6 +2,9 @@ import { Observable } from '@nativescript/core';
 import { WamrExecutionTier, WamrRuntime } from '@cross-code/ns-wamr';
 import { Wasm3Runtime } from '@cross-code/ns-wasm3';
 import { WasmKitRuntime } from '@cross-code/ns-wasm-kit-runtime';
+import { EndiveRuntime } from '@cross-code/ns-endive';
+import { WasmEdgeRuntime } from '@cross-code/ns-wasm-edge';
+import { ChicoryRuntime } from '@cross-code/ns-wasm-chicory';
 
 import {
   createHostImports,
@@ -59,13 +62,23 @@ export class WasmDemoModel extends Observable {
   }
 
   onRun() {
-    const sections = [runWasm3(), runWamr(), runWasmKit()];
+    const sections = [runWasm3(), runWamr(), runWasmEdge()];
+    // WasmKit is Swift-native — only include it on iOS.
+    if ((globalThis as any).isIOS) {
+      sections.push(runWasmKit());
+    }
+    // Endive is Java-native — only include it on Android.
+    if ((globalThis as any).isAndroid) {
+      sections.push(runEndive());
+      // Chicory is also pure-Java, Android-only.
+      sections.push(runChicory());
+    }
     const checks = sections.flatMap((s) => s.checks);
     const summary = summarize(checks);
 
     this.status =
       summary.failed === 0
-        ? `${summary.passed}/${summary.total} checks passed on both runtimes`
+        ? `${summary.passed}/${summary.total} checks passed on all runtimes`
         : `${summary.failed} of ${summary.total} checks FAILED`;
     this.report = sections
       .map((s) => [s.title, ...s.checks.map(formatCheck)].join('\n'))
@@ -148,11 +161,35 @@ function runWasm3(): Section {
   );
 }
 
+function runWasmEdge(): Section {
+  return runSection(
+    'WasmEdge',
+    () => WasmEdgeRuntime.version(),
+    () => new WasmEdgeRuntime(),
+  );
+}
+
 function runWasmKit(): Section {
   return runSection(
     'WasmKit',
     () => WasmKitRuntime.version(),
     () => new WasmKitRuntime(),
+  );
+}
+
+function runEndive(): Section {
+  return runSection(
+    'Endive',
+    () => EndiveRuntime.version(),
+    () => new EndiveRuntime(),
+  );
+}
+
+function runChicory(): Section {
+  return runSection(
+    'Chicory',
+    () => ChicoryRuntime.version(),
+    () => new ChicoryRuntime(),
   );
 }
 

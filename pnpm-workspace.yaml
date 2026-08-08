@@ -17,3 +17,7 @@ allowBuilds:
   '@swc/core': true
   nativescript: true
   nx: true
+
+# CI and developer workflows install dependencies explicitly with the lockfile.
+# Avoid implicit pnpm installs when `pnpm run` / `pnpm exec` start a task.
+verifyDepsBeforeRun: false

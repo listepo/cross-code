@@ -1,0 +1,12 @@
+{
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.buck-out/**",
+    "**/target/**",
+    "**/.build/**",
+    "**/platforms/**",
+    "**/src/vendors/**",
+    "**/test-output/**"
+  ]
+}

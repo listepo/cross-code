@@ -38,6 +38,12 @@
         "ciTargetName": "test-ci",
         "testMode": "watch"
       }
+    },
+    {
+      "plugin": "./tools/nx-oxlint.js"
+    },
+    {
+      "plugin": "./tools/nx-oxfmt.js"
     }
   ],
   "analytics": true,
@@ -98,6 +104,12 @@
         "production",
         "^production"
       ]
+    },
+    "lint": {
+      "cache": true
+    },
+    "format": {
+      "cache": true
     }
   }
 }

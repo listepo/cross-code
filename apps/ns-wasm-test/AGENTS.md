@@ -33,6 +33,11 @@ app/
   vitest-ns.worker.ts   Worker registry
   tests/wasm3/                    wasm3 Vitest specs
   tests/wamr/                     WAMR Vitest specs
+  tests/wasmkit/                  WasmKit specs (iOS-only engine)
+  tests/endive/                   Endive specs (Android-only engine)
+  tests/chicory/                  Chicory specs (Android-only engine)
+  tests/wasmedge/                 WasmEdge specs
+  tests/runtime-support.ts        per-engine platform matrix + suite gating
   wasm/fixture-suite.ts           shared correctness checks
   wasm/wasm-assets.ts             bundled fixture paths/byte reader
 vitest.ios.config.mts             iOS simulator host config
@@ -54,6 +59,12 @@ tsconfig.spec.json                specs and test-only entries
   thread-safe. A worker is long-lived and files assigned to it share module and
   global state.
 - Dispose every `Wasm3Runtime`/`WamrRuntime` in `afterEach` or `finally`.
+- A suite for a single-platform or not-yet-native engine goes through
+  `describeRuntime()` in `tests/runtime-support.ts`, never a bare
+  `describe.skip`. The matrix there is the one place recording which engines
+  target which platforms and which still lack a native layer. wasm3 and WAMR
+  ship natives on both platforms and must keep calling `describe` directly, so
+  a runtime that fails to load still fails the run rather than skipping.
 - `fixture-suite.ts` is the canonical shared marshalling specification. Add
   cross-plugin checks there; keep plugin-specific error/tier cases in specs.
 - The fixture suite must remain structurally typed and must not import either

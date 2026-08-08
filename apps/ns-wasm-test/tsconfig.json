@@ -29,19 +29,31 @@
   ],
   "references": [
     {
-      "path": "../../packages/ns-wamr"
-    },
-    {
-      "path": "../../packages/ns-wasm3"
-    },
-    {
       "path": "../../packages/ns-wasm-fixture"
+    },
+    {
+      "path": "../../packages/vitest-ns-ui"
     },
     {
       "path": "../../packages/vitest-ns"
     },
     {
-      "path": "../../packages/vitest-ns-ui"
+      "path": "../../packages/ns-wasm-chicory"
+    },
+    {
+      "path": "../../packages/ns-wasm-edge"
+    },
+    {
+      "path": "../../packages/ns-endive"
+    },
+    {
+      "path": "../../packages/ns-wasm-kit-runtime"
+    },
+    {
+      "path": "../../packages/ns-wasm3"
+    },
+    {
+      "path": "../../packages/ns-wamr"
     }
   ]
 }

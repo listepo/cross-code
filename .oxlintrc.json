@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/crates/oxc_linter/src/schema.json",
+  "plugins": ["typescript", "import", "unicorn"],
+  "rules": {
+    "no-unused-vars": "error",
+    "no-console": "warn",
+    "typescript/no-non-null-assertion": "warn",
+    "import/no-default-export": "off"
+  },
+  "env": {
+    "node": true,
+    "es2022": true
+  },
+  "globals": {
+    "globalThis": "readonly",
+    "NSData": "readonly",
+    "NSMutableArray": "readonly"
+  },
+  "settings": {},
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.buck-out/**",
+    "**/target/**",
+    "**/.build/**",
+    "**/platforms/**",
+    "**/src/vendors/**",
+    "**/test-output/**",
+    "**/*.d.ts"
+  ]
+}

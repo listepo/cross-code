@@ -37,13 +37,23 @@
 
 ## NativeScript plugins in this repo
 
-Three sibling plugins live under `packages/`, all sharing the same
-architecture: Rust cargo workspace, UniFFI (uniffi-rs) Kotlin/Swift bindings,
-and a TypeScript adapter. The two WASM plugins are mirror images of each
-other (same class shapes, same wire protocol, same error mapping). Everything
-the plugins share is documented in [Shared plugin architecture](#shared-plugin-architecture)
-below; each package's AGENTS.md holds only engine-specific detail.
+Several sibling plugins live under `packages/`, all sharing the same
+TypeScript API (wire protocol, error mapping, and `WasmRuntime` / `WasmModule` /
+`WasmFunction` class shapes). The Rust cargo workspace and UniFFI (uniffi-rs)
+Kotlin/Swift bindings — together with the mirror-image native architecture
+described in [Shared plugin architecture](#shared-plugin-architecture) — apply
+to **ns-wasm3 and ns-wamr**. The newer runtimes (`ns-wasm-kit-runtime`, the
+Swift-native WasmKit interpreter; `ns-endive`, the Java-native Endive
+interpreter) share the same TypeScript adapter pattern, wire protocol, and
+`@cross-code/ns-wasm-core` foundation, but have their own per-engine native
+layers. Only engine-specific detail lives in each package's AGENTS.md.
 
+- **`ns-wasm-core`** (`@cross-code/ns-wasm-core`) — shared foundation package
+  providing the wire protocol (`parseSignature`, `toWire`, `fromWire`,
+  `WasmError`), the native adapter interfaces (`NativeRuntimeAdapter`,
+  `NativeModuleAdapter`, `NativeFunctionAdapter`), and the generic
+  `WasmRuntime`/`WasmModule`/`WasmFunction` base classes that every WASM
+  runtime plugin extends.
 - **`ns-wasm3`** (`@cross-code/ns-wasm3`) — mature plugin binding
   the wasm3 interpreter (Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android).
   See `packages/ns-wasm3/AGENTS.md`.
@@ -53,6 +63,11 @@ below; each package's AGENTS.md holds only engine-specific detail.
   builds enable only the interpreter (see [Key differences](#key-differences-wasm3-vs-wamr)).
   WAMR-2.3.0 sources are vendored at `packages/ns-wamr/src/vendors/wamr/`.
   See `packages/ns-wamr/AGENTS.md`.
+- **`ns-wasm-kit-runtime`** (`@cross-code/ns-wasm-kit-runtime`) — plugin wrapping
+  the [WasmKit](https://github.com/swiftwasm/WasmKit) Swift interpreter.
+  iOS-only at this time (WasmKit is Swift-native and served through SwiftPM);
+  Android throws a clear unsupported error. Follows the same TypeScript
+  adapter pattern as the other two plugins.
 - **`ns-wry`** (`@cross-code/ns-wry`) — general-purpose NativeScript plugin
   scaffold built on Rust + UniFFI (uniffi-rs) with cargo-ndk Android pipeline.
   See `packages/ns-wry/AGENTS.md` for the bare-metal architecture; extend the
@@ -80,7 +95,7 @@ until sources are present.
 
 ## Shared plugin architecture
 
-Both plugins follow the same architecture: a platform-agnostic wire protocol
+The WASM runtime plugins follow the same architecture: a platform-agnostic wire protocol
 (`src/lib/wire.ts`), per-platform TypeScript adapter files, Swift `@objc`
 classes on iOS, Kotlin + Rust JNI on Android, and Nx targets declared via
 `package.json`. Substitute `<Engine>` = `Wasm3`-family
@@ -128,6 +143,28 @@ the paren) as **returns** and group 2 (inside the paren) as **params**.
 Swapping those groups is a common mistake — verify the regex carefully. The
 native layers convert this notation to the engine's own format internally
 (WAMR's native format is `"(params)returns"`).
+
+### TypeScript typing guidelines for native adapters
+
+The workspace uses `noImplicitAny: true` and `strict: true`. Follow these
+conventions when writing TypeScript adapter code that bridges to native layers:
+
+- **Use `unknown` over `any`** for opaque bridge values (error refs, callback
+  handles, runtime proxy objects). Cast to a concrete interface only at the
+  call site.
+- **Define proxy interfaces** in `src/lib/native-proxy.d.ts` for each native
+  class shape (e.g. `NativeChicoryRuntimeProxy`, `IosWasmEdgeFunctionProxy`).
+  The interfaces model the actual bridge methods; the native layer creates
+  the objects, TypeScript only calls them.
+- **Error ref tuples**: iOS error out-params use `[unknown]` tuple typing
+  so they can be spread into method signatures. The `withErrorRef` helper
+  returns the error ref as `[unknown] | null`.
+- **globalThis shape**: Define a `NativeScriptOrg` interface in
+  `native-proxy.d.ts` for `globalThis.org.nativescript.*` access. Cast
+  `globalThis as unknown as NativeScriptOrg` — never `as any`.
+- **Callback narrowing**: When passing a `WireHostCallback` to a native
+  constructor that expects `(args: unknown[]) => unknown[]`, cast explicitly:
+  `cb as (args: unknown[]) => unknown[]`.
 
 ### Missing imports surface at `findFunction`
 
@@ -496,6 +533,39 @@ casts are the assertions). Periphery found and removed real dead code in
 keep `lint.ios` and `periphery.ios` green; CI runs both in the `wasm3-ios`
 and `wamr-ios` jobs.
 
+### Rust linting (Clippy + Rustfmt)
+
+Each Rust workspace — `ns-wasm3` (`src/vendors/wasm3-rust`), `ns-wamr`
+(`src/vendors/wamr-rust`), `ns-wry` (`src/vendors/wry-rust`), and the fixture
+crate `ns-wasm-fixture` (`src/test-types`) — is linted with **Clippy** and
+checked with **Rustfmt**. Generated code never reaches the tools: bindgen
+output is written to `OUT_DIR` and `#![allow(clippy::all)]` covers the
+`include!`s, the one committed reference copy
+(`wamr-sys/src/bindings.rs`) is `#![rustfmt::skip]`, and UniFFI scaffolding
+(`include_scaffolding!` / `setup_scaffolding!`) expands in `OUT_DIR`. The JNI
+crates (`wasm3-jni`, `wamr-jni`) allow `clippy::not_unsafe_ptr_arg_deref`
+crate-wide — `#[no_mangle] extern "system"` entry points deref raw JVM-owned
+pointer args by design.
+
+The `uniffi-bindgen` scaffolding bins (`*/ffi/src/bin/uniffi-bindgen.rs`) are
+excluded by config, not by editing them: each `[[bin]]` carries `test = false`
+in its crate's `Cargo.toml` so `cargo clippy --lib --tests` never compiles it,
+and the `fmt.rust`/`format.rust` scripts format the `find`-listed `.rs` files
+minus any named `uniffi-bindgen.rs` (rustfmt's `ignore` config is nightly-only,
+so the file filter lives in the script).
+
+```bash
+pnpm exec nx run <pkg>:lint.rust    # cargo clippy --all-features --lib --tests -- -D warnings
+pnpm exec nx run <pkg>:fmt.rust     # find + rustfmt --check --edition 2021 (excludes uniffi-bindgen.rs)
+pnpm exec nx run <pkg>:format.rust  # find + rustfmt --edition 2021 (auto-fix)
+pnpm exec nx run-many -t lint.rust fmt.rust -p ns-wasm3 ns-wamr ns-wry ns-wasm-fixture
+```
+
+CI runs the `run-many` form in the `unit-tests` job (Rust is preinstalled on
+the GitHub runner). Requires the `clippy` and `rustfmt` rustup components
+(`rustup component add clippy rustfmt`). The `fmt.rust`/`format.rust` scripts
+honour `#![rustfmt::skip]` on generated files — don't reformat them by hand.
+
 Code coverage, per project and per language:
 
 - **TypeScript** — every package's vitest config has a `coverage` block
@@ -542,8 +612,10 @@ wasm-pack-generated `.d.ts`. See `packages/ns-wasm-fixture/README.md`.
 
 | Path                                    | Contents                                                                |
 | --------------------------------------- | ----------------------------------------------------------------------- |
+| `packages/ns-wasm-core/AGENTS.md`       | (none — shared foundation; see Shared plugin architecture above)        |
 | `packages/ns-wasm3/AGENTS.md` | wasm3-specific: stack ABI, globals, fixtures, build/test                |
 | `packages/ns-wamr/AGENTS.md`  | WAMR-specific: two-phase load, exec env, WASI, tiers, trampolines, shim |
+| `packages/ns-wasm-kit-runtime/AGENTS.md` | WasmKit-specific: iOS-only Swift interpreter, Android unsupported stub |
 | `packages/ns-wry/AGENTS.md`            | wry scaffold: Rust + UniFFI architecture, platform stubs, extension guide  |
 | `apps/ns-wasm-test/AGENTS.md` | test app: layout, design decisions, running the suites, adding specs       |
 | `apps/ns-wry-app`                      | test app: WebView demo, build-plugin-and-run workflow                       |

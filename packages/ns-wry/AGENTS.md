@@ -55,11 +55,8 @@ npm exec nx run-many -t build test -p ns-wry
 # iOS XCTests (macOS only)
 npm run test.ios
 
-# Android JVM host tests (no emulator)
-npm run test.android
-
-# Android: cross-compile all ABIs via cargo-ndk, refresh the .aar
-npm run build.android
+# Android support has not been scaffolded yet, so this package has no Android
+# build or host-test target.
 ```
 
 ## Test app

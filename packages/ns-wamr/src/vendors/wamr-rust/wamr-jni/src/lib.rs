@@ -12,6 +12,11 @@
 //! The C shim (`nsc_wamr_shim.c`) is compiled into the same shared library
 //! by `wamr-sys`'s build.rs, so we just call its functions via `extern "C"`.
 
+// `#[no_mangle] extern "system"` JNI entry points deref the raw jbyteArray /
+// jlongArray args they receive — the JVM owns and validates those pointers,
+// so the `not_unsafe_ptr_arg_deref` lint does not apply here.
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 use jni::objects::{
     GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValue, JValueOwned,
 };
@@ -21,6 +26,7 @@ use std::ffi::{c_char, CStr, CString};
 use wamr_sys::*;
 
 /// The opaque runtime handle the shim hands back, under the C shim's old name.
+#[allow(non_camel_case_types)]
 type nsc_wamr_runtime_t = wamr_sys::shim::NscWamrRuntime;
 
 // ---------------------------------------------------------------------------
@@ -51,15 +57,19 @@ fn read_long_array(env: &mut JNIEnv, arr: &JLongArray) -> Result<Vec<i64>, Strin
         return Ok(vec![]);
     }
     let mut buf = vec![0i64; len];
-    env.get_long_array_region(arr, 0, &mut buf).map_err(|e| e.to_string())?;
+    env.get_long_array_region(arr, 0, &mut buf)
+        .map_err(|e| e.to_string())?;
     Ok(buf)
 }
 
 /// Creates a jlongArray from a &[i64].
 fn new_long_array(env: &mut JNIEnv, data: &[i64]) -> Result<jlongArray, String> {
-    let arr = env.new_long_array(data.len() as i32).map_err(|e| e.to_string())?;
+    let arr = env
+        .new_long_array(data.len() as i32)
+        .map_err(|e| e.to_string())?;
     if !data.is_empty() {
-        env.set_long_array_region(&arr, 0, data).map_err(|e| e.to_string())?;
+        env.set_long_array_region(&arr, 0, data)
+            .map_err(|e| e.to_string())?;
     }
     Ok(arr.into_raw())
 }
@@ -80,7 +90,7 @@ fn check_c_result(env: &mut JNIEnv, result: *const c_char) -> bool {
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_version(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _class: JClass,
 ) -> jni::sys::jstring {
     let ver = unsafe { ptr_to_str(nsc_wamr_version()) };
@@ -134,7 +144,14 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_createRuntime(
     let rt = unsafe { nsc_wamr_create_runtime(stack_size, error_buf.as_mut_ptr()) };
     if rt.is_null() {
         let msg = unsafe { ptr_to_str(error_buf.as_ptr()) };
-        throw(&mut env, if msg.is_empty() { "failed to create WAMR runtime" } else { msg });
+        throw(
+            &mut env,
+            if msg.is_empty() {
+                "failed to create WAMR runtime"
+            } else {
+                msg
+            },
+        );
         return 0;
     }
     rt as jlong
@@ -165,13 +182,10 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_destroyRuntime(
 // them for as long as the module is loaded. The Kotlin wrapper holds its own
 // ByteArray, but that is a different buffer from the native copy made here, so
 // this layer has to own one per module and release it in unloadModule.
-static MODULE_BUFFERS: std::sync::Mutex<
-    Option<std::collections::HashMap<usize, Box<[u8]>>>,
-> = std::sync::Mutex::new(None);
+static MODULE_BUFFERS: std::sync::Mutex<Option<std::collections::HashMap<usize, Box<[u8]>>>> =
+    std::sync::Mutex::new(None);
 
-fn module_buffers<R>(
-    f: impl FnOnce(&mut std::collections::HashMap<usize, Box<[u8]>>) -> R,
-) -> R {
+fn module_buffers<R>(f: impl FnOnce(&mut std::collections::HashMap<usize, Box<[u8]>>) -> R) -> R {
     let mut guard = MODULE_BUFFERS.lock().unwrap_or_else(|e| e.into_inner());
     f(guard.get_or_insert_with(std::collections::HashMap::new))
 }
@@ -208,17 +222,18 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
         return 0;
     }
 
-    let module = unsafe {
-        nsc_wamr_load_module(
-            rt,
-            buf.as_ptr(),
-            len as i32,
-            error_buf.as_mut_ptr(),
-        )
-    };
+    let module =
+        unsafe { nsc_wamr_load_module(rt, buf.as_ptr(), len as i32, error_buf.as_mut_ptr()) };
     if module.is_null() {
         let msg = unsafe { ptr_to_str(error_buf.as_ptr()) };
-        throw(&mut env, if msg.is_empty() { "failed to load module" } else { msg });
+        throw(
+            &mut env,
+            if msg.is_empty() {
+                "failed to load module"
+            } else {
+                msg
+            },
+        );
         return 0;
     }
 
@@ -247,7 +262,14 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_instantiate(
 
     if inst.is_null() {
         let msg = unsafe { ptr_to_str(error_buf.as_ptr()) };
-        throw(&mut env, if msg.is_empty() { "failed to instantiate module" } else { msg });
+        throw(
+            &mut env,
+            if msg.is_empty() {
+                "failed to instantiate module"
+            } else {
+                msg
+            },
+        );
         return 0;
     }
 
@@ -256,7 +278,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_instantiate(
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_moduleName(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _class: JClass,
     module_ptr: jlong,
 ) -> jni::sys::jstring {
@@ -300,7 +322,14 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_findFunction(
 
     if func.is_null() {
         let msg = unsafe { ptr_to_str(error_buf.as_ptr()) };
-        throw(&mut env, if msg.is_empty() { "function not found" } else { msg });
+        throw(
+            &mut env,
+            if msg.is_empty() {
+                "function not found"
+            } else {
+                msg
+            },
+        );
         return 0;
     }
 
@@ -309,7 +338,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_findFunction(
 
 #[no_mangle]
 pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_functionName(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _class: JClass,
     func_ptr: jlong,
 ) -> jni::sys::jstring {
@@ -386,7 +415,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_call(
     mut env: JNIEnv,
     _class: JClass,
     func_ptr: jlong,
-    n_args: jint,
+    _n_args: jint,
     args: jlongArray,
 ) -> jni::sys::jstring {
     let func = func_ptr as wasm_function_inst_t;
@@ -422,7 +451,8 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_call(
     if !result.is_null() {
         let msg = unsafe { ptr_to_str(result) };
         // Return error as a Java string (Kotlin checks for non-null)
-        return env.new_string(msg)
+        return env
+            .new_string(msg)
             .map(|s| s.into_raw())
             .unwrap_or(std::ptr::null_mut());
     }
@@ -449,10 +479,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_getResults(
 
     // Allocate space for uint64_t results
     let mut ret_vals: Vec<u64> = vec![0u64; n_rets as usize];
-    let ret_ptrs: Vec<*mut u64> = ret_vals
-        .iter_mut()
-        .map(|v| v as *mut u64)
-        .collect();
+    let ret_ptrs: Vec<*mut u64> = ret_vals.iter_mut().map(|v| v as *mut u64).collect();
 
     let result = unsafe {
         nsc_wamr_get_results(
@@ -548,7 +575,10 @@ fn signature_arity(signature: &str) -> Option<(usize, usize)> {
     let open = signature.find('(')?;
     let close = signature.rfind(')')?;
     let rets = signature[..open].chars().filter(|&c| c != 'v').count();
-    let params = signature[open + 1..close].chars().filter(|&c| c != 'v').count();
+    let params = signature[open + 1..close]
+        .chars()
+        .filter(|&c| c != 'v')
+        .count();
     Some((params, rets))
 }
 
@@ -564,12 +594,9 @@ struct HostRegistration {
 
 /// Registrations by runtime handle. WAMR's native registry is process-global,
 /// so without this the host functions of a disposed runtime stay resolvable.
-static HOST_REGISTRATIONS: Mutex<Option<HashMap<usize, Vec<HostRegistration>>>> =
-    Mutex::new(None);
+static HOST_REGISTRATIONS: Mutex<Option<HashMap<usize, Vec<HostRegistration>>>> = Mutex::new(None);
 
-fn host_registrations<R>(
-    f: impl FnOnce(&mut HashMap<usize, Vec<HostRegistration>>) -> R,
-) -> R {
+fn host_registrations<R>(f: impl FnOnce(&mut HashMap<usize, Vec<HostRegistration>>) -> R) -> R {
     let mut guard = HOST_REGISTRATIONS.lock().unwrap_or_else(|e| e.into_inner());
     f(guard.get_or_insert_with(HashMap::new))
 }
@@ -591,7 +618,9 @@ unsafe fn free_host_registration(entry: HostRegistration) {
 /// otherwise a pending module in another runtime can resolve the stale entry.
 fn release_idle_matching_registration(module_name: &CStr, name: &CStr) {
     let mut guard = HOST_REGISTRATIONS.lock().unwrap_or_else(|e| e.into_inner());
-    let Some(map) = guard.as_mut() else { return; };
+    let Some(map) = guard.as_mut() else {
+        return;
+    };
     for (runtime, entries) in map.iter_mut() {
         if wamr_sys::shim::runtime_has_instances(*runtime as *mut nsc_wamr_runtime_t) {
             continue;
@@ -600,11 +629,15 @@ fn release_idle_matching_registration(module_name: &CStr, name: &CStr) {
         for entry in entries.drain(..) {
             let symbols = entry.symbols as *mut [NativeSymbol; 1];
             let same_name = unsafe {
-                let symbol = if symbols.is_null() { None } else { Some(&(*symbols)[0]) };
+                let symbol = if symbols.is_null() {
+                    None
+                } else {
+                    Some(&(*symbols)[0])
+                };
                 symbol.is_some_and(|symbol| {
                     !symbol.symbol.is_null()
                         && CStr::from_ptr(symbol.symbol) == name
-                    && CStr::from_ptr(entry.module_name as *const c_char) == module_name
+                        && CStr::from_ptr(entry.module_name as *const c_char) == module_name
                 })
             };
             if same_name {
@@ -774,7 +807,10 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_linkHostFunction(
     let module_name_str = c_module.to_string_lossy();
     let name_str = c_name.to_string_lossy();
     if !wamr_sys::shim::import_declared(runtime, &module_name_str, &name_str) {
-        throw(&mut env, &format!("import not declared: {module_name_str}.{name_str}"));
+        throw(
+            &mut env,
+            &format!("import not declared: {module_name_str}.{name_str}"),
+        );
         return 0;
     }
 
@@ -877,26 +913,24 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_getGlobal(
 
     let c_name = match java_str_to_cstring(&mut env, &name) {
         Ok(s) => s,
-        Err(e) => { throw(&mut env, &e); return std::ptr::null_mut(); }
+        Err(e) => {
+            throw(&mut env, &e);
+            return std::ptr::null_mut();
+        }
     };
 
     let mut type_out: i32 = 0;
     let mut bits_out: u64 = 0;
 
-    let result = unsafe {
-        nsc_wamr_get_global(inst, c_name.as_ptr(), &mut type_out, &mut bits_out)
-    };
+    let result =
+        unsafe { nsc_wamr_get_global(inst, c_name.as_ptr(), &mut type_out, &mut bits_out) };
 
     if !check_c_result(&mut env, result) {
         return std::ptr::null_mut();
     }
 
     // Return [type, bits_lo, bits_hi] — 3 longs
-    let data: [i64; 3] = [
-        type_out as i64,
-        bits_out as i64,
-        0i64,
-    ];
+    let data: [i64; 3] = [type_out as i64, bits_out as i64, 0i64];
     match new_long_array(&mut env, &data) {
         Ok(a) => a,
         Err(e) => {
@@ -943,12 +977,13 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_setGlobal(
 
     let c_name = match java_str_to_cstring(&mut env, &name) {
         Ok(s) => s,
-        Err(e) => { throw(&mut env, &e); return 0; }
+        Err(e) => {
+            throw(&mut env, &e);
+            return 0;
+        }
     };
 
-    let result = unsafe {
-        nsc_wamr_set_global(inst, c_name.as_ptr(), type_code, bits as u64)
-    };
+    let result = unsafe { nsc_wamr_set_global(inst, c_name.as_ptr(), type_code, bits as u64) };
 
     if !check_c_result(&mut env, result) {
         return 0;

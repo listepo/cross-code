@@ -1,13 +1,18 @@
 # cross-code
 
 An Nx monorepo for running WebAssembly on [NativeScript](https://nativescript.org) —
-three sibling plugins built on Rust + UniFFI:
+three WASM runtime plugins built on a shared TypeScript foundation (wire protocol,
+adapter interfaces, base Runtime/Module/Function classes):
 
 - [`wasm3`](https://github.com/wasm3/wasm3) — lightweight interpreter (v0.5.2)
 - [WAMR](https://github.com/bytecodealliance/wasm-micro-runtime) — WebAssembly
   Micro Runtime (2.3.0): interpreter, Fast JIT, LLVM JIT, AOT, WASI
-- [`ns-wry`](packages/ns-wry) — Rust + [UniFFI](https://github.com/mozilla/uniffi-rs)
-  (uniffi-rs) auto-generated Kotlin/Swift bindings, cargo-ndk Android pipeline
+- [WasmKit](https://github.com/swiftwasm/WasmKit) — Swift-based WebAssembly
+  runtime with WASI support, iOS-native through SwiftPM
+
+Also in the monorepo: [`ns-wry`](packages/ns-wry) — a general-purpose NativeScript
+plugin scaffold built on Rust + [UniFFI](https://github.com/mozilla/uniffi-rs)
+(uniffi-rs) auto-generated Kotlin/Swift bindings and cargo-ndk Android pipeline.
 
 > **Project status: Active development.** APIs and project layout may change without notice; expect breaking changes between releases.
 
@@ -15,8 +20,10 @@ three sibling plugins built on Rust + UniFFI:
 
 | Package                                                                       | Description                                                                                                                             |
 | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@cross-code/ns-wasm-core`](packages/ns-wasm-core)       | Shared foundation — wire protocol, `WasmError`, adapter interfaces, base `WasmRuntime`/`WasmModule`/`WasmFunction` classes              |
 | [`@cross-code/ns-wasm3`](packages/ns-wasm3)               | NativeScript plugin — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android (wasm3 interpreter)                                |
 | [`@cross-code/ns-wamr`](packages/ns-wamr)                 | NativeScript plugin — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android (WAMR: interpreter, Fast JIT, LLVM JIT, AOT, WASI) |
+| [`@cross-code/ns-wasm-kit-runtime`](packages/ns-wasm-kit-runtime) | NativeScript plugin — Swift Package on iOS (WasmKit interpreter); Android throws a clear unsupported error                      |
 | [`@cross-code/ns-wasm-fixture`](packages/ns-wasm-fixture) | Rust/wasm-pack test fixtures (committed `.wasm` binaries)                                                                               |
 | [`@cross-code/vitest-ns`](packages/vitest-ns)             | Vitest custom pool and NativeScript Worker runtime for on-device unit tests                                                             |
 | [`@cross-code/vitest-ns-ui`](packages/vitest-ns-ui)       | Optional NativeScript Core results page for device-side Vitest progress                                                                 |
@@ -25,7 +32,10 @@ three sibling plugins built on Rust + UniFFI:
 | [`ns-wasm-test`](apps/ns-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Vitest + `vitest-ns`            |
 | [`ns-wry-app`](apps/ns-wry-app)                                               | NativeScript test app for @cross-code/ns-wry — WebView demo with google.com on iOS/Android                                              |
 
-Both plugins expose the same TypeScript API — see [WASM.md](WASM.md).
+The WASM runtime plugins expose the same TypeScript API — see [WASM.md](WASM.md). All runtime
+plugins (wasm3, WAMR, WasmKit) share the same foundation (`@cross-code/ns-wasm-core`)
+which provides the wire protocol, error classes, adapter interfaces and generic
+`WasmRuntime`/`WasmModule`/`WasmFunction` classes.
 Each package README covers its own layout, development workflow and troubleshooting
 (see [Per-package documentation](#per-package-documentation)).
 
@@ -141,24 +151,54 @@ curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-aarc
 
 or `mise plugin install buck2 https://github.com/izaakschroeder/asdf-buck2`.
 
-## WebAssembly plugins (wasm3 & WAMR)
+## WebAssembly plugins (wasm3, WAMR & WasmKit)
 
-Usage and API documentation for the two WebAssembly plugins — install,
+Usage and API documentation for the WebAssembly plugins — install,
 quick start, calling exports, linear memory, globals, host imports, value
 marshalling, error messages, the complete API reference, and shared
 troubleshooting — lives in **[WASM.md](WASM.md)**.
 
-Both plugins expose the same TypeScript API; only the class names differ
+All three plugins expose the same TypeScript API; only the class names differ
 (`Wasm3Runtime` / `Wasm3Module` / `Wasm3Function` vs
-`WamrRuntime` / `WamrModule` / `WamrFunction`).
+`WamrRuntime` / `WamrModule` / `WamrFunction` vs
+`WasmKitRuntime` / `WasmKitModule` / `WasmKitFunction`).
+WasmKit is iOS-only (Swift-based runtime); Android throws a clear "not supported" error.
+
+## Linting
+
+### Kotlin (Android wrappers)
+
+```bash
+# Detekt (static analysis) + Ktlint (formatting) — hand-written sources only
+pnpm exec nx run ns-wasm3:lint.android
+pnpm exec nx run ns-wasm3:lint.android --configuration=format  # auto-fix
+
+# Config: detekt.yml + .editorconfig at the repo root (shared by both engines)
+```
+
+### Swift (iOS wrappers)
+
+```bash
+# SwiftLint — hand-written sources only
+pnpm exec nx run ns-wasm3:lint.ios
+pnpm exec nx run ns-wamr:lint.ios
+
+# Periphery — unused-code detection (builds the SwiftPM package)
+pnpm exec nx run ns-wasm3:periphery.ios
+pnpm exec nx run ns-wamr:periphery.ios
+
+# Config: .swiftlint.yml + .periphery.yml at the repo root (shared by all engines)
+```
 
 ## Per-package documentation
 
 | Package                                 | Docs                                                                                                                     |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| WebAssembly plugins (wasm3 & WAMR)      | [WASM.md](WASM.md) — shared usage, API reference, marshalling, errors, troubleshooting                                    |
+| WebAssembly plugins (wasm3, WAMR & WasmKit) | [WASM.md](WASM.md) — shared usage, API reference, marshalling, errors, troubleshooting                                    |
+| `@cross-code/ns-wasm-core`      | [AGENTS.md](AGENTS.md#shared-plugin-architecture) — wire protocol, WasmError, adapter interfaces, base classes |
 | `@cross-code/ns-wasm3`        | [README](packages/ns-wasm3/README.md) — platform details, package layout, developing, troubleshooting, license |
 | `@cross-code/ns-wamr`         | [README](packages/ns-wamr/README.md) — execution tiers, package layout, developing, troubleshooting, license   |
+| `@cross-code/ns-wasm-kit-runtime` | [README](packages/ns-wasm-kit-runtime/README.md) — WasmKit Swift interpreter, iOS-only adapter, developing, troubleshooting |
 | `@cross-code/ns-wasm-fixture` | [README](packages/ns-wasm-fixture/README.md) — exported subpaths, rebuilding the `.wasm` fixtures              |
 | `@cross-code/vitest-ns`       | [README](packages/vitest-ns/README.md) — custom pool, Worker registry, concurrency, and transport              |
 | `@cross-code/vitest-ns-ui`    | [README](packages/vitest-ns-ui/README.md) — optional NativeScript results UI                                   |

@@ -1,0 +1,3 @@
+dependencies {
+    implementation("com.dylibso.chicory:runtime:1.7.5")
+}

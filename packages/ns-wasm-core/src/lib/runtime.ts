@@ -6,7 +6,7 @@
 // under engine-prefixed names (Wasm3Runtime, WamrRuntime, …).
 
 import {
-  WasmError,
+  fromWire,
   fromWireAll,
   hostResultToWire,
   parseSignature,
@@ -15,7 +15,6 @@ import {
   type WasmArg,
   type WasmValue,
   type WasmValueType,
-  type WireValue,
 } from './wire.js';
 import type {
   WireHostCallback,
@@ -82,14 +81,16 @@ export class WasmRuntime {
    * byte array. Optionally links host imports before first use.
    */
   loadModule(source: WasmModuleSource, imports?: WasmImports): WasmModule {
+    let module: WasmModule;
     if (typeof source === 'string') {
       // Cast: constructor-types stored in a variable need `as any` for
       // `new` in strict TS (the precise constructor overload isn't known
       // at the call-site).
-      return new (this._ModuleCtor as any)(this.adapter.loadModuleFromFile(source), this);
+      module = new (this._ModuleCtor as any)(this.adapter.loadModuleFromFile(source), this);
+    } else {
+      const adapter = this.adapter.loadModuleFromBytes(toBytes(source));
+      module = new (this._ModuleCtor as any)(adapter, this);
     }
-    const adapter = this.adapter.loadModuleFromBytes(toBytes(source));
-    const module = new (this._ModuleCtor as any)(adapter, this);
     if (imports) module.linkImports(imports);
     return module;
   }

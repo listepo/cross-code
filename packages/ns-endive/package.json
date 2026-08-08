@@ -1,0 +1,50 @@
+{
+  "name": "@cross-code/ns-endive",
+  "version": "0.1.0",
+  "description": "NativeScript plugin that runs WebAssembly modules with the Endive interpreter (https://github.com/bytecodealliance/endive) — Java/JNI on Android, TypeScript adapter with platform-native classes.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@cross-code/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "nativescript.config.ts",
+    "platforms/android/include.gradle",
+    "platforms/ios/NSCEndive/Package.swift",
+    "platforms/ios/NSCEndive/Sources",
+    "!**/*.tsbuildinfo"
+  ],
+  "nativescript": {
+    "platforms": {
+      "ios": "8.6.0",
+      "android": "8.6.0"
+    }
+  },
+  "nx": {
+    "name": "ns-endive",
+    "targets": {
+      "coverage": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@cross-code/ns-wasm-core": "workspace:*",
+    "tslib": "^2.3.0"
+  }
+}

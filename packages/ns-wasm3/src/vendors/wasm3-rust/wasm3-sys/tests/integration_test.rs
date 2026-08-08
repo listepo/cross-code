@@ -11,7 +11,7 @@ fn fixture_bytes(name: &str) -> Vec<u8> {
         env!("CARGO_MANIFEST_DIR"),
         name
     );
-    std::fs::read(&path).expect(&format!("failed to read fixture {}", name))
+    std::fs::read(&path).unwrap_or_else(|_| panic!("failed to read fixture {}", name))
 }
 
 #[test]
@@ -47,10 +47,19 @@ fn test_load_module_and_call() {
     // Parse module
     let mut module: IM3Module = std::ptr::null_mut();
     let result = unsafe {
-        m3_ParseModule(env, &mut module as *mut IM3Module, bytes.as_ptr(), bytes.len() as u32)
+        m3_ParseModule(
+            env,
+            &mut module as *mut IM3Module,
+            bytes.as_ptr(),
+            bytes.len() as u32,
+        )
     };
     assert!(result.is_null(), "parse should succeed: {:?}", unsafe {
-        if result.is_null() { "ok".into() } else { std::ffi::CStr::from_ptr(result).to_string_lossy() }
+        if result.is_null() {
+            "ok".into()
+        } else {
+            std::ffi::CStr::from_ptr(result).to_string_lossy()
+        }
     });
     assert!(!module.is_null());
 
@@ -61,9 +70,7 @@ fn test_load_module_and_call() {
     // Find function
     let name = CString::new("add").unwrap();
     let mut func: IM3Function = std::ptr::null_mut();
-    let result = unsafe {
-        m3_FindFunction(&mut func as *mut IM3Function, rt, name.as_ptr())
-    };
+    let result = unsafe { m3_FindFunction(&mut func as *mut IM3Function, rt, name.as_ptr()) };
     assert!(result.is_null(), "find should succeed");
     assert!(!func.is_null());
 
@@ -80,15 +87,26 @@ fn test_load_module_and_call() {
         &arg3 as *const u64 as *const std::os::raw::c_void,
         &arg4 as *const u64 as *const std::os::raw::c_void,
     ];
-    let result = unsafe { m3_Call(func, 2, arg_ptrs.as_ptr() as *mut *const std::os::raw::c_void) };
+    let result = unsafe {
+        m3_Call(
+            func,
+            2,
+            arg_ptrs.as_ptr() as *mut *const std::os::raw::c_void,
+        )
+    };
     assert!(result.is_null(), "call should succeed");
 
     // Get result
     let mut ret_val: u64 = 0;
-    let ret_ptrs: [*const std::os::raw::c_void; 1] = [
-        &mut ret_val as *mut u64 as *const std::os::raw::c_void,
-    ];
-    let result = unsafe { m3_GetResults(func, 1, ret_ptrs.as_ptr() as *mut *const std::os::raw::c_void) };
+    let ret_ptrs: [*const std::os::raw::c_void; 1] =
+        [&mut ret_val as *mut u64 as *const std::os::raw::c_void];
+    let result = unsafe {
+        m3_GetResults(
+            func,
+            1,
+            ret_ptrs.as_ptr() as *mut *const std::os::raw::c_void,
+        )
+    };
     assert!(result.is_null(), "get_results should succeed");
     assert_eq!(ret_val, 7);
 
@@ -105,7 +123,12 @@ fn test_nsc_global_get_set_error_on_missing() {
 
     let mut module: IM3Module = std::ptr::null_mut();
     let result = unsafe {
-        m3_ParseModule(env, &mut module as *mut IM3Module, bytes.as_ptr(), bytes.len() as u32)
+        m3_ParseModule(
+            env,
+            &mut module as *mut IM3Module,
+            bytes.as_ptr(),
+            bytes.len() as u32,
+        )
     };
     assert!(result.is_null());
     unsafe { m3_LoadModule(rt, module) };

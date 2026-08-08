@@ -17,6 +17,8 @@ uniffi = { version = "0.32", features = ["cli"] }
 [[bin]]
 name = "uniffi-bindgen"
 path = "src/bin/uniffi-bindgen.rs"
+# Scaffolding bin — never linted (clippy runs --lib --tests) or formatted.
+test = false
 
 [build-dependencies]
 uniffi = { version = "0.32", features = ["build"] }

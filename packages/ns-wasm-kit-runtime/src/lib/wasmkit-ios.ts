@@ -140,10 +140,11 @@ export class IosRuntime implements NativeRuntimeAdapter {
   }
   memorySize(): number { return Number(this.runtime.memorySize()); }
   readMemory(offset: number, length: number): Uint8Array {
-    const buffer = withErrorRef('readMemory', (err) =>
+    const data = withErrorRef('readMemory', (err) =>
       this.runtime.readMemoryAtOffsetLengthError(offset, length, ...err),
     );
-    return new Uint8Array(buffer);
+    if (!data) throw new WasmKitError('readMemory: returned null');
+    return new Uint8Array(iosInterop()?.bufferFromData(data));
   }
   writeMemory(offset: number, bytes: Uint8Array): void {
     withErrorRef('writeMemory', (err) =>

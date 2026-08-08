@@ -14,6 +14,7 @@
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "skipLibCheck": true,
+    "noImplicitAny": true,
     "strict": true,
     "target": "es2022",
     "customConditions": ["@cross-code/source"],

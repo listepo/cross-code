@@ -29,6 +29,12 @@
       "android": "8.6.0"
     }
   },
+  "scripts": {
+    "test.ios": "cd platforms/ios/NSWasmKit && swift test --disable-sandbox",
+    "lint.ios": "swiftlint lint --config ../../.swiftlint.yml platforms/ios/NSWasmKit/Sources platforms/ios/NSWasmKit/Tests",
+    "periphery.ios": "cd platforms/ios/NSWasmKit && periphery scan --config $(git rev-parse --show-toplevel)/.periphery.yml --disable-update-check",
+    "coverage": "vitest run --coverage"
+  },
   "nx": {
     "name": "ns-wasm-kit-runtime",
     "targets": {
@@ -37,11 +43,26 @@
         "options": {
           "script": "coverage"
         }
+      },
+      "lint.ios": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "lint.ios"
+        }
+      },
+      "periphery.ios": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "periphery.ios"
+        }
+      },
+      "buck2-build": {
+        "executor": "@cross-code/nx-buck2:build",
+        "options": {
+          "configuration": "release"
+        }
       }
     }
-  },
-  "scripts": {
-    "coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@cross-code/ns-wasm-core": "workspace:*",
