@@ -547,10 +547,17 @@ crates (`wasm3-jni`, `wamr-jni`) allow `clippy::not_unsafe_ptr_arg_deref`
 crate-wide — `#[no_mangle] extern "system"` entry points deref raw JVM-owned
 pointer args by design.
 
+The `uniffi-bindgen` scaffolding bins (`*/ffi/src/bin/uniffi-bindgen.rs`) are
+excluded by config, not by editing them: each `[[bin]]` carries `test = false`
+in its crate's `Cargo.toml` so `cargo clippy --lib --tests` never compiles it,
+and the `fmt.rust`/`format.rust` scripts format the `find`-listed `.rs` files
+minus any named `uniffi-bindgen.rs` (rustfmt's `ignore` config is nightly-only,
+so the file filter lives in the script).
+
 ```bash
-pnpm exec nx run <pkg>:lint.rust    # cargo clippy --all-targets --all-features -- -D warnings
-pnpm exec nx run <pkg>:fmt.rust     # cargo fmt --all -- --check
-pnpm exec nx run <pkg>:format.rust  # cargo fmt --all (auto-fix)
+pnpm exec nx run <pkg>:lint.rust    # cargo clippy --all-features --lib --tests -- -D warnings
+pnpm exec nx run <pkg>:fmt.rust     # find + rustfmt --check --edition 2021 (excludes uniffi-bindgen.rs)
+pnpm exec nx run <pkg>:format.rust  # find + rustfmt --edition 2021 (auto-fix)
 pnpm exec nx run-many -t lint.rust fmt.rust -p ns-wasm3 ns-wamr ns-wry ns-wasm-fixture
 ```
 
