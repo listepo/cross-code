@@ -53,6 +53,9 @@ vitest.config.*.timestamp*
 # Added by code-review-graph
 .code-review-graph/
 
+# CodeGraph index
+.codegraph/
+
 # Kotlin
 **/.kotlin/errors/*.log
 
