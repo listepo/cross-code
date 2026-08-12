@@ -1,7 +1,7 @@
 # cross-code
 
 An Nx monorepo for running WebAssembly on [NativeScript](https://nativescript.org) —
-three WASM runtime plugins built on a shared TypeScript foundation (wire protocol,
+WASM runtime plugins built on a shared TypeScript foundation (wire protocol,
 adapter interfaces, base Runtime/Module/Function classes):
 
 - [`wasm3`](https://github.com/wasm3/wasm3) — lightweight interpreter (v0.5.2)
@@ -9,10 +9,18 @@ adapter interfaces, base Runtime/Module/Function classes):
   Micro Runtime (2.3.0): interpreter, Fast JIT, LLVM JIT, AOT, WASI
 - [WasmKit](https://github.com/swiftwasm/WasmKit) — Swift-based WebAssembly
   runtime with WASI support, iOS-native through SwiftPM
+- [WasmEdge](https://github.com/WasmEdge/WasmEdge) — high-performance runtime
+  (Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android)
+- [Chicory](https://github.com/dylibso/chicory) — pure-Java interpreter,
+  Android-only
+- [Endive](https://github.com/bytecodealliance/endive) — Java-native
+  interpreter, Android-only
 
 Also in the monorepo: [`ns-wry`](packages/ns-wry) — a general-purpose NativeScript
 plugin scaffold built on Rust + [UniFFI](https://github.com/mozilla/uniffi-rs)
-(uniffi-rs) auto-generated Kotlin/Swift bindings and cargo-ndk Android pipeline.
+(uniffi-rs) auto-generated Kotlin/Swift bindings and cargo-ndk Android pipeline —
+and [`ns-rspack`](packages/ns-rspack), an rspack bundler for NativeScript apps
+that reuses `@nativescript/webpack`'s configuration.
 
 > **Project status: Active development.** APIs and project layout may change without notice; expect breaking changes between releases.
 
@@ -24,16 +32,21 @@ plugin scaffold built on Rust + [UniFFI](https://github.com/mozilla/uniffi-rs)
 | [`@cross-code/ns-wasm3`](packages/ns-wasm3)               | NativeScript plugin — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android (wasm3 interpreter)                                |
 | [`@cross-code/ns-wamr`](packages/ns-wamr)                 | NativeScript plugin — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android (WAMR: interpreter, Fast JIT, LLVM JIT, AOT, WASI) |
 | [`@cross-code/ns-wasm-kit-runtime`](packages/ns-wasm-kit-runtime) | NativeScript plugin — Swift Package on iOS (WasmKit interpreter); Android throws a clear unsupported error                      |
+| [`@cross-code/ns-wasm-edge`](packages/ns-wasm-edge) | NativeScript plugin — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android (WasmEdge runtime)                         |
+| [`@cross-code/ns-wasm-chicory`](packages/ns-wasm-chicory) | NativeScript plugin — pure-Java Chicory interpreter on Android (no native toolchain needed)                               |
+| [`@cross-code/ns-endive`](packages/ns-endive) | NativeScript plugin — Java/JNI Endive interpreter on Android                                                                     |
 | [`@cross-code/ns-wasm-fixture`](packages/ns-wasm-fixture) | Rust/wasm-pack test fixtures (committed `.wasm` binaries)                                                                               |
 | [`@cross-code/vitest-ns`](packages/vitest-ns)             | Vitest custom pool and NativeScript Worker runtime for on-device unit tests                                                             |
 | [`@cross-code/vitest-ns-ui`](packages/vitest-ns-ui)       | Optional NativeScript Core results page for device-side Vitest progress                                                                 |
 | [`@cross-code/ns-wry`](packages/ns-wry)                                       | NativeScript plugin — Rust + UniFFI (uniffi-rs) Kotlin/Swift bindings, cargo-ndk Android pipeline                                       |
+| [`@cross-code/ns-rspack`](packages/ns-rspack)                                 | [rspack](https://rspack.rs) bundler for NativeScript apps — the `@nativescript/webpack` config, compiled by rspack             |
 | [`@cross-code/nx-buck2`](packages/nx-buck2)                                   | Nx plugin for Buck2 native builds — debug/release profiles, cross-compilation, size optimization                                          |
 | [`ns-wasm-test`](apps/ns-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Vitest + `vitest-ns`            |
+| [`rspack-test-app`](apps/rspack-test-app)                 | NativeScript app bundled with `@cross-code/ns-rspack` (workspace member; installs with the root `pnpm install`)                |
 | [`ns-wry-app`](apps/ns-wry-app)                                               | NativeScript test app for @cross-code/ns-wry — WebView demo with google.com on iOS/Android                                              |
 
 The WASM runtime plugins expose the same TypeScript API — see [WASM.md](WASM.md). All runtime
-plugins (wasm3, WAMR, WasmKit) share the same foundation (`@cross-code/ns-wasm-core`)
+plugins (wasm3, WAMR, WasmKit, WasmEdge, Chicory, Endive) share the same foundation (`@cross-code/ns-wasm-core`)
 which provides the wire protocol, error classes, adapter interfaces and generic
 `WasmRuntime`/`WasmModule`/`WasmFunction` classes.
 Each package README covers its own layout, development workflow and troubleshooting
@@ -60,6 +73,8 @@ Before running its suite, install it separately:
 ```bash
 cd apps/ns-wasm-test && pnpm install
 ```
+
+`rspack-test-app` _is_ a workspace member, so the root `pnpm install` covers it.
 
 Run TypeScript build and unit tests (no native toolchain required):
 
@@ -151,18 +166,34 @@ curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-aarc
 
 or `mise plugin install buck2 https://github.com/izaakschroeder/asdf-buck2`.
 
-## WebAssembly plugins (wasm3, WAMR & WasmKit)
+## rspack bundling
+
+[`@cross-code/ns-rspack`](packages/ns-rspack) is an [rspack](https://rspack.rs)
+bundler for NativeScript apps. It reuses `@nativescript/webpack`'s configuration
+— every NativeScript-specific rule (entry stubs, platform extensions, XML/CSS
+loaders, copy rules, defines, HMR) comes from there — and swaps the webpack-only
+pieces (plugins, loaders, glob syntax, `WatchStatePlugin` IPC) for rspack
+equivalents. See [packages/ns-rspack/README.md](packages/ns-rspack/README.md)
+for usage and the webpack↔rspack differences table.
+
+The `rspack-test-app` exercises it end-to-end (`bundler: 'rspack'` in
+`nativescript.config.ts`); `ns build ios` / `ns run ios` (watch + HMR) run the
+bundler via the CLI bin and read build state over IPC.
+
+## WebAssembly plugins (wasm3, WAMR, WasmKit, WasmEdge, Chicory & Endive)
 
 Usage and API documentation for the WebAssembly plugins — install,
 quick start, calling exports, linear memory, globals, host imports, value
 marshalling, error messages, the complete API reference, and shared
 troubleshooting — lives in **[WASM.md](WASM.md)**.
 
-All three plugins expose the same TypeScript API; only the class names differ
+All six plugins expose the same TypeScript API; only the class names differ
 (`Wasm3Runtime` / `Wasm3Module` / `Wasm3Function` vs
 `WamrRuntime` / `WamrModule` / `WamrFunction` vs
-`WasmKitRuntime` / `WasmKitModule` / `WasmKitFunction`).
+`WasmKitRuntime` / `WasmKitModule` / `WasmKitFunction`, and the WasmEdge,
+Chicory and Endive equivalents).
 WasmKit is iOS-only (Swift-based runtime); Android throws a clear "not supported" error.
+Chicory and Endive are Java-based and Android-only.
 
 ## Linting
 
@@ -199,10 +230,15 @@ pnpm exec nx run ns-wamr:periphery.ios
 | `@cross-code/ns-wasm3`        | [README](packages/ns-wasm3/README.md) — platform details, package layout, developing, troubleshooting, license |
 | `@cross-code/ns-wamr`         | [README](packages/ns-wamr/README.md) — execution tiers, package layout, developing, troubleshooting, license   |
 | `@cross-code/ns-wasm-kit-runtime` | [README](packages/ns-wasm-kit-runtime/README.md) — WasmKit Swift interpreter, iOS-only adapter, developing, troubleshooting |
+| `@cross-code/ns-wasm-edge` | [package](packages/ns-wasm-edge) — WasmEdge runtime, follows the Rust/UniFFI architecture of wasm3/wamr |
+| `@cross-code/ns-wasm-chicory` | [package](packages/ns-wasm-chicory) — Chicory pure-Java interpreter, Android-only, byte marshalling |
+| `@cross-code/ns-endive` | [package](packages/ns-endive) — Endive Java interpreter, Android-only, developing, troubleshooting |
 | `@cross-code/ns-wasm-fixture` | [README](packages/ns-wasm-fixture/README.md) — exported subpaths, rebuilding the `.wasm` fixtures              |
 | `@cross-code/vitest-ns`       | [README](packages/vitest-ns/README.md) — custom pool, Worker registry, concurrency, and transport              |
 | `@cross-code/vitest-ns-ui`    | [README](packages/vitest-ns-ui/README.md) — optional NativeScript results UI                                   |
 | `@cross-code/ns-wry`                   | [README](packages/ns-wry/README.md) — Rust + UniFFI architecture, platform stubs, developing, troubleshooting                         |
+| `@cross-code/ns-rspack`                | [README](packages/ns-rspack/README.md) — rspack bundler: usage, webpack↔rspack differences, known gaps               |
 | `@cross-code/nx-buck2`                  | [README](packages/nx-buck2/README.md) — Buck2 executors/generators, CLI usage                                          |
 | `ns-wasm-test`                | [README](apps/ns-wasm-test/README.md) — running the demo page and the on-device Vitest suite, troubleshooting               |
+| `rspack-test-app`                      | rspack-bundled demo app (workspace member) — see [packages/ns-rspack/README.md](packages/ns-rspack/README.md)                   |
 | `ns-wry-app`                            | [README](apps/ns-wry-app/README.md) — WebView demo, build-plugin-and-run scripts, troubleshooting                                     |

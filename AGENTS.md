@@ -42,9 +42,10 @@ TypeScript API (wire protocol, error mapping, and `WasmRuntime` / `WasmModule` /
 `WasmFunction` class shapes). The Rust cargo workspace and UniFFI (uniffi-rs)
 Kotlin/Swift bindings — together with the mirror-image native architecture
 described in [Shared plugin architecture](#shared-plugin-architecture) — apply
-to **ns-wasm3 and ns-wamr**. The newer runtimes (`ns-wasm-kit-runtime`, the
-Swift-native WasmKit interpreter; `ns-endive`, the Java-native Endive
-interpreter) share the same TypeScript adapter pattern, wire protocol, and
+to **ns-wasm3, ns-wamr and ns-wasm-edge**. The newer runtimes
+(`ns-wasm-kit-runtime`, the Swift-native WasmKit interpreter; `ns-wasm-chicory`
+and `ns-endive`, the Java-native Chicory and Endive interpreters) share the
+same TypeScript adapter pattern, wire protocol, and
 `@cross-code/ns-wasm-core` foundation, but have their own per-engine native
 layers. Only engine-specific detail lives in each package's AGENTS.md.
 
@@ -68,6 +69,22 @@ layers. Only engine-specific detail lives in each package's AGENTS.md.
   iOS-only at this time (WasmKit is Swift-native and served through SwiftPM);
   Android throws a clear unsupported error. Follows the same TypeScript
   adapter pattern as the other two plugins.
+- **`ns-wasm-edge`** (`@cross-code/ns-wasm-edge`) — plugin binding the
+  [WasmEdge](https://github.com/WasmEdge/WasmEdge) runtime (Swift Package on
+  iOS, Kotlin + Rust JNI (cargo-ndk) on Android). Follows the Rust/UniFFI
+  architecture of ns-wasm3/ns-wamr.
+- **`ns-wasm-chicory`** (`@cross-code/ns-wasm-chicory`) — plugin binding the
+  [Chicory](https://github.com/dylibso/chicory) interpreter, a pure-Java
+  runtime (no NDK/Rust needed) — Android-only.
+- **`ns-endive`** (`@cross-code/ns-endive`) — plugin binding the
+  [Endive](https://github.com/bytecodealliance/endive) interpreter — Java/JNI
+  on Android with a TypeScript adapter. Android-only.
+- **`ns-rspack`** (`@cross-code/ns-rspack`) — **not a WASM plugin**: an
+  [rspack](https://rspack.rs) bundler for NativeScript apps that reuses
+  `@nativescript/webpack`'s configuration and swaps the webpack-only pieces for
+  rspack equivalents. Installed under the alias the {N} CLI resolves the
+  bundler by (`@nativescript/rspack`). See `packages/ns-rspack/README.md`
+  and `packages/ns-rspack/AGENTS.md`.
 - **`ns-wry`** (`@cross-code/ns-wry`) — general-purpose NativeScript plugin
   scaffold built on Rust + UniFFI (uniffi-rs) with cargo-ndk Android pipeline.
   See `packages/ns-wry/AGENTS.md` for the bare-metal architecture; extend the
@@ -616,8 +633,13 @@ wasm-pack-generated `.d.ts`. See `packages/ns-wasm-fixture/README.md`.
 | `packages/ns-wasm3/AGENTS.md` | wasm3-specific: stack ABI, globals, fixtures, build/test                |
 | `packages/ns-wamr/AGENTS.md`  | WAMR-specific: two-phase load, exec env, WASI, tiers, trampolines, shim |
 | `packages/ns-wasm-kit-runtime/AGENTS.md` | WasmKit-specific: iOS-only Swift interpreter, Android unsupported stub |
+| `packages/ns-wasm-edge/AGENTS.md` | (none — no per-package AGENTS yet; follows the Rust/UniFFI architecture of wasm3/wamr, see Shared plugin architecture above) |
+| `packages/ns-wasm-chicory/AGENTS.md` | (none — no per-package AGENTS yet; pure-Java Android runtime, no NDK/Rust needed) |
+| `packages/ns-endive/AGENTS.md` | (none — no per-package AGENTS yet; Java/JNI Android runtime with TypeScript adapter) |
+| `packages/ns-rspack/AGENTS.md` | rspack bundler for NativeScript apps — CLI/IPC contract, compat layer, gotchas (also see `packages/ns-rspack/README.md` for usage) |
 | `packages/ns-wry/AGENTS.md`            | wry scaffold: Rust + UniFFI architecture, platform stubs, extension guide  |
 | `apps/ns-wasm-test/AGENTS.md` | test app: layout, design decisions, running the suites, adding specs       |
+| `apps/rspack-test-app`                      | rspack-bundled test app — workspace member, installs with the root `pnpm install`; see `packages/ns-rspack/README.md` |
 | `apps/ns-wry-app`                      | test app: WebView demo, build-plugin-and-run workflow                       |
 
 <!-- code-review-graph MCP tools -->
