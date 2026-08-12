@@ -225,7 +225,7 @@ pnpm exec nx run ns-wamr:periphery.ios
 
 | Package                                 | Docs                                                                                                                     |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| WebAssembly plugins (wasm3, WAMR & WasmKit) | [WASM.md](WASM.md) — shared usage, API reference, marshalling, errors, troubleshooting                                    |
+| WebAssembly plugins (wasm3 & WAMR)      | [WASM.md](WASM.md) — shared usage, API reference, marshalling, errors, troubleshooting                                    |
 | `@cross-code/ns-wasm-core`      | [AGENTS.md](AGENTS.md#shared-plugin-architecture) — wire protocol, WasmError, adapter interfaces, base classes |
 | `@cross-code/ns-wasm3`        | [README](packages/ns-wasm3/README.md) — platform details, package layout, developing, troubleshooting, license |
 | `@cross-code/ns-wamr`         | [README](packages/ns-wamr/README.md) — execution tiers, package layout, developing, troubleshooting, license   |
