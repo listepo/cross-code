@@ -483,8 +483,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The app snapshots local file: dependencies when pnpm installs them, so
-      # every package whose entry point lives in dist/ must be built first.
+      # The app consumes local packages through `workspace:` links, so the
+      # linked dist/ entry points must exist before the app is installed or
+      # built — build every local package first.
       - name: Build the app's local packages
         run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge ns-rspack vitest-ns vitest-ns-ui
 
@@ -521,8 +522,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Keep this before the app install: pnpm snapshots local file: packages,
-      # including their generated dist/ entry points, into app node_modules.
+      # Keep this before the app install: the app consumes local packages
+      # through `workspace:` links, so their dist/ entry points must exist
+      # before the app is installed or built.
       - name: Build the app's local packages
         run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge ns-rspack vitest-ns vitest-ns-ui
 

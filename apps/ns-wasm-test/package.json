@@ -21,23 +21,23 @@
     "prepare.android": "nx run ns-wasm-test:prepare.android"
   },
   "dependencies": {
-    "@cross-code/ns-wamr": "file:../../packages/ns-wamr",
-    "@cross-code/ns-wasm-fixture": "file:../../packages/ns-wasm-fixture",
-    "@cross-code/ns-wasm3": "file:../../packages/ns-wasm3",
-    "@cross-code/vitest-ns": "file:../../packages/vitest-ns",
-    "@cross-code/vitest-ns-ui": "file:../../packages/vitest-ns-ui",
+    "@cross-code/ns-wamr": "workspace:@cross-code/ns-wamr@*",
+    "@cross-code/ns-wasm-fixture": "workspace:@cross-code/ns-wasm-fixture@*",
+    "@cross-code/ns-wasm3": "workspace:@cross-code/ns-wasm3@*",
+    "@cross-code/vitest-ns": "workspace:@cross-code/vitest-ns@*",
+    "@cross-code/vitest-ns-ui": "workspace:@cross-code/vitest-ns-ui@*",
     "@nativescript/core": "~9.0.0",
     "@nativescript/theme": "^3.1.0",
     "@valor/nativescript-websockets": "2.0.3",
-    "@cross-code/ns-wasm-kit-runtime": "file:../../packages/ns-wasm-kit-runtime",
-    "@cross-code/ns-endive": "file:../../packages/ns-endive",
-    "@cross-code/ns-wasm-edge": "file:../../packages/ns-wasm-edge",
-    "@cross-code/ns-wasm-chicory": "file:../../packages/ns-wasm-chicory"
+    "@cross-code/ns-wasm-kit-runtime": "workspace:@cross-code/ns-wasm-kit-runtime@*",
+    "@cross-code/ns-endive": "workspace:@cross-code/ns-endive@*",
+    "@cross-code/ns-wasm-edge": "workspace:@cross-code/ns-wasm-edge@*",
+    "@cross-code/ns-wasm-chicory": "workspace:@cross-code/ns-wasm-chicory@*"
   },
   "devDependencies": {
     "@nativescript/android": "9.0.5",
     "@nativescript/ios": "9.0.3",
-    "@nativescript/rspack": "file:../../packages/ns-rspack",
+    "@nativescript/rspack": "workspace:@cross-code/ns-rspack@*",
     "@nativescript/types": "~9.0.0",
     "@nativescript/types-android": "9.0.0",
     "@nativescript/types-ios": "9.0.0",

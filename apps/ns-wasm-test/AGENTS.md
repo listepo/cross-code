@@ -88,8 +88,11 @@ platform-specific exception prefixes.
 ## Package wiring
 
 The app is deliberately outside the root pnpm workspace and owns a separate
-lockfile. Local packages use `file:` dependencies. Add or remove dependencies
-with pnpm from this app directory; do not emulate links with TypeScript paths.
+lockfile. It is itself a pnpm workspace root that exposes the sibling
+`packages/*` it consumes through the `workspace:` protocol (see
+`pnpm-workspace.yaml`) — each local package is linked, not copied. Add or
+remove dependencies with pnpm from this app directory; do not emulate links
+with TypeScript paths.
 
 `@cross-code/vitest-ns-ui` has the runner as a peer dependency so the
 app provides one runner instance, and the UI has `@nativescript/core` as a peer
