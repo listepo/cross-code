@@ -1,57 +1,57 @@
 {
-    "name": "@cross-code/source",
-    "version": "0.0.0",
-    "license": "MIT",
-    "scripts": {
-        "clean.cache": "node tools/clean.mjs",
-        "clean.cache:all": "node tools/clean.mjs --all"
-    },
-    "private": true,
-    "packageManager": "pnpm@11.20.0",
-    "devDependencies": {
-        "@cross-code/nx-buck2": "workspace:*",
-        "@cross-code/nx-ns-app": "workspace:*",
-        "@nx/devkit": "^23.1.0",
-        "@nx/js": "23.1.0",
-        "@nx/plugin": "23.1.0",
-        "@nx/vite": "23.1.0",
-        "@nx/vitest": "23.1.0",
-        "@nx/web": "23.1.0",
-        "@swc-node/register": "1.11.1",
-        "@swc/core": "1.15.8",
-        "@swc/helpers": "0.5.18",
-        "@types/node": "^24.13.3",
-        "@vitest/coverage-v8": "~4.1.0",
-        "agent-device": "^0.20.6",
-        "jiti": "2.4.2",
-        "nativescript": "^9.0.6",
-        "nx": "23.1.0",
-        "oxfmt": "^0.62.0",
-        "oxlint": "^1.77.0",
-        "prettier": "^3.8.1",
-        "skills": "^1.5.22",
-        "tslib": "^2.3.0",
-        "typescript": "~6.0.3",
-        "verdaccio": "^6.3.2",
-        "vite": "^8.0.0",
-        "vitest": "~4.1.0",
-        "zx": "^8.8.5"
-    },
-    "workspaces": [
-        "packages/*"
-    ],
-    "nx": {
-        "includedScripts": [],
-        "targets": {
-            "local-registry": {
-                "executor": "@nx/js:verdaccio",
-                "options": {
-                    "port": 4873,
-                    "config": ".verdaccio/config.yml",
-                    "storage": "tmp/local-registry/storage"
-                }
-            }
+  "name": "@cross-code/source",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "clean.cache": "node tools/clean.mjs",
+    "clean.cache:all": "node tools/clean.mjs --all"
+  },
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "devDependencies": {
+    "@cross-code/nx-buck2": "workspace:*",
+    "@cross-code/nx-ns-app": "workspace:*",
+    "@nx/devkit": "^23.1.0",
+    "@nx/js": "23.1.0",
+    "@nx/plugin": "23.1.0",
+    "@nx/vite": "23.1.0",
+    "@nx/vitest": "23.1.0",
+    "@nx/web": "23.1.0",
+    "@swc-node/register": "1.11.1",
+    "@swc/core": "1.15.8",
+    "@swc/helpers": "0.5.18",
+    "@types/node": "^24.13.3",
+    "@vitest/coverage-v8": "~4.1.0",
+    "agent-device": "^0.20.6",
+    "jiti": "2.4.2",
+    "nativescript": "^9.0.6",
+    "nx": "23.1.0",
+    "oxfmt": "^0.62.0",
+    "oxlint": "^1.77.0",
+    "prettier": "^3.8.1",
+    "skills": "^1.5.22",
+    "tslib": "^2.3.0",
+    "typescript": "~6.0.3",
+    "verdaccio": "^6.3.2",
+    "vite": "^8.0.0",
+    "vitest": "~4.1.0",
+    "zx": "^8.8.5"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "nx": {
+    "includedScripts": [],
+    "targets": {
+      "local-registry": {
+        "executor": "@nx/js:verdaccio",
+        "options": {
+          "port": 4873,
+          "config": ".verdaccio/config.yml",
+          "storage": "tmp/local-registry/storage"
         }
-    },
-    "dependencies": {}
+      }
+    }
+  },
+  "dependencies": {}
 }
