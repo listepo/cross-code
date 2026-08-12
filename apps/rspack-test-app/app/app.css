@@ -26,6 +26,14 @@ Button.-primary {
   background-color: #212121;
 }
 
+.ns-dark .card .card-title {
+  color: #64b5f6;
+}
+
+.ns-dark .card .hint {
+  color: #9e9e9e;
+}
+
 .card-title {
   font-size: 15;
   font-weight: bold;

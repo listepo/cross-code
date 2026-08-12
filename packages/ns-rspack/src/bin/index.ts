@@ -16,6 +16,19 @@ const tag = '[@cross-code/ns-rspack]'
  * `--env.<key>[=<value>]` flags become the env object handed to the config
  * factory — same contract as `@nativescript/webpack`'s bin.
  */
+/** `--env.<key>=true` / `=false` become real booleans; anything else stays a string. */
+function envValue(value: string): boolean | string {
+    if (value === 'true') {
+        return true
+    }
+
+    if (value === 'false') {
+        return false
+    }
+
+    return value
+}
+
 function parseEnvFlags(args: string[]): INativeScriptRspackEnv {
     const env: INativeScriptRspackEnv = {}
 
@@ -25,7 +38,7 @@ function parseEnvFlags(args: string[]): INativeScriptRspackEnv {
         }
 
         const [key, ...rest] = arg.slice('--env.'.length).split('=')
-        const value = rest.length ? rest.join('=') : true
+        const value = rest.length ? envValue(rest.join('=')) : true
         const existing = env[key]
 
         // repeated flags collect into an array, matching webpack's cli
@@ -85,7 +98,12 @@ async function main(): Promise<void> {
 
     env.stats ??= true
     env.watch ??= !!values.watch
-    process.env.NATIVESCRIPT_CONFIG_NAME ??= env.config as string
+
+    // process.env coerces `undefined` to the string "undefined" — only set the
+    // config name when one was actually passed
+    if (typeof env.config === 'string') {
+        process.env.NATIVESCRIPT_CONFIG_NAME ??= env.config
+    }
 
     const configPath = resolve(
         (values.config as string | undefined) ?? resolve(process.cwd(), 'rspack.config.ts'),

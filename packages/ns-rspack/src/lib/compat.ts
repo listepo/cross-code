@@ -22,7 +22,16 @@ export class ContextExclusionPlugin {
                 | undefined
 
             if (!hook?.tap) {
-                return
+                // rspack 2.x exposes only beforeResolve/afterResolve and
+                // enumerates context files in Rust — there is no supported hook
+                // to filter them. Failing loudly beats silently bundling
+                // App_Resources, other-platform files and _-prefixed files.
+                throw new Error(
+                    'ContextExclusionPlugin: the bundler provides no `contextModuleFiles` hook, so ' +
+                        '`require.context` exclusions (App_Resources, other platforms, _-prefixed files) ' +
+                        'cannot be applied. Use a bundler exposing that hook, or drop the plugin from ' +
+                        'the chain config.',
+                )
             }
 
             hook.tap('ContextExclusionPlugin', (files) =>

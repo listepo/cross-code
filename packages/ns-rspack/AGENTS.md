@@ -16,13 +16,13 @@ anything here.
 
 ## Architecture at a glance
 
-```
+```text
 src/index.ts                public API: init/chainRspack/mergeRspack/useConfig/resolveChainableConfig/resolveConfig
 src/bin/index.ts            the bundler CLI ({N} spawns this), env-flag parser, jiti config loader, watch mode
 src/lib/compat.ts           webpack→rspack adaptation of the chain config and of the resolved config
 src/lib/watch-state-plugin.ts  rspack reimplementation of @nativescript/webpack's WatchStatePlugin (IPC)
 src/lib/compat.spec.ts      vitest unit tests for the adaptations
-dist/                       built output (gitignored; regenerate with `nx run ns-rspack:build`)
+dist/                       built output (gitignored; regenerate with `pnpm exec nx run ns-rspack:build`)
 README.md                   usage, webpack↔rspack differences table, known gaps
 ```
 
@@ -31,7 +31,7 @@ README.md                   usage, webpack↔rspack differences table, known gap
 The CLI resolves `bundler: 'rspack'` in `nativescript.config.ts` to
 `<app>/node_modules/@nativescript/rspack` (aliased to this package) and spawns:
 
-```
+```bash
 node dist/bin/index.js build --config=<path> [--watch] --env.ios --env.appPath=app …
 ```
 
