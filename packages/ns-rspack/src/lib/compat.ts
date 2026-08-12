@@ -11,8 +11,16 @@ import { WatchStatePlugin } from './watch-state-plugin.js'
  * them to keep `require.context` from pulling in App_Resources and the other
  * platform's `.android.ts` / `.ios.ts` files, which both matter — the app entry
  * stub registers every module the context enumerates.
+ *
+ * rspack 2.x's `ContextModuleFactory` exposes only beforeResolve/afterResolve
+ * and enumerates context files in Rust, so there is no supported hook to filter
+ * them. The exclusion is therefore best-effort: warn instead of failing the
+ * build. In practice the `~/` context is scoped to the app dir (App_Resources
+ * is a sibling), and platform-suffixed files are rare in app sources.
  */
 export class ContextExclusionPlugin {
+    private static warned = false
+
     constructor(private readonly negativeMatcher: RegExp) {}
 
     apply(compiler: Compiler): void {
@@ -22,16 +30,14 @@ export class ContextExclusionPlugin {
                 | undefined
 
             if (!hook?.tap) {
-                // rspack 2.x exposes only beforeResolve/afterResolve and
-                // enumerates context files in Rust — there is no supported hook
-                // to filter them. Failing loudly beats silently bundling
-                // App_Resources, other-platform files and _-prefixed files.
-                throw new Error(
-                    'ContextExclusionPlugin: the bundler provides no `contextModuleFiles` hook, so ' +
-                        '`require.context` exclusions (App_Resources, other platforms, _-prefixed files) ' +
-                        'cannot be applied. Use a bundler exposing that hook, or drop the plugin from ' +
-                        'the chain config.',
-                )
+                if (!ContextExclusionPlugin.warned) {
+                    ContextExclusionPlugin.warned = true
+                    console.warn(
+                        '[ns-rspack] ContextExclusionPlugin: the bundler provides no `contextModuleFiles` hook, ' +
+                            'so `require.context` exclusions (App_Resources, other platforms) cannot be applied.',
+                    )
+                }
+                return
             }
 
             hook.tap('ContextExclusionPlugin', (files) =>
