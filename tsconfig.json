@@ -38,6 +38,9 @@
         },
         {
             "path": "./packages/ns-rspack"
+        },
+        {
+            "path": "./apps/rspack-test-app"
         }
     ],
     "compilerOptions": {}

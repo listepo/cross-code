@@ -8,12 +8,16 @@
     "noEmitHelpers": true,
     "noEmitOnError": true,
     "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
     "lib": ["ESNext", "dom"],
     "baseUrl": ".",
     "paths": {
       "~/*": ["app/*"],
       "@/*": ["app/*"]
-    }
+    },
+    "composite": true,
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
   "include": ["app/**/*"],
   "files": ["./references.d.ts"],

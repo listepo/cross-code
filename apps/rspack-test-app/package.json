@@ -12,6 +12,8 @@
     "@nativescript/ios": "9.0.3",
     "@nativescript/rspack": "workspace:@cross-code/ns-rspack@*",
     "@nativescript/types": "~9.0.0",
-    "typescript": "~5.4.0"
+    "@nativescript/types-android": "9.0.0",
+    "@nativescript/types-ios": "9.0.0",
+    "typescript": "~6.0.3"
   }
 }
