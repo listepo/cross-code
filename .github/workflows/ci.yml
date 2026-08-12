@@ -124,8 +124,7 @@ jobs:
             packages/ns-wasm-edge/test-output/vitest/coverage/lcov.info
             packages/ns-endive/test-output/vitest/coverage/lcov.info
             packages/ns-wry/test-output/vitest/coverage/lcov.info
-            packages/vitest-ns/test-output/vitest/coverage/lcov.info
-            packages/vitest-ns-ui/test-output/vitest/coverage/lcov.info
+            packages/ns-rstest/test-output/vitest/coverage/lcov.info
             packages/ns-wasm-fixture/target/coverage/lcov.info
 
       # Rust is pre-installed on GitHub's ubuntu-latest runner. When debugging
@@ -487,7 +486,7 @@ jobs:
       # linked dist/ entry points must exist before the app is installed or
       # built — build every local package first.
       - name: Build the app's local packages
-        run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge ns-rspack vitest-ns vitest-ns-ui
+        run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge ns-rspack ns-rstest
 
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test
@@ -525,7 +524,7 @@ jobs:
       # through `workspace:` links, so their dist/ entry points must exist
       # before the app is installed or built.
       - name: Build the app's local packages
-        run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge ns-rspack vitest-ns vitest-ns-ui
+        run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge ns-rspack ns-rstest
 
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test

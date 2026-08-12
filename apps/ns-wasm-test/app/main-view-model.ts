@@ -21,9 +21,9 @@ import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM } from './wasm/wasm-assets';
 /**
  * Runs the fixture suite on both of the device's runtimes — wasm3 and WAMR —
  * so the demo page shows the same module behaving identically on each. The
- * checks themselves live in `wasm/fixture-suite.ts`; the Vitest specs in
+ * checks themselves live in `wasm/fixture-suite.ts`; the Rstest specs in
  * `app/tests/wasm3/` and `app/tests/wamr/` assert on the same list under
- * the `vitest-ns` worker.
+ * the `ns-rstest` worker.
  *
  * WAMR runs on its Interpreter tier here, the one tier available in every
  * build; the specs cover Fast JIT, LLVM JIT and AOT where they are compiled in.

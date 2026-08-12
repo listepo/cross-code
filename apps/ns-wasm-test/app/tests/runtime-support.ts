@@ -25,7 +25,7 @@
  * failure rather than a skip.
  */
 import { isIOS } from '@nativescript/core';
-import { describe } from 'vitest';
+import { describe } from '@rstest/core';
 
 export type Platform = 'ios' | 'android';
 

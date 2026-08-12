@@ -10,7 +10,7 @@ automatically). This file exists only so older tools that look for
 
 **Read `AGENTS.md` before exploring, building, or editing anything.**
 It covers: Nx task conventions, the NativeScript plugins (ns-wamr,
-ns-wasm3, ns-wry), the vitest-ns device test pool, the shared wire
+ns-wasm3, ns-wry), the ns-rstest device test runner, the shared wire
 protocol, native build pipelines (prebuilt xcframeworks, cargo-ndk,
 Buck2 via `nx-buck2`), testing layers, and the code-review-graph MCP
 tools that should be used before Grep/Glob/Read.

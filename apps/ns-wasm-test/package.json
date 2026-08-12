@@ -4,12 +4,12 @@
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@11.20.0",
-  "description": "NativeScript test app for @cross-code/ns-wasm3 and @cross-code/ns-wamr \u2014 runs the shared WebAssembly fixture on-device with Vitest.",
+  "description": "NativeScript test app for @cross-code/ns-wasm3 and @cross-code/ns-wamr \u2014 runs the shared WebAssembly fixture on-device with Rstest.",
   "scripts": {
-    "test.ios": "vitest run --config vitest.ios.config.mts",
-    "test.android": "vitest run --config vitest.android.config.mts",
-    "test.ios:coverage": "vitest run --coverage --config vitest.ios.config.mts",
-    "test.android:coverage": "vitest run --coverage --config vitest.android.config.mts",
+    "test.ios": "node ns-rstest.ios.mts",
+    "test.android": "node ns-rstest.android.mts",
+    "test.ios:coverage": "node ns-rstest.ios.mts --coverage",
+    "test.android:coverage": "node ns-rstest.android.mts --coverage",
     "build.ios": "nx run ns-wasm-test:build.ios",
     "build.android": "nx run ns-wasm-test:build.android",
     "run.ios": "nx run ns-wasm-test:run.ios",
@@ -21,18 +21,17 @@
     "prepare.android": "nx run ns-wasm-test:prepare.android"
   },
   "dependencies": {
+    "@cross-code/ns-endive": "workspace:@cross-code/ns-endive@*",
+    "@cross-code/ns-rstest": "workspace:@cross-code/ns-rstest@*",
     "@cross-code/ns-wamr": "workspace:@cross-code/ns-wamr@*",
+    "@cross-code/ns-wasm-chicory": "workspace:@cross-code/ns-wasm-chicory@*",
+    "@cross-code/ns-wasm-edge": "workspace:@cross-code/ns-wasm-edge@*",
     "@cross-code/ns-wasm-fixture": "workspace:@cross-code/ns-wasm-fixture@*",
+    "@cross-code/ns-wasm-kit-runtime": "workspace:@cross-code/ns-wasm-kit-runtime@*",
     "@cross-code/ns-wasm3": "workspace:@cross-code/ns-wasm3@*",
-    "@cross-code/vitest-ns": "workspace:@cross-code/vitest-ns@*",
-    "@cross-code/vitest-ns-ui": "workspace:@cross-code/vitest-ns-ui@*",
     "@nativescript/core": "~9.0.0",
     "@nativescript/theme": "^3.1.0",
-    "@valor/nativescript-websockets": "2.0.3",
-    "@cross-code/ns-wasm-kit-runtime": "workspace:@cross-code/ns-wasm-kit-runtime@*",
-    "@cross-code/ns-endive": "workspace:@cross-code/ns-endive@*",
-    "@cross-code/ns-wasm-edge": "workspace:@cross-code/ns-wasm-edge@*",
-    "@cross-code/ns-wasm-chicory": "workspace:@cross-code/ns-wasm-chicory@*"
+    "@valor/nativescript-websockets": "2.0.3"
   },
   "devDependencies": {
     "@nativescript/android": "9.0.5",
@@ -41,9 +40,7 @@
     "@nativescript/types": "~9.0.0",
     "@nativescript/types-android": "9.0.0",
     "@nativescript/types-ios": "9.0.0",
-    "@vitest/coverage-istanbul": "~4.1.10",
-    "@vitest/runner": "~4.1.10",
-    "typescript": "~6.0.0",
-    "vitest": "~4.1.10"
+    "@rstest/core": "0.11.6",
+    "typescript": "~6.0.0"
   }
 }

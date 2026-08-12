@@ -2,10 +2,10 @@
  * The Rust fixture module driven through the plugin's public API, on the
  * device's own Endive interpreter (Android-only; iOS throws unsupported).
  *
- * Vitest discovers this file in Node, then @cross-code/vitest-ns
+ * Rstest discovers this file in Node, then @cross-code/ns-rstest
  * executes it inside a NativeScript Worker on the selected device.
  */
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it } from '@rstest/core';
 import {
   EndiveError,
   EndiveRuntime,

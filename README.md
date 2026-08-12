@@ -36,12 +36,11 @@ that reuses `@nativescript/webpack`'s configuration.
 | [`@cross-code/ns-wasm-chicory`](packages/ns-wasm-chicory) | NativeScript plugin — pure-Java Chicory interpreter on Android (no native toolchain needed)                               |
 | [`@cross-code/ns-endive`](packages/ns-endive) | NativeScript plugin — Java/JNI Endive interpreter on Android                                                                     |
 | [`@cross-code/ns-wasm-fixture`](packages/ns-wasm-fixture) | Rust/wasm-pack test fixtures (committed `.wasm` binaries)                                                                               |
-| [`@cross-code/vitest-ns`](packages/vitest-ns)             | Vitest custom pool and NativeScript Worker runtime for on-device unit tests                                                             |
-| [`@cross-code/vitest-ns-ui`](packages/vitest-ns-ui)       | Optional NativeScript Core results page for device-side Vitest progress                                                                 |
+| [`@cross-code/ns-rstest`](packages/ns-rstest)             | [Rstest](https://rstest.rs) device test runner for NativeScript — Node host, Worker runtime, and optional on-device results page        |
 | [`@cross-code/ns-wry`](packages/ns-wry)                                       | NativeScript plugin — Rust + UniFFI (uniffi-rs) Kotlin/Swift bindings, cargo-ndk Android pipeline                                       |
 | [`@cross-code/ns-rspack`](packages/ns-rspack)                                 | [rspack](https://rspack.rs) bundler for NativeScript apps — the `@nativescript/webpack` config, compiled by rspack             |
 | [`@cross-code/nx-buck2`](packages/nx-buck2)                                   | Nx plugin for Buck2 native builds — debug/release profiles, cross-compilation, size optimization                                          |
-| [`ns-wasm-test`](apps/ns-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Vitest + `vitest-ns`            |
+| [`ns-wasm-test`](apps/ns-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Rstest + `ns-rstest`            |
 | [`rspack-test-app`](apps/rspack-test-app)                 | NativeScript app bundled with `@cross-code/ns-rspack` (workspace member; installs with the root `pnpm install`)                |
 | [`ns-wry-app`](apps/ns-wry-app)                                               | NativeScript test app for @cross-code/ns-wry — WebView demo with google.com on iOS/Android                                              |
 
@@ -234,8 +233,7 @@ pnpm exec nx run ns-wamr:periphery.ios
 | `@cross-code/ns-wasm-chicory` | [package](packages/ns-wasm-chicory) — Chicory pure-Java interpreter, Android-only, byte marshalling |
 | `@cross-code/ns-endive` | [package](packages/ns-endive) — Endive Java interpreter, Android-only, developing, troubleshooting |
 | `@cross-code/ns-wasm-fixture` | [README](packages/ns-wasm-fixture/README.md) — exported subpaths, rebuilding the `.wasm` fixtures              |
-| `@cross-code/vitest-ns`       | [README](packages/vitest-ns/README.md) — custom pool, Worker registry, concurrency, and transport              |
-| `@cross-code/vitest-ns-ui`    | [README](packages/vitest-ns-ui/README.md) — optional NativeScript results UI                                   |
+| `@cross-code/ns-rstest`       | [README](packages/ns-rstest/README.md) — Node host, Worker registry, concurrency, transport, and results UI    |
 | `@cross-code/ns-wry`                   | [README](packages/ns-wry/README.md) — Rust + UniFFI architecture, platform stubs, developing, troubleshooting                         |
 | `@cross-code/ns-rspack`                | [README](packages/ns-rspack/README.md) — rspack bundler: usage, webpack↔rspack differences, known gaps               |
 | `@cross-code/nx-buck2`                  | [README](packages/nx-buck2/README.md) — Buck2 executors/generators, CLI usage                                          |

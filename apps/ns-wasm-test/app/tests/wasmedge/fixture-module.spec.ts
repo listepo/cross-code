@@ -1,7 +1,7 @@
 /**
  * The Rust fixture module driven through @cross-code/ns-wasm-edge.
  */
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it } from '@rstest/core';
 import { WasmEdgeError, WasmEdgeRuntime, type WasmEdgeModule } from '@cross-code/ns-wasm-edge';
 import { callFixture, createHostImports, runFixtureChecks, summarize, type HostCall } from '../../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM } from '../../wasm/wasm-assets';

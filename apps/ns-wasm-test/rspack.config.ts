@@ -4,7 +4,7 @@ import type { INativeScriptRspackEnv } from '@nativescript/rspack';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const configureNativeScriptVitestWebpack = require('@cross-code/vitest-ns/webpack');
+const configureNativeScriptRstest = require('@cross-code/ns-rstest/bundler');
 
 // The fixture .wasm binaries are build outputs of @cross-code/ns-wasm-fixture
 // (wasm-pack + the gen_globals binary). Copy them into the bundle so wasm3 and
@@ -29,8 +29,8 @@ export default (env: INativeScriptRspackEnv) => {
     context: fixturePkgDir,
   });
 
-  configureNativeScriptVitestWebpack(rspack, {
-    entry: 'vitest-ns.ts',
+  configureNativeScriptRstest(rspack, {
+    entry: 'ns-rstest.ts',
   });
 
   return rspack.resolveConfig();

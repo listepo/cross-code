@@ -105,9 +105,9 @@ describe('buildNsEnv', () => {
   });
 
   it('injects env vars with --env. prefix', () => {
-    const env = buildNsEnv({ env: { vitestNativeScript: '', vitestNativeScriptPort: '17878' } });
-    expect(env['--env.vitestNativeScript']).toBe('');
-    expect(env['--env.vitestNativeScriptPort']).toBe('17878');
+    const env = buildNsEnv({ env: { rstestNativeScript: '', rstestNativeScriptPort: '17878' } });
+    expect(env['--env.rstestNativeScript']).toBe('');
+    expect(env['--env.rstestNativeScriptPort']).toBe('17878');
   });
 });
 

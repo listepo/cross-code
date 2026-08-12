@@ -18,7 +18,7 @@
         "{projectRoot}/references.d.ts",
         "{projectRoot}/tsconfig.json",
         "{projectRoot}/tsconfig.spec.json",
-        "{projectRoot}/vitest.*.config.mts",
+        "{projectRoot}/ns-rstest.*.mts",
         "{projectRoot}/rspack.config.ts",
         "^production"
       ]

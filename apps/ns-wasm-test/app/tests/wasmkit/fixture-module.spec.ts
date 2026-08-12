@@ -2,7 +2,7 @@
  * The Rust fixture module driven through the plugin's public API, on the
  * device's own WasmKit interpreter.
  *
- * Vitest discovers this file in Node, then @cross-code/vitest-ns
+ * Rstest discovers this file in Node, then @cross-code/ns-rstest
  * executes it inside a NativeScript Worker on the selected device.
  *
  * The bulk of the coverage is `runFixtureChecks` from `app/wasm/fixture-suite.ts`,
@@ -10,7 +10,7 @@
  * their own assertions: declared signatures, i64 precision, host-import
  * round trips, and the error paths.
  */
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it } from '@rstest/core';
 import {
   WasmKitError,
   WasmKitRuntime,

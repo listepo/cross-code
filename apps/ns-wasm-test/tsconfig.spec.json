@@ -1,13 +1,12 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "sourceMap": true,
-    "types": ["vitest"]
+    "sourceMap": true
   },
   "files": [
     "./references.d.ts",
-    "app/vitest-ns.ts",
-    "app/vitest-ns.worker.ts"
+    "app/ns-rstest.ts",
+    "app/ns-rstest.worker.ts"
   ],
   "include": ["app/**/*.spec.ts", "app/**/*.d.ts"],
   "exclude": ["node_modules", "platforms"]

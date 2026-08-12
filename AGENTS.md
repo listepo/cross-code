@@ -90,18 +90,20 @@ layers. Only engine-specific detail lives in each package's AGENTS.md.
   See `packages/ns-wry/AGENTS.md` for the bare-metal architecture; extend the
   `wry-rust` workspace and `wry_ffi.udl` IDL to add engine-specific APIs.
 
-### Vitest + NativeScript unit-test packages
+### Rstest + NativeScript unit-test package
 
-- **`vitest-ns`** (`@cross-code/vitest-ns`) — a Vitest
-  custom pool that runs unit tests in NativeScript Worker runtimes. Read
-  `packages/vitest-ns/AGENTS.md` before changing its Node/device
-  protocol or webpack aliases.
-- **`vitest-ns-ui`** (`@cross-code/vitest-ns-ui`) — an
-  optional NativeScript Core results view. It is presentation-only and should
-  remain removable for headless or CI usage.
-- These packages support one-shot unit tests; they are not a component-testing
-  or end-to-end framework. Run their Nx `build`, `typecheck`, and `test`
-  targets with `pnpm exec nx`.
+- **`ns-rstest`** (`@cross-code/ns-rstest`) — runs Rstest unit tests in
+  NativeScript Worker runtimes. Rstest has no custom-pool API, so the package
+  owns its own Node host (`runNativeScriptTests`) and drives Rstest's own
+  runtime (`@rstest/core/internal/browser-runtime`) on the device. Read
+  `packages/ns-rstest/AGENTS.md` before changing its Node/device protocol or
+  bundler aliases.
+- The optional on-device results view ships from the same package under
+  `@cross-code/ns-rstest/ui`. It is presentation-only and should remain
+  removable for headless or CI usage.
+- The package supports one-shot unit tests; it is not a component-testing or
+  end-to-end framework. Run its Nx `build`, `typecheck`, and `test` targets
+  with `pnpm exec nx`.
 
 **wamr native suites**: if the vendored WAMR C sources are ever absent, the
 wamr native commands and CI jobs (`wamr-ios`, `wamr-android`) skip gracefully

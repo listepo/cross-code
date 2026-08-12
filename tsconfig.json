@@ -13,10 +13,7 @@
             "path": "./packages/ns-wamr"
         },
         {
-            "path": "./packages/vitest-ns"
-        },
-        {
-            "path": "./packages/vitest-ns-ui"
+            "path": "./packages/ns-rstest"
         },
         {
             "path": "./packages/ns-wry"

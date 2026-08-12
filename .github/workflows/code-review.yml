@@ -44,8 +44,8 @@ jobs:
             (packages/ns-wasm3) that bridges WebAssembly (wasm3) to
             iOS (Swift) and Android (Kotlin + Rust JNI); a Rust wasm-pack
             fixture crate (packages/ns-wasm-fixture); and a
-            NativeScript test app (apps/ns-wasm-test) running Vitest
-            through vitest-ns on a device/emulator.
+            NativeScript test app (apps/ns-wasm-test) running Rstest
+            through ns-rstest on a device/emulator.
 
             Review the diff for: correctness across the JS↔native wire
             protocol (i64 must stay lossless as decimal strings, signed Java

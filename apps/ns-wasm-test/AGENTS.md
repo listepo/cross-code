@@ -6,34 +6,36 @@ Workspace-wide Nx and NativeScript rules live in the root `AGENTS.md`.
 
 ## Test architecture
 
-- Vitest runs in Node and uses the `@cross-code/vitest-ns` custom
-  pool for discovery, scheduling, and reporter output.
-- `app/vitest-ns.ts` is the test-only application entry. It owns the
-  coordinator and the optional `@cross-code/vitest-ns-ui` page. Its
+- `@cross-code/ns-rstest` runs the host loop in Node: it globs the specs,
+  launches the NativeScript CLI, assigns files to device worker slots, and
+  reports through Rstest's `Reporter` interface. Rstest has no custom-pool API,
+  so the `rstest` CLI is never involved.
+- `app/ns-rstest.ts` is the test-only application entry. It owns the
+  coordinator and the optional `@cross-code/ns-rstest/ui` page. Its
   first import must remain `@valor/nativescript-websockets` so the transport
   global exists before the coordinator starts.
-- `app/vitest-ns.worker.ts` is a statically discoverable NativeScript
+- `app/ns-rstest.worker.ts` is a statically discoverable NativeScript
   Worker entry. It imports `@nativescript/core/globals` for timers, and its
-  bundler registry must match every file selected by the Vitest configs.
+  bundler registry must match every file selected by the host configs.
 - Specs execute inside the Worker against the real iOS/Android native plugins.
   Never move NativeScript `View` access into a spec or Worker.
 - The normal demo still starts from `app/app.ts` and reuses
   `app/wasm/fixture-suite.ts`.
 
 The custom bundler helper (see `rspack.config.ts`) activates only for
-`env.vitestNativeScript`, swaps
-the app entry, and aliases bare `vitest` imports to the device-safe shim. With
-`env.vitestNativeScriptCoverage` it also applies Istanbul instrumentation to
-app sources; that flag is added automatically by `vitest run --coverage`.
+`env.rstestNativeScript`, swaps the app entry, and aliases bare `@rstest/core`
+imports to the device-safe shim. With `env.rstestNativeScriptCoverage` it also
+applies Istanbul instrumentation to app sources; that flag is added
+automatically when the host config enables coverage.
 
 ## Layout
 
 ```text
 app/
-  vitest-ns.ts          coordinator + results UI
-  vitest-ns.worker.ts   Worker registry
-  tests/wasm3/                    wasm3 Vitest specs
-  tests/wamr/                     WAMR Vitest specs
+  ns-rstest.ts                    coordinator + results UI
+  ns-rstest.worker.ts             Worker registry
+  tests/wasm3/                    wasm3 Rstest specs
+  tests/wamr/                     WAMR Rstest specs
   tests/wasmkit/                  WasmKit specs (iOS-only engine)
   tests/endive/                   Endive specs (Android-only engine)
   tests/chicory/                  Chicory specs (Android-only engine)
@@ -41,21 +43,23 @@ app/
   tests/runtime-support.ts        per-engine platform matrix + suite gating
   wasm/fixture-suite.ts           shared correctness checks
   wasm/wasm-assets.ts             bundled fixture paths/byte reader
-vitest.ios.config.mts             iOS simulator host config
-vitest.android.config.mts         Android emulator host config
-rspack.config.ts                  WASM copies + Vitest test entry
+ns-rstest.ios.mts                 iOS simulator host runner
+ns-rstest.android.mts             Android emulator host runner
+rspack.config.ts                  WASM copies + Rstest test entry
 tsconfig.json                     production/demo TypeScript files
 tsconfig.spec.json                specs and test-only entries
 ```
 
 ## Invariants
 
-- Import `describe`, `it`, hooks, and `expect` from bare `vitest` in every spec.
-  Bare imports are required so Node receives Vitest types while the bundler can
-  substitute the device-safe shim.
-- Keep host and device file patterns aligned:
-  `app/tests/**/*.spec.ts` in both Vitest configs and `/\.spec\.ts$/` in the
-  Worker registry.
+- Import `describe`, `it`, hooks, and `expect` from bare `@rstest/core` in every
+  spec. Bare imports are required so the editor gets Rstest types while the
+  bundler substitutes the device-safe shim, which forwards to the per-file
+  runtime Rstest publishes on `globalThis['@rstest/core']`.
+- Keep host and device file patterns aligned: `app/tests/**/*.spec.ts` in both
+  host runners and `/\.spec\.ts$/` in the Worker registry.
+- A worker slot loads each spec module once. Rstest registers suites while the
+  module body evaluates, so a spec cannot be re-run inside one app session.
 - Keep `workers: 1` unless all native state touched by the suite is verified
   thread-safe. A worker is long-lived and files assigned to it share module and
   global state.
@@ -94,14 +98,14 @@ lockfile. It is itself a pnpm workspace root that exposes the sibling
 remove dependencies with pnpm from this app directory; do not emulate links
 with TypeScript paths.
 
-`@cross-code/vitest-ns-ui` has the runner as a peer dependency so the
-app provides one runner instance, and the UI has `@nativescript/core` as a peer
-so its `Page`/`View` types come from the app's NativeScript installation.
+`@cross-code/ns-rstest` has `@rstest/core` and `@nativescript/core` as peers, so
+the app provides the single Rstest install the host and device share and the
+results UI takes its `Page`/`View` types from the app's NativeScript install.
 
-When runner/UI `dist` output changes:
+When the runner's `dist` output changes:
 
 ```bash
-pnpm exec nx run-many -t build -p vitest-ns vitest-ns-ui
+pnpm exec nx run ns-rstest:build
 cd apps/ns-wasm-test
 pnpm install --force
 ```
@@ -135,5 +139,6 @@ bare global `ns` command.
 
 Use the `.coverage` targets to collect Istanbul coverage on the device. The
 reports are local, platform-specific artifacts under
-`test-output/vitest/coverage/{ios,android}`. Do not enable Vitest's V8 provider:
-NativeScript runtimes do not expose V8 inspector coverage.
+`test-output/rstest/coverage/{ios,android}/coverage-final.json` — raw Istanbul
+data, ready for `npx nyc report` or a coverage uploader. Instrumentation has to
+be Istanbul: NativeScript runtimes do not expose V8 inspector coverage.

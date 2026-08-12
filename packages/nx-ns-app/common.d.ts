@@ -22,8 +22,6 @@ export interface NsBuildOptions extends NsPlatformOptions {
 export interface NsTestOptions extends NsPlatformOptions {
     /** Generate coverage reports. */
     coverage?: boolean;
-    /** Use vitest-ns pool (default: true for apps that have it). */
-    vitest?: boolean;
 }
 export interface NsRunOptions extends NsPlatformOptions {
     /** Force clean before running. */

@@ -18,13 +18,13 @@
   },
   "include": ["app/**/*"],
   "files": ["./references.d.ts"],
-  // Vitest specs and the test-only app/Worker entries are owned by
-  // tsconfig.spec.json and are only bundled for env.vitestNativeScript.
+  // Rstest specs and the test-only app/Worker entries are owned by
+  // tsconfig.spec.json and are only bundled for env.rstestNativeScript.
   "exclude": [
     "node_modules",
     "platforms",
-    "app/vitest-ns.ts",
-    "app/vitest-ns.worker.ts",
+    "app/ns-rstest.ts",
+    "app/ns-rstest.worker.ts",
     "app/**/*.spec.ts"
   ],
   "references": [
@@ -35,10 +35,7 @@
       "path": "../../packages/ns-wasm-fixture"
     },
     {
-      "path": "../../packages/vitest-ns-ui"
-    },
-    {
-      "path": "../../packages/vitest-ns"
+      "path": "../../packages/ns-rstest"
     },
     {
       "path": "../../packages/ns-wasm-chicory"
