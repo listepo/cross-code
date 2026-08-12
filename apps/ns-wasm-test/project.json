@@ -19,7 +19,7 @@
         "{projectRoot}/tsconfig.json",
         "{projectRoot}/tsconfig.spec.json",
         "{projectRoot}/vitest.*.config.mts",
-        "{projectRoot}/webpack.config.js",
+        "{projectRoot}/rspack.config.ts",
         "^production"
       ]
     },

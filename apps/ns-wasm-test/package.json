@@ -37,12 +37,12 @@
   "devDependencies": {
     "@nativescript/android": "9.0.5",
     "@nativescript/ios": "9.0.3",
+    "@nativescript/rspack": "file:../../packages/ns-rspack",
     "@nativescript/types": "~9.0.0",
-    "@nativescript/webpack": "~5.0.25",
+    "@nativescript/types-android": "9.0.0",
+    "@nativescript/types-ios": "9.0.0",
     "@vitest/coverage-istanbul": "~4.1.10",
     "@vitest/runner": "~4.1.10",
-    "postcss-loader": "8.2.1",
-    "ts-loader": "9.6.2",
     "typescript": "~6.0.0",
     "vitest": "~4.1.10"
   }

@@ -14,13 +14,14 @@ Workspace-wide Nx and NativeScript rules live in the root `AGENTS.md`.
   global exists before the coordinator starts.
 - `app/vitest-ns.worker.ts` is a statically discoverable NativeScript
   Worker entry. It imports `@nativescript/core/globals` for timers, and its
-  webpack registry must match every file selected by the Vitest configs.
+  bundler registry must match every file selected by the Vitest configs.
 - Specs execute inside the Worker against the real iOS/Android native plugins.
   Never move NativeScript `View` access into a spec or Worker.
 - The normal demo still starts from `app/app.ts` and reuses
   `app/wasm/fixture-suite.ts`.
 
-The custom webpack helper activates only for `env.vitestNativeScript`, swaps
+The custom bundler helper (see `rspack.config.ts`) activates only for
+`env.vitestNativeScript`, swaps
 the app entry, and aliases bare `vitest` imports to the device-safe shim. With
 `env.vitestNativeScriptCoverage` it also applies Istanbul instrumentation to
 app sources; that flag is added automatically by `vitest run --coverage`.
@@ -42,7 +43,7 @@ app/
   wasm/wasm-assets.ts             bundled fixture paths/byte reader
 vitest.ios.config.mts             iOS simulator host config
 vitest.android.config.mts         Android emulator host config
-webpack.config.js                 WASM copies + Vitest test entry
+rspack.config.ts                  WASM copies + Vitest test entry
 tsconfig.json                     production/demo TypeScript files
 tsconfig.spec.json                specs and test-only entries
 ```
@@ -50,7 +51,7 @@ tsconfig.spec.json                specs and test-only entries
 ## Invariants
 
 - Import `describe`, `it`, hooks, and `expect` from bare `vitest` in every spec.
-  Bare imports are required so Node receives Vitest types while webpack can
+  Bare imports are required so Node receives Vitest types while the bundler can
   substitute the device-safe shim.
 - Keep host and device file patterns aligned:
   `app/tests/**/*.spec.ts` in both Vitest configs and `/\.spec\.ts$/` in the
@@ -71,7 +72,7 @@ tsconfig.spec.json                specs and test-only entries
   runtime package.
 - i64 values cross native bridges as decimal strings and surface in JS as
   `bigint`. Preserve tests beyond `Number.MAX_SAFE_INTEGER`.
-- The webpack test entry must not affect a normal app build.
+- The test entry wired by the bundler helper must not affect a normal app build.
 
 ## WAMR-specific behavior
 

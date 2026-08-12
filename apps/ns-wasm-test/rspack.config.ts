@@ -1,5 +1,9 @@
-const { dirname } = require('node:path');
-const webpack = require('@nativescript/webpack');
+import { dirname } from 'node:path';
+import rspack from '@nativescript/rspack';
+import type { INativeScriptRspackEnv } from '@nativescript/rspack';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 const configureNativeScriptVitestWebpack = require('@cross-code/vitest-ns/webpack');
 
 // The fixture .wasm binaries are build outputs of @cross-code/ns-wasm-fixture
@@ -11,26 +15,23 @@ const fixturePkgDir = dirname(
   require.resolve('@cross-code/ns-wasm-fixture/types.wasm'),
 );
 
-module.exports = (env) => {
-  webpack.init(env);
+export default (env: INativeScriptRspackEnv) => {
+  rspack.init(env);
 
-  // Learn how to customize:
-  // https://docs.nativescript.org/webpack
-
-  webpack.Utils.addCopyRule({
+  rspack.Utils.addCopyRule({
     from: 'test_types_bg.wasm',
     to: 'wasm/test_types.wasm',
     context: fixturePkgDir,
   });
-  webpack.Utils.addCopyRule({
+  rspack.Utils.addCopyRule({
     from: 'globals.wasm',
     to: 'wasm/globals.wasm',
     context: fixturePkgDir,
   });
 
-  configureNativeScriptVitestWebpack(webpack, {
+  configureNativeScriptVitestWebpack(rspack, {
     entry: 'vitest-ns.ts',
   });
 
-  return webpack.resolveConfig();
+  return rspack.resolveConfig();
 };

@@ -5,11 +5,18 @@ const { resolve } = require('node:path');
  * Replaces the NativeScript application entry only for Vitest device runs and
  * aliases bare `vitest` imports to the device-safe unit-test shim.
  *
+ * Works with either bundler module: `@nativescript/webpack` (which exposes
+ * `chainWebpack`) or `@nativescript/rspack` (`@cross-code/ns-rspack`, which
+ * exposes the API-identical `chainRspack`). The chain config is a
+ * webpack-chain / rspack-chain instance, whose entry/alias/rule API is the
+ * same in both.
+ *
  * @param {typeof import('@nativescript/webpack')} webpack
  * @param {{ entry?: string }} [options]
  */
 function configureNativeScriptVitestWebpack(webpack, options = {}) {
-  webpack.chainWebpack((config, env) => {
+  const chain = webpack.chainRspack ?? webpack.chainWebpack;
+  chain((config, env) => {
     if (!env.vitestNativeScript) return;
 
     const entryDirectory = webpack.Utils.platform.getEntryDirPath();
