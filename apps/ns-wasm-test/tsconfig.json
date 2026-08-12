@@ -29,6 +29,9 @@
   ],
   "references": [
     {
+      "path": "../../packages/ns-rspack"
+    },
+    {
       "path": "../../packages/ns-wasm-fixture"
     },
     {

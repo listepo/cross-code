@@ -492,6 +492,16 @@ Three test layers, each covering a different slice:
   touch `wire.ts` or an adapter file. Details in
   `apps/ns-wasm-test/AGENTS.md`.
 
+### CI jobs are real gates — never `continue-on-error`
+
+The CI jobs that run the test app's suite (`wasm-test-ios`,
+`wasm-test-android` in `.github/workflows/ci.yml`) are the only place the
+TypeScript adapters meet the real native layers, so a failure in either is a
+release-blocking signal. **Do not add `continue-on-error` to any CI job** —
+emulator/simulator flakiness must be fixed, not bypassed. If a job is
+genuinely environment-broken, disable it with an `if:` condition and a
+comment instead, never a silent `continue-on-error`.
+
 ### Kotlin linting (Detekt + Ktlint)
 
 Each Android Gradle project (`platforms/android/<engine>-android/`) runs

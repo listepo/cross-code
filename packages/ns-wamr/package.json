@@ -165,9 +165,6 @@
   "dependencies": {
     "@cross-code/ns-wasm-core": "workspace:*"
   },
-  "devDependencies": {
-    "@nativescript/core": "^8.9.0"
-  },
   "nativescript": {
     "platforms": {
       "ios": "8.6.0",
