@@ -1,0 +1,35 @@
+{
+  "name": "ns-lynx-app",
+  "main": "app/app.ts",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "description": "NativeScript host app for @cross-code/ns-lynx — embeds a React on Lynx UI in a <LynxView> alongside native NativeScript views.",
+  "scripts": {
+    "build.lynx": "pnpm --filter ns-lynx-app-lynx build",
+    "run.ios": "nx run ns-lynx-app:run.ios",
+    "run.android": "nx run ns-lynx-app:run.android",
+    "debug.ios": "nx run ns-lynx-app:debug.ios",
+    "debug.android": "nx run ns-lynx-app:debug.android",
+    "build.ios": "nx run ns-lynx-app:build.ios",
+    "build.android": "nx run ns-lynx-app:build.android",
+    "clean.ios": "nx run ns-lynx-app:clean -- --platform=ios",
+    "clean.android": "nx run ns-lynx-app:clean -- --platform=android",
+    "clean": "nx run ns-lynx-app:clean",
+    "build.plugin": "cd ../../ && pnpm exec nx run ns-lynx:build"
+  },
+  "dependencies": {
+    "@cross-code/ns-lynx": "workspace:@cross-code/ns-lynx@*",
+    "@nativescript/core": "~9.0.0",
+    "@nativescript/theme": "^3.1.0"
+  },
+  "devDependencies": {
+    "@nativescript/android": "9.0.5",
+    "@nativescript/ios": "9.0.3",
+    "@nativescript/rspack": "workspace:@cross-code/ns-rspack@*",
+    "@nativescript/types": "~9.0.0",
+    "@nativescript/types-android": "9.0.0",
+    "@nativescript/types-ios": "9.0.0",
+    "typescript": "~6.0.0"
+  }
+}

@@ -1,0 +1,47 @@
+# ns-lynx: merged into the NativeScript app's Podfile by the {N} CLI.
+#
+# Lynx ships its iOS engine through CocoaPods, so this plugin has no native
+# sources and no xcframework of its own — NativeScript's metadata generator
+# exposes LynxView/LynxEnv/LynxLoadMeta to JavaScript directly.
+#
+# Keep these versions in step with platforms/android/include.gradle.
+pod 'Lynx', '4.0.1', :subspecs => ['Framework']
+pod 'PrimJS', '4.0.0', :subspecs => ['quickjs', 'napi']
+
+# Log and HTTP services only. The image service is left out on purpose: it
+# depends on SDWebImage and needs host-side setup. Add it in the app's own
+# Podfile if templates load images.
+pod 'LynxService', '4.0.1', :subspecs => ['Log', 'Http']
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      # Lynx 4.0.x does not build clean under Xcode 16+/26.x, where several of
+      # its warnings are errors by default. Demote them for the pods only.
+      config.build_settings['GCC_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
+
+      disable = ['-Wno-error', '-Wno-c99-designator',
+                 '-Wno-deprecated-declarations', '-Wno-deprecated-implementations']
+      ['OTHER_CPLUSPLUSFLAGS', 'OTHER_CFLAGS'].each do |key|
+        flags = config.build_settings[key] || ['$(inherited)']
+        flags = [flags] unless flags.is_a?(Array)
+        config.build_settings[key] = flags + disable
+      end
+
+      # PrimJS must not define a Clang module. NativeScript's metadata
+      # generator enumerates every module it can see and parses their umbrella
+      # headers as Objective-C; PrimJS publishes C++ (napi.h, code_cache.h,
+      # quickjs-inner.h), and the generator crashes partway through them, which
+      # fails the link step with no diagnostic of its own.
+      #
+      # Nothing needs the module: PrimJS has no Objective-C API, no source in
+      # this graph does `@import PrimJS`, and Lynx reaches its headers through
+      # HEADER_SEARCH_PATHS. Dropping the module map keeps the framework built
+      # and linked while making it invisible to the generator.
+      if target.name == 'PrimJS'
+        config.build_settings['DEFINES_MODULE'] = 'NO'
+        config.build_settings.delete('MODULEMAP_FILE')
+      end
+    end
+  end
+end

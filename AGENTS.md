@@ -90,6 +90,19 @@ layers. Only engine-specific detail lives in each package's AGENTS.md.
   See `packages/ns-wry/AGENTS.md` for the bare-metal architecture; extend the
   `wry-rust` workspace and `wry_ffi.udl` IDL to add engine-specific APIs.
 
+### LynxJS integration
+
+- **`ns-lynx`** (`@cross-code/ns-lynx`) — embeds the
+  [Lynx](https://lynxjs.org) engine in a NativeScript app as a `<LynxView>`,
+  with NativeScript as the host. Unlike the WASM plugins it has **no native
+  layer at all**: Lynx publishes its engine through CocoaPods and Maven, and
+  NativeScript reaches those classes from JavaScript directly, so the package
+  is TypeScript plus a Podfile and an include.gradle. Read
+  `packages/ns-lynx/AGENTS.md` before changing the view or the SDK versions —
+  the two manifests pin the same engine and must move together.
+- `apps/ns-lynx-app` is the worked example: a NativeScript host page around a
+  rspeedy/ReactLynx bundle built from its own `lynx/` sub-project.
+
 ### Rstest + NativeScript unit-test package
 
 - **`ns-rstest`** (`@cross-code/ns-rstest`) — runs Rstest unit tests in

@@ -1,0 +1,36 @@
+@import '@nativescript/theme/css/core.css';
+@import '@nativescript/theme/css/default.css';
+
+.page {
+  background-color: #1a1b26;
+}
+
+.action-bar {
+  background-color: #24283b;
+  color: #c0caf5;
+}
+
+.host-bar {
+  padding: 12;
+  background-color: #24283b;
+}
+
+.host-label {
+  color: #7aa2f7;
+  font-size: 13;
+  font-weight: bold;
+}
+
+.host-status {
+  color: #565f89;
+  font-size: 12;
+  margin-top: 2;
+}
+
+.host-button {
+  margin: 12;
+  background-color: #7aa2f7;
+  color: #1a1b26;
+  font-weight: bold;
+  border-radius: 8;
+}

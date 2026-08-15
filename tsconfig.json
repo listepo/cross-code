@@ -13,6 +13,9 @@
             "path": "./packages/ns-wamr"
         },
         {
+            "path": "./packages/ns-lynx"
+        },
+        {
             "path": "./packages/ns-rstest"
         },
         {

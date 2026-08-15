@@ -36,11 +36,13 @@ that reuses `@nativescript/webpack`'s configuration.
 | [`@cross-code/ns-wasm-chicory`](packages/ns-wasm-chicory) | NativeScript plugin — pure-Java Chicory interpreter on Android (no native toolchain needed)                               |
 | [`@cross-code/ns-endive`](packages/ns-endive) | NativeScript plugin — Java/JNI Endive interpreter on Android                                                                     |
 | [`@cross-code/ns-wasm-fixture`](packages/ns-wasm-fixture) | Rust/wasm-pack test fixtures (committed `.wasm` binaries)                                                                               |
+| [`@cross-code/ns-lynx`](packages/ns-lynx)                 | NativeScript plugin — embeds the [LynxJS](https://lynxjs.org) engine as a `<LynxView>`, rendering React on Lynx bundles inside a NativeScript page |
 | [`@cross-code/ns-rstest`](packages/ns-rstest)             | [Rstest](https://rstest.rs) device test runner for NativeScript — Node host, Worker runtime, and optional on-device results page        |
 | [`@cross-code/ns-wry`](packages/ns-wry)                                       | NativeScript plugin — Rust + UniFFI (uniffi-rs) Kotlin/Swift bindings, cargo-ndk Android pipeline                                       |
 | [`@cross-code/ns-rspack`](packages/ns-rspack)                                 | [rspack](https://rspack.rs) bundler for NativeScript apps — the `@nativescript/webpack` config, compiled by rspack             |
 | [`@cross-code/nx-buck2`](packages/nx-buck2)                                   | Nx plugin for Buck2 native builds — debug/release profiles, cross-compilation, size optimization                                          |
 | [`ns-wasm-test`](apps/ns-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Rstest + `ns-rstest`            |
+| [`ns-lynx-app`](apps/ns-lynx-app)                         | NativeScript host app for @cross-code/ns-lynx — a React on Lynx UI embedded beside native NativeScript views                   |
 | [`rspack-test-app`](apps/rspack-test-app)                 | NativeScript app bundled with `@cross-code/ns-rspack` (workspace member; installs with the root `pnpm install`)                |
 | [`ns-wry-app`](apps/ns-wry-app)                                               | NativeScript test app for @cross-code/ns-wry — WebView demo with google.com on iOS/Android                                              |
 
@@ -233,6 +235,7 @@ pnpm exec nx run ns-wamr:periphery.ios
 | `@cross-code/ns-wasm-chicory` | [package](packages/ns-wasm-chicory) — Chicory pure-Java interpreter, Android-only, byte marshalling |
 | `@cross-code/ns-endive` | [package](packages/ns-endive) — Endive Java interpreter, Android-only, developing, troubleshooting |
 | `@cross-code/ns-wasm-fixture` | [README](packages/ns-wasm-fixture/README.md) — exported subpaths, rebuilding the `.wasm` fixtures              |
+| `@cross-code/ns-lynx`         | [README](packages/ns-lynx/README.md) — why it needs no native layer, properties/events, producing a bundle    |
 | `@cross-code/ns-rstest`       | [README](packages/ns-rstest/README.md) — Node host, Worker registry, concurrency, transport, and results UI    |
 | `@cross-code/ns-wry`                   | [README](packages/ns-wry/README.md) — Rust + UniFFI architecture, platform stubs, developing, troubleshooting                         |
 | `@cross-code/ns-rspack`                | [README](packages/ns-rspack/README.md) — rspack bundler: usage, webpack↔rspack differences, known gaps               |

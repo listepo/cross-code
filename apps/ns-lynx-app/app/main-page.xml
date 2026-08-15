@@ -1,0 +1,26 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd"
+      xmlns:lynx="@cross-code/ns-lynx"
+      navigatingTo="navigatingTo"
+      class="page">
+  <ActionBar title="NativeScript hosts Lynx" icon="" class="action-bar" />
+
+  <GridLayout rows="auto, *, auto">
+    <!-- Native NativeScript chrome above the Lynx surface. -->
+    <StackLayout row="0" class="host-bar">
+      <Label text="This bar is a NativeScript StackLayout" class="host-label" />
+      <Label text="{{ status }}" class="host-status" />
+    </StackLayout>
+
+    <!-- Everything inside this view is rendered by the Lynx engine. -->
+    <lynx:LynxView row="1"
+                   id="lynx"
+                   src="~/lynx/main.lynx.bundle"
+                   initData="{{ initData }}"
+                   lynxLoaded="onLynxLoaded"
+                   lynxError="onLynxError" />
+
+    <!-- Event handlers resolve from this page's exports, never the binding
+         context: `{{ }}` on an event attribute makes a property binding. -->
+    <Button row="2" text="Send a global event into Lynx" tap="onPing" class="host-button" />
+  </GridLayout>
+</Page>

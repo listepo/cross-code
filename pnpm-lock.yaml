@@ -130,6 +130,19 @@ importers:
         specifier: ^2.3.0
         version: 2.8.1
 
+  packages/ns-lynx:
+    dependencies:
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+    devDependencies:
+      '@nativescript/core':
+        specifier: ^9.0.20
+        version: 9.0.20
+      vitest:
+        specifier: ~4.1.10
+        version: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(vite@8.2.0(@types/node@24.13.3)(jiti@2.4.2)(sass@1.102.0)(terser@5.49.1)(yaml@2.9.0))
+
   packages/ns-rspack:
     dependencies:
       '@nativescript/webpack':

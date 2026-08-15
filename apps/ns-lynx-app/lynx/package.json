@@ -1,0 +1,24 @@
+{
+  "name": "ns-lynx-app-lynx",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "React on Lynx UI embedded by the ns-lynx-app NativeScript host. `pnpm build` emits dist/main.lynx.bundle, which the host's rspack config copies into the app bundle.",
+  "scripts": {
+    "build": "rspeedy build",
+    "dev": "rspeedy dev",
+    "typecheck": "tsc --noEmit -p src/tsconfig.json"
+  },
+  "dependencies": {
+    "@lynx-js/react": "0.123.3"
+  },
+  "devDependencies": {
+    "@lynx-js/react-rsbuild-plugin": "0.18.3",
+    "@lynx-js/rspeedy": "0.16.3",
+    "@lynx-js/types": "~4.0.0",
+    "typescript": "~6.0.0"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  }
+}
