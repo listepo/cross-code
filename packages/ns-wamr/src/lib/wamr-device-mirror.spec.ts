@@ -9,23 +9,48 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { WamrError, WamrExecutionTier, WamrRuntime } from './wamr.js';
-import type { WamrModule } from './wamr.js';
+import { WamrExecutionTier, WamrRuntime } from './wamr.js';
+// WamrError is declared in wire.ts; importing it from wamr.js resolved to
+// undefined at runtime, which made every toThrow(WamrError) assert nothing.
+import { WamrError } from './wire.js';
 
-const g = globalThis as any;
+/** The signature shape the fake exposes for one export. */
+interface FakeExport {
+  name: string;
+  paramTypes: string[];
+  returnTypes: string[];
+}
+
+/** A host import as the fake hands it back to the adapter. */
+interface FakeHostImport {
+  invoke(args: unknown): unknown;
+}
+
+/**
+ * The fakes stand in for classes the NativeScript bridge installs, so they
+ * match the declared shape structurally but not nominally — one cast per
+ * global, at the assignment, keeps the rest of the file typed.
+ */
+function installGlobal(name: string, value: unknown): void {
+  (globalThis as Record<string, unknown>)[name] = value;
+}
 
 afterEach(() => {
-  delete g.NSCWamrRuntime;
-  delete g.NSCWamrHostCallback;
-  delete g.NSMutableArray;
-  delete g.interop;
-  delete g.org;
+  for (const name of [
+    'NSCWamrRuntime',
+    'NSCWamrHostCallback',
+    'NSMutableArray',
+    'interop',
+    'org',
+  ]) {
+    delete (globalThis as Record<string, unknown>)[name];
+  }
 });
 
 // ── Fake WASM module (simulates the Rust fixture) ─────────────────────
 
 function installFakeWamr() {
-  const functions: Record<string, any> = {
+  const functions: Record<string, FakeExport> = {
     mixed_args: { name: 'mixed_args', paramTypes: ['i32', 'i64', 'f32', 'f64'], returnTypes: ['f64'] },
     noop: { name: 'noop', paramTypes: [], returnTypes: [] },
     identity_i64: { name: 'identity_i64', paramTypes: ['i64'], returnTypes: ['i64'] },
@@ -46,12 +71,12 @@ function installFakeWamr() {
     mem_write_i32: { name: 'mem_write_i32', paramTypes: ['i32', 'i32'], returnTypes: [] },
   };
 
-  const hostFns = new Map<string, any>();
+  const hostFns = new Map<string, FakeHostImport>();
   const memory = new Uint8Array(64 * 1024);
 
   class FakeModule {
     getName = () => 'fixture.wasm';
-    linkHostFunction = (mod: string, name: string, _sig: string, fn: any) => {
+    linkHostFunction = (mod: string, name: string, _sig: string, fn: FakeHostImport) => {
       hostFns.set(`${mod}.${name}`, fn);
     };
     getGlobal = (name: string) => {
@@ -78,7 +103,7 @@ function installFakeWamr() {
       public wasiEnabled: boolean,
       public executionTier: number,
     ) {}
-    loadModule = (_bytes: any) => new FakeModule();
+    loadModule = (_bytes: unknown) => new FakeModule();
     loadModuleFromFile = (_path: string) => new FakeModule();
     findFunction = (name: string) => {
       const fn = functions[name];
@@ -91,21 +116,33 @@ function installFakeWamr() {
     };
     memorySize = () => memory.length;
     readMemory = (_offset: number, _length: number) => new Uint8Array();
-    writeMemory = (_offset: number, _bytes: any) => {};
+    writeMemory = (_offset: number, _bytes: unknown) => {};
     close = () => {};
     static wamrVersion = () => '2.3.0';
   }
 
-  g.org = {
+  class FakeHostFunction {
+    constructor(impl: FakeHostImport) {
+      Object.assign(this, impl);
+    }
+    // The Kotlin class is subclassed through NativeScript's extend() hook.
+    static extend(impl: FakeHostImport) {
+      return class extends FakeHostFunction {
+        constructor() {
+          super(impl);
+        }
+      };
+    }
+  }
+
+  installGlobal('org', {
     nativescript: {
       wamr: {
         NSCWamrRuntime: FakeRuntime,
-        NSCWamrHostFunction: class {
-          constructor(impl: any) { Object.assign(this, impl); }
-        },
+        NSCWamrHostFunction: FakeHostFunction,
       },
     },
-  };
+  });
   return { memory, hostFns, functions };
 }
 
