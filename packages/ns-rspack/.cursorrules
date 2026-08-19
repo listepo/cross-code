@@ -1,0 +1,6 @@
+Canonical guidance for @cross-code/ns-rspack is AGENTS.md. Durable
+gotchas are MEMORY.md. Usage is README.md. Repo-wide conventions are in
+the root AGENTS.md and MEMORY.md.
+
+This file exists only so tools that look for .cursorrules find a path
+to the canonical guidance.

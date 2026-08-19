@@ -1,11 +1,16 @@
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/crates/oxc_linter/src/schema.json",
-  "plugins": ["typescript", "import", "unicorn"],
+  "plugins": [
+    "typescript",
+    "import",
+    "unicorn"
+  ],
   "rules": {
     "no-unused-vars": "error",
     "no-console": "warn",
     "typescript/no-non-null-assertion": "warn",
-    "import/no-default-export": "off"
+    "import/no-default-export": "off",
+    "typescript/no-explicit-any": "error"
   },
   "env": {
     "node": true,

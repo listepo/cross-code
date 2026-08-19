@@ -13,7 +13,11 @@
     "plugins": [
         {
             "plugin": "@nx/js/typescript",
-            "exclude": ["apps/ns-wasm-test/*", "apps/ns-wry-app/*"],
+            "exclude": [
+                "apps/ns-wasm-test/*",
+                "apps/ns-wry-app/*",
+                "apps/ns-lynx-app/*"
+            ],
             "options": {
                 "typecheck": {
                     "targetName": "typecheck"

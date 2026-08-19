@@ -19,7 +19,11 @@ build artifact, never committed.
 
 - `lynx/` is excluded from the host `tsconfig.json`. It targets a different
   runtime with different JSX settings (`jsxImportSource: '@lynx-js/react'`),
-  so a single TypeScript project cannot cover both. `typecheck` runs both.
+  so a single TypeScript project cannot cover both. `typecheck` runs the host
+  app, `tsconfig.spec.json` (rstest entries + `app/tests/`), and `lynx/src`.
+- Rstest files (`app/_ns-rstest.ts`, `app/_ns-rstest.worker.ts`, `app/tests/`)
+  belong only in `tsconfig.spec.json`. The production tsconfig must not include
+  them — same split as `apps/ns-wasm-test`.
 - `build.ios` / `build.android` / `prepare` depend on `build.lynx`, and
   `rspack.config.ts` throws when the bundle is missing. Keep both — the Nx
   edge orders a normal build, the throw catches a direct `npx ns build`.

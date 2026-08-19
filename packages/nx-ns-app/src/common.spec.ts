@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { type ExecutorContext } from '@nx/devkit';
-import { resolveNsCli, buildNsArgs, buildNsEnv, runNsCli } from './common';
+import { resolveNsCli, buildNsArgs, buildNsEnv, nsAppRoot, runNsCli } from './common';
 
 const mockSpawnSync = vi.fn();
 vi.mock('node:child_process', () => ({
@@ -9,13 +9,18 @@ vi.mock('node:child_process', () => ({
 
 function mockContext(projectName = 'test-app'): ExecutorContext {
   return {
-    root: '/workspace/apps/test-app',
+    // Nx always sets this to the workspace root, never the project root.
+    root: '/workspace',
     projectName,
+    projectsConfigurations: {
+      version: 2,
+      projects: { [projectName]: { root: `apps/${projectName}` } },
+    },
     target: { executor: '' },
     targetName: 'build',
-    cwd: '/workspace/apps/test-app',
+    cwd: '/workspace',
     isVerbose: false,
-  } as ExecutorContext;
+  } as unknown as ExecutorContext;
 }
 
 describe('resolveNsCli', () => {
@@ -31,6 +36,16 @@ describe('resolveNsCli', () => {
     } finally {
       process.env.NS_CLI_PATH = original;
     }
+  });
+});
+
+describe('nsAppRoot', () => {
+  it('resolves the project root, not the workspace root', () => {
+    expect(nsAppRoot(mockContext())).toBe('/workspace/apps/test-app');
+  });
+
+  it('falls back to the workspace root when the project is unknown', () => {
+    expect(nsAppRoot({ root: '/workspace' } as ExecutorContext)).toBe('/workspace');
   });
 });
 
@@ -123,6 +138,9 @@ describe('runNsCli', () => {
     expect(mockSpawnSync).toHaveBeenCalledTimes(1);
     const callArgs = mockSpawnSync.mock.calls[0][1] as string[];
     expect(callArgs).toEqual(['ns', 'build', 'ios']);
+    // The ns CLI only finds nativescript.config.ts from the app directory.
+    const spawnOpts = mockSpawnSync.mock.calls[0][2] as { cwd: string };
+    expect(spawnOpts.cwd).toBe('/workspace/apps/test-app');
   });
 
   it('returns non-zero status on failure', () => {

@@ -1,8 +1,8 @@
 All project guidance for AI agents lives in AGENTS.md — read it before
-working in this repo. It covers Nx task conventions, the NativeScript
-plugins, native build pipelines (prebuilt xcframeworks, cargo-ndk,
-Buck2 via nx-buck2), testing layers, and the code-review-graph MCP
-tools that should be used before Grep/Glob/Read.
+working in this repo. Durable gotchas live in MEMORY.md. They cover Nx
+task conventions, the NativeScript plugins, native build pipelines
+(prebuilt xcframeworks, cargo-ndk, Buck2 via nx-buck2), testing layers,
+and the code-review-graph MCP tools (review-only).
 
 This file exists only so tools that look for .cursorrules find a path
 to the canonical guidance.

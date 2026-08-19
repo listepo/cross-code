@@ -12,7 +12,7 @@ async function testExecutor(options, context) {
         args.push('--coverage');
     devkit_1.logger.info(`🧪 NativeScript test: npx ${args.join(' ')}`);
     const result = (0, node_child_process_1.spawnSync)(nsBin, args, {
-        cwd: context.root,
+        cwd: (0, common_1.nsAppRoot)(context),
         env,
         stdio: 'inherit',
     });

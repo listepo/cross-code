@@ -7,7 +7,7 @@ const node_path_1 = require("node:path");
 const common_1 = require("../../common");
 async function runExecutor(options, context) {
     if (options.forceClean && options.platform) {
-        const platformDir = (0, node_path_1.join)(context.root, 'platforms', options.platform);
+        const platformDir = (0, node_path_1.join)((0, common_1.nsAppRoot)(context), 'platforms', options.platform);
         devkit_1.logger.info(`🧹 Force-cleaning: ${platformDir}`);
         (0, node_fs_1.rmSync)(platformDir, { recursive: true, force: true });
     }

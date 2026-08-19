@@ -237,8 +237,9 @@ export class RstestResultsView extends GridLayout {
       });
 
       const nextPrefix = [...prefix, isLast ? '   ' : '│  '];
+      // renderTree renders `child`'s own leaves on its way out — calling
+      // renderLeaves here too would list every test under it twice.
       this.renderTree(child, childBox, depth + 1, nextPrefix);
-      this.renderLeaves(child, childBox, depth + 1, nextPrefix);
       parent.addChild(container);
     });
 

@@ -1,14 +1,14 @@
 import { type ExecutorContext, logger } from '@nx/devkit';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { type NsRunOptions, runNsCli } from '../../common';
+import { type NsRunOptions, nsAppRoot, runNsCli } from '../../common';
 
 export default async function runExecutor(
   options: NsRunOptions,
   context: ExecutorContext,
 ): Promise<{ success: boolean }> {
   if (options.forceClean && options.platform) {
-    const platformDir = join(context.root, 'platforms', options.platform);
+    const platformDir = join(nsAppRoot(context), 'platforms', options.platform);
     logger.info(`🧹 Force-cleaning: ${platformDir}`);
     rmSync(platformDir, { recursive: true, force: true });
   }
