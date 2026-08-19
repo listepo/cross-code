@@ -3,37 +3,43 @@
 // NativeScript iOS runtime.
 
 import { WasmKitError, type WasmValueType, type WireValue } from './wire.js';
-import type { WireHostCallback, NativeFunctionAdapter, NativeModuleAdapter, NativeRuntimeAdapter } from '@cross-code/ns-wasm-core';
+import {
+  nativeArrayToJs,
+  nativeGlobals,
+  type WireHostCallback,
+  type NativeFunctionAdapter,
+  type NativeModuleAdapter,
+  type NativeRuntimeAdapter,
+  type InteropApi,
+  type NativeMutableArray,
+} from '@cross-code/ns-wasm-core';
 
 // ---------------------------------------------------------------------------
 // iOS helpers
 // ---------------------------------------------------------------------------
 
-function nsArrayToJs(value: any): any[] {
-  if (value == null) return [];
-  if (Array.isArray(value)) return value as any[];
-  const result: any[] = [];
-  const count = value.count ?? 0;
-  for (let i = 0; i < count; i++) result.push(value.objectAtIndex(i));
-  return result;
+function nsArrayToJs(value: unknown): unknown[] {
+  return nativeArrayToJs(value);
 }
 
-function iosInterop(): any {
-  return (globalThis as any).interop;
+function iosInterop(): InteropApi | undefined {
+  return nativeGlobals().interop;
 }
 
-function toNsArray(values: WireValue[]): any {
-  const array = (globalThis as any).NSMutableArray.alloc().init();
+function toNsArray(values: WireValue[]): NativeMutableArray {
+  const NSMutableArray = nativeGlobals().NSMutableArray;
+  if (!NSMutableArray) throw new WasmKitError('NSMutableArray not available');
+  const array = NSMutableArray.alloc().init();
   for (const value of values) array.addObject(value);
   return array;
 }
 
-function newErrorRef(): any {
+function newErrorRef(): NativeErrorRef | null {
   const interop = iosInterop();
-  return interop?.Reference ? new interop.Reference() : null;
+  return interop?.Reference ? new interop.Reference<NativeErrorValue>() : null;
 }
 
-function checkErrorRef(errorRef: any, context: string): void {
+function checkErrorRef(errorRef: NativeErrorRef | null, context: string): void {
   if (!errorRef?.value) return;
   const msg = errorRef.value.localizedDescription ?? String(errorRef.value);
   throw new WasmKitError(`${context}: ${String(msg).replace(/^[\w.]*NSWasmKitException:\s*/, '')}`);
@@ -46,7 +52,7 @@ function rethrow(error: unknown, context: string): never {
   throw new WasmKitError(`${context}: ${message}`);
 }
 
-function withErrorRef<T>(context: string, call: (errorArgs: any[]) => T): T {
+function withErrorRef<T>(context: string, call: (errorArgs: NativeErrorRef[]) => T): T {
   const errorRef = newErrorRef();
   try {
     const result = call(errorRef ? [errorRef] : []);
@@ -62,7 +68,7 @@ function withErrorRef<T>(context: string, call: (errorArgs: any[]) => T): T {
 // ---------------------------------------------------------------------------
 
 class IosFunction implements NativeFunctionAdapter {
-  constructor(private readonly fn: any) {}
+  constructor(private readonly fn: NSWasmKitFunctionRef) {}
   name(): string { return String(this.fn.name); }
   paramTypes(): WasmValueType[] {
     return nsArrayToJs(this.fn.paramTypes).map(String) as WasmValueType[];
@@ -78,20 +84,20 @@ class IosFunction implements NativeFunctionAdapter {
   }
 }
 
-function makeIosHostCallback(cb: WireHostCallback): any {
-  const Base = (globalThis as any).NSWasmKitHostCallback;
+function makeIosHostCallback(cb: WireHostCallback): object {
+  const Base = globalThis.NSWasmKitHostCallback;
   if (!Base) throw new WasmKitError('NSWasmKitHostCallback not available');
 
   const Subclass = Base.extend({
-    invoke(nativeArgs: any): any {
+    invoke(nativeArgs: NativeList): unknown {
       return toNsArray(cb(nsArrayToJs(nativeArgs) as WireValue[]));
     },
   });
-  return Subclass.new();
+  return new Subclass();
 }
 
 class IosModule implements NativeModuleAdapter {
-  constructor(private readonly module: any) {}
+  constructor(private readonly module: NSWasmKitModuleRef) {}
   name(): string { return String(this.module.name); }
   linkHostFunction(mod: string, name: string, signature: string, cb: WireHostCallback): void {
     withErrorRef(`linkHostFunction ${mod}.${name}`, (err) =>
@@ -113,29 +119,40 @@ class IosModule implements NativeModuleAdapter {
 }
 
 export class IosRuntime implements NativeRuntimeAdapter {
-  private readonly runtime: any;
+  private readonly runtime: NSWasmKitRuntimeRef;
   constructor(stackSizeInBytes: number) {
-    this.runtime = new ((globalThis as any).NSWasmKitRuntime)(
-      stackSizeInBytes,
-    );
+    const RuntimeClass = globalThis.NSWasmKitRuntime;
+    if (!RuntimeClass) {
+      throw new WasmKitError(
+        'ns-wasm-kit-runtime native runtime not found — is the plugin installed and the app rebuilt?',
+      );
+    }
+    this.runtime = new RuntimeClass(stackSizeInBytes);
   }
   loadModuleFromBytes(bytes: Uint8Array): NativeModuleAdapter {
-    const data = (globalThis as any).NSData.dataWithBytesLength(bytes, bytes.length);
+    const NSDataClass = globalThis.NSData;
+    if (!NSDataClass) throw new WasmKitError('NSData not available');
+    const data = NSDataClass.dataWithBytesLength(bytes, bytes.length);
     const module = withErrorRef('loadModule', (err) =>
       this.runtime.loadModuleBytesError(data, ...err),
     );
+    if (!module) throw new WasmKitError('loadModule: returned null');
     return new IosModule(module);
   }
   loadModuleFromFile(path: string): NativeModuleAdapter {
-    const module = withErrorRef('loadModule', (err) =>
+    const context = `loadModule ${path}`;
+    const module = withErrorRef(context, (err) =>
       this.runtime.loadModuleFileError(path, ...err),
     );
+    if (!module) throw new WasmKitError(`${context}: returned null`);
     return new IosModule(module);
   }
   findFunction(name: string): NativeFunctionAdapter {
-    const fn = withErrorRef('findFunction', (err) =>
+    const context = `findFunction ${name}`;
+    const fn = withErrorRef(context, (err) =>
       this.runtime.findFunctionError(name, ...err),
     );
+    if (!fn) throw new WasmKitError(`${context}: function not found`);
     return new IosFunction(fn);
   }
   memorySize(): number { return Number(this.runtime.memorySize()); }
@@ -144,7 +161,9 @@ export class IosRuntime implements NativeRuntimeAdapter {
       this.runtime.readMemoryAtOffsetLengthError(offset, length, ...err),
     );
     if (!data) throw new WasmKitError('readMemory: returned null');
-    return new Uint8Array(iosInterop()?.bufferFromData(data));
+    const buffer = iosInterop()?.bufferFromData?.(data);
+    if (!buffer) throw new WasmKitError('readMemory: interop.bufferFromData unavailable');
+    return new Uint8Array(buffer);
   }
   writeMemory(offset: number, bytes: Uint8Array): void {
     withErrorRef('writeMemory', (err) =>

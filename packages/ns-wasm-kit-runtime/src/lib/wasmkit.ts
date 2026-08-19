@@ -52,13 +52,12 @@ export interface WasmKitRuntimeOptions {
 // ---------------------------------------------------------------------------
 
 function createAdapter(stackSizeInBytes: number): NativeRuntimeAdapter {
-  const g = globalThis as any;
   // iOS: WasmKit runs natively via SwiftPM.
-  if (typeof g.NSWasmKitRuntime !== 'undefined' && g.NSWasmKitRuntime !== null) {
+  if (globalThis.NSWasmKitRuntime != null) {
     return new IosRuntime(stackSizeInBytes);
   }
   // Android: WasmKit is not available (Swift-only runtime).
-  if (g.org?.nativescript?.wasmkit?.NSWasmKitRuntime) {
+  if (globalThis.org?.nativescript?.wasmkit?.NSWasmKitRuntime) {
     return new AndroidRuntime(stackSizeInBytes);
   }
   throw new WasmKitError(
@@ -67,12 +66,12 @@ function createAdapter(stackSizeInBytes: number): NativeRuntimeAdapter {
 }
 
 function wasmkitVersionNative(): string {
-  const g = globalThis as any;
-  if (typeof g.NSWasmKitRuntime !== 'undefined' && g.NSWasmKitRuntime !== null) {
-    return String(g.NSWasmKitRuntime.wasmkitVersion());
+  if (globalThis.NSWasmKitRuntime != null) {
+    return String(globalThis.NSWasmKitRuntime.wasmkitVersion());
   }
-  if (g.org?.nativescript?.wasmkit?.NSWasmKitRuntime) {
-    return String(g.org.nativescript.wasmkit.NSWasmKitRuntime.wasmkitVersion());
+  const android = globalThis.org?.nativescript?.wasmkit?.NSWasmKitRuntime;
+  if (android) {
+    return String(android.wasmkitVersion());
   }
   throw new WasmKitError('ns-wasm-kit-runtime native runtime not found');
 }
