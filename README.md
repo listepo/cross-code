@@ -23,6 +23,9 @@ and [`ns-rspack`](packages/ns-rspack), an rspack bundler for NativeScript apps.
 
 > **Project status: Active development.** APIs and project layout may change without notice; expect breaking changes between releases.
 
+AI agents: start at [AGENTS.md](AGENTS.md), then [MEMORY.md](MEMORY.md).
+`CLAUDE.md`, `GEMINI.md`, `CODEX.md`, and `.cursorrules` point at those.
+
 ## Packages
 
 | Package                                                                       | Description                                                                                                                             |
@@ -172,9 +175,10 @@ or `mise plugin install buck2 https://github.com/izaakschroeder/asdf-buck2`.
 bundler for NativeScript apps. It owns every NativeScript-specific rule — entry
 stubs, platform-suffixed resolution, XML/CSS loaders, copy rules, defines, HMR,
 the `WatchStatePlugin` IPC — natively, with no `@nativescript/webpack` and no
-webpack compiler (`webpack-merge` is only a deep-merge helper). See
+webpack in its dependency tree. See
 [packages/ns-rspack/README.md](packages/ns-rspack/README.md) for usage and the
-differences table.
+differences table. Agent workflow: [AGENTS.md](packages/ns-rspack/AGENTS.md),
+[MEMORY.md](packages/ns-rspack/MEMORY.md).
 
 The `rspack-test-app` exercises it end-to-end (`bundler: 'rspack'` in
 `nativescript.config.ts`); `ns build ios` / `ns run ios` (watch + HMR) run the
@@ -238,7 +242,7 @@ pnpm exec nx run ns-wamr:periphery.ios
 | `@cross-code/ns-lynx`         | [README](packages/ns-lynx/README.md) — why it needs no native layer, properties/events, producing a bundle    |
 | `@cross-code/ns-rstest`       | [README](packages/ns-rstest/README.md) — Node host, Worker registry, concurrency, transport, and results UI    |
 | `@cross-code/ns-wry`                   | [README](packages/ns-wry/README.md) — Rust + UniFFI architecture, platform stubs, developing, troubleshooting                         |
-| `@cross-code/ns-rspack`                | [README](packages/ns-rspack/README.md) — rspack bundler: usage, webpack↔rspack differences, known gaps               |
+| `@cross-code/ns-rspack`                | [README](packages/ns-rspack/README.md) — usage and webpack↔rspack gaps; [AGENTS.md](packages/ns-rspack/AGENTS.md) / [MEMORY.md](packages/ns-rspack/MEMORY.md) for agents |
 | `@cross-code/nx-buck2`                  | [README](packages/nx-buck2/README.md) — Buck2 executors/generators, CLI usage                                          |
 | `ns-wasm-test`                | [README](apps/ns-wasm-test/README.md) — running the demo page and the on-device Vitest suite, troubleshooting               |
 | `rspack-test-app`                      | rspack-bundled demo app (workspace member) — see [packages/ns-rspack/README.md](packages/ns-rspack/README.md)                   |

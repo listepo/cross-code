@@ -1,6 +1,6 @@
 import type { Configuration } from '@rspack/core'
 import { RspackChain } from 'rspack-chain'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@rstest/core'
 import { finalizeChain, finalizeConfig } from './finalize.js'
 
 describe('finalizeChain', () => {

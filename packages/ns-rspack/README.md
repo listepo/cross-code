@@ -3,7 +3,11 @@
 The NativeScript build pipeline on [rspack](https://rspack.rs). It owns the
 whole configuration — entry stubs, platform-suffixed resolution, XML/CSS
 loaders, copy rules, defines, HMR — natively, with no `@nativescript/webpack`
-and no webpack compiler (`webpack-merge` is only a deep-merge helper).
+and no webpack anywhere in the dependency tree.
+
+AI agents: [AGENTS.md](AGENTS.md) (workflow) and [MEMORY.md](MEMORY.md)
+(gotchas). `CLAUDE.md`, `GEMINI.md`, `CODEX.md`, and `.cursorrules` point
+at those.
 
 ## Usage
 

@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, rs } from '@rstest/core'
 import { createProjectFixture, type ProjectFixture } from '../testing/project-fixture.js'
 
 async function platformHelpers(env: Record<string, unknown>) {
-    vi.resetModules()
+    rs.resetModules()
 
     const { setEnv } = await import('../env.js')
 

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@rstest/core'
 
 /**
  * The stub's `require.context` filter is the only thing standing between the

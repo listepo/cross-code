@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, rs } from '@rstest/core'
 import applyCssLoader from './apply-css-loader.js'
 
 interface Context {
@@ -9,8 +9,8 @@ interface Context {
 }
 
 function run(source: string, context: Context = {}): { output: string; warning?: Error } {
-    const callback = vi.fn()
-    const emitWarning = vi.fn()
+    const callback = rs.fn()
+    const emitWarning = rs.fn()
 
     applyCssLoader.call(
         {

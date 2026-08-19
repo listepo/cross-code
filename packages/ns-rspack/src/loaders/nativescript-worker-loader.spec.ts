@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, rs } from '@rstest/core'
 import nativescriptWorkerLoader from './nativescript-worker-loader.js'
 
 function run(source: string): string {
-    const callback = vi.fn()
+    const callback = rs.fn()
 
     nativescriptWorkerLoader.call({ callback } as never, source, undefined)
 

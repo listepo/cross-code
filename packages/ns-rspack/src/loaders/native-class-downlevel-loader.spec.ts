@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, rs } from '@rstest/core'
 import nativeClassDownlevelLoader from './native-class-downlevel-loader.js'
 
 function run(source: string, resourcePath = '/project/app/thing.ts'): string {
-    const callback = vi.fn()
+    const callback = rs.fn()
 
     nativeClassDownlevelLoader.call({ callback, resourcePath } as never, source, undefined)
 

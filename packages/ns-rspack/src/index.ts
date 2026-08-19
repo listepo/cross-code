@@ -1,6 +1,6 @@
 import type { Configuration } from '@rspack/core'
 import { RspackChain } from 'rspack-chain'
-import { merge } from 'webpack-merge'
+import { merge } from 'rspack-merge'
 import type { NativeScriptRspackApi } from './api.js'
 import { configs, type ConfigName } from './configuration/index.js'
 import { finalizeChain, finalizeConfig } from './configuration/finalize.js'
@@ -30,7 +30,7 @@ export const defaultConfigs = configs
 /** Utilities to simplify various tasks in a `rspack.config.ts`. */
 export { Utils }
 
-/** `webpack-merge` re-exported for convenience — it is a plain deep merge for config objects. */
+/** `rspack-merge` re-exported for convenience — it is a plain deep merge for config objects. */
 export { merge }
 
 /** @internal */

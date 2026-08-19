@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, rs } from '@rstest/core'
 import { createProjectFixture, type ProjectFixture } from '../testing/project-fixture.js'
 
 let fixture: ProjectFixture | undefined
@@ -6,7 +6,7 @@ let fixture: ProjectFixture | undefined
 async function flavorFor(dependencies: Record<string, string>) {
     fixture?.restore()
     fixture = createProjectFixture({ dependencies, devDependencies: {} })
-    vi.resetModules()
+    rs.resetModules()
 
     const { determineProjectFlavor } = await import('./flavor.js')
 

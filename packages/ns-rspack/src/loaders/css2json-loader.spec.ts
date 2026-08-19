@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, rs } from '@rstest/core'
 import css2jsonLoader, { urlToRequest } from './css2json-loader.js'
 
 function run(source: string, options: { useForImports?: boolean } = {}): string {
-    const callback = vi.fn()
+    const callback = rs.fn()
 
     css2jsonLoader.call({ callback, getOptions: () => options } as never, source, undefined)
 

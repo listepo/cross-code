@@ -22,6 +22,14 @@
 
 <!-- nx configuration end-->
 
+## AI agent files
+
+This file is the canonical agent instructions. Durable gotchas and decisions
+live in [MEMORY.md](MEMORY.md) — read both before editing. `CLAUDE.md`,
+`GEMINI.md`, `CODEX.md`, and `.cursorrules` are pointers here. Per-package
+`AGENTS.md` (and `MEMORY.md` where it exists) covers package-specific
+invariants.
+
 ## NativeScript
 
 - Docs: https://docs.nativescript.org (append .md to any URL for markdown)
@@ -83,7 +91,7 @@ layers. Only engine-specific detail lives in each package's AGENTS.md.
   [rspack](https://rspack.rs) bundler for NativeScript apps. It owns the whole
   NativeScript build configuration natively — entry stubs, platform-suffixed
   resolution, XML/CSS loaders, copy rules, defines, HMR — with no
-  `@nativescript/webpack` and no webpack compiler (`webpack-merge` is only a deep-merge helper). Installed
+  `@nativescript/webpack` and no webpack in its dependency tree. Installed
   under the alias the {N} CLI resolves the bundler by (`@nativescript/rspack`).
   See `packages/ns-rspack/README.md` and `packages/ns-rspack/AGENTS.md`.
 - **`ns-wry`** (`@cross-code/ns-wry`) — general-purpose NativeScript plugin
@@ -662,7 +670,7 @@ wasm-pack-generated `.d.ts`. See `packages/ns-wasm-fixture/README.md`.
 | `packages/ns-wasm-edge/AGENTS.md` | (none — no per-package AGENTS yet; follows the Rust/UniFFI architecture of wasm3/wamr, see Shared plugin architecture above) |
 | `packages/ns-wasm-chicory/AGENTS.md` | (none — no per-package AGENTS yet; pure-Java Android runtime, no NDK/Rust needed) |
 | `packages/ns-endive/AGENTS.md` | (none — no per-package AGENTS yet; Java/JNI Android runtime with TypeScript adapter) |
-| `packages/ns-rspack/AGENTS.md` | rspack bundler for NativeScript apps — CLI/IPC contract, configuration layout, invariants, gotchas (also see `packages/ns-rspack/README.md` for usage) |
+| `packages/ns-rspack/AGENTS.md` | rspack bundler — CLI/IPC, layout, invariants (see also `MEMORY.md`, `README.md`) |
 | `packages/ns-wry/AGENTS.md`            | wry scaffold: Rust + UniFFI architecture, platform stubs, extension guide  |
 | `apps/ns-wasm-test/AGENTS.md` | test app: layout, design decisions, running the suites, adding specs       |
 | `apps/rspack-test-app`                      | rspack-bundled test app — workspace member, installs with the root `pnpm install`; see `packages/ns-rspack/README.md` |

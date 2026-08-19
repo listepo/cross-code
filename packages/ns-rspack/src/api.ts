@@ -25,7 +25,7 @@ export interface NativeScriptRspackApi {
     useConfig(config: ConfigName | false): void
     /** The flavor-specific base configs. */
     defaultConfigs: unknown
-    /** `webpack-merge`'s deep merge, for merging configuration objects. */
+    /** `rspack-merge`'s deep merge, for merging configuration objects. */
     merge: unknown
     /** `@nativescript/webpack`'s name for {@link NativeScriptRspackApi.chainRspack}. */
     chainWebpack: NativeScriptRspackApi['chainRspack']

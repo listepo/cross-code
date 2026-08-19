@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, rs } from '@rstest/core'
 import { createProjectFixture, type ProjectFixture } from './testing/project-fixture.js'
 
 async function bundler() {
-    vi.resetModules()
+    rs.resetModules()
 
     return import('./index.js')
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@rstest/core'
 import { dedent } from './dedent.js'
 
 describe('dedent', () => {

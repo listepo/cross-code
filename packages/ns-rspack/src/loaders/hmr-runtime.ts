@@ -30,11 +30,17 @@ declare const global: Record<string | symbol, unknown> & {
 }
 
 function nativeScriptHmrRuntime(): void {
-    if (!module.hot) {
+    // `module` is read through a local binding on purpose: a bundler that
+    // parses this file (Rstest bundles with rspack) statically folds a direct
+    // `module.hot` test to a constant and deletes the branch, and this function
+    // is stringified, not executed, so that would ship an empty runtime.
+    const mod: { hot?: HotApi } = module
+
+    if (!mod.hot) {
         return
     }
 
-    const hot = module.hot
+    const hot = mod.hot
     let hash = __webpack_require__.h()
     const hmrBootEmittedSymbol = Symbol.for('HMRBootEmitted')
     const originalLiveSyncSymbol = Symbol.for('OriginalLiveSync')

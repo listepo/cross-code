@@ -1,7 +1,7 @@
 {
     "name": "@cross-code/ns-rspack",
     "version": "0.0.1",
-    "description": "rspack bundler for NativeScript apps — the NativeScript build pipeline, natively on rspack.",
+    "description": "rspack bundler for NativeScript apps \u2014 the NativeScript build pipeline, natively on rspack.",
     "bin": {
         "ns-rspack": "./dist/bin/index.js"
     },
@@ -30,13 +30,15 @@
         "postcss-import": "^16.1.1",
         "postcss-loader": "^8.2.1",
         "rspack-chain": "^2.2.0",
+        "rspack-merge": "^1.0.1",
         "sass": "^1.102.0",
         "sass-loader": "^16.0.8",
         "sax": "^1.6.1",
-        "tslib": "^2.3.0",
-        "webpack-merge": "^6.0.1"
+        "tslib": "^2.3.0"
     },
     "devDependencies": {
+        "@rstest/core": "0.11.6",
+        "@rstest/coverage-v8": "0.11.6",
         "@types/css": "^0.0.38",
         "@types/sax": "^1.2.7",
         "typescript": "~6.0.0"
@@ -47,6 +49,26 @@
     "peerDependenciesMeta": {
         "typescript": {
             "optional": true
+        }
+    },
+    "scripts": {
+        "test": "rstest run",
+        "coverage": "rstest run --coverage"
+    },
+    "nx": {
+        "targets": {
+            "test": {
+                "executor": "nx:run-script",
+                "options": {
+                    "script": "test"
+                }
+            },
+            "coverage": {
+                "executor": "nx:run-script",
+                "options": {
+                    "script": "coverage"
+                }
+            }
         }
     }
 }

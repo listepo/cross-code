@@ -1,11 +1,14 @@
 # AGENTS.md — ns-rspack
 
 AI-agent guidance for working on the `@cross-code/ns-rspack` bundler.
+Read this file, then [MEMORY.md](MEMORY.md) (durable gotchas) and
+[README.md](README.md) (usage). `CLAUDE.md`, `GEMINI.md`, `CODEX.md`, and
+`.cursorrules` are pointers here.
 
 `ns-rspack` is **not a WASM plugin**: it is an
 [rspack](https://rspack.rs) bundler for NativeScript apps. It owns the whole
 NativeScript build configuration natively — there is no `@nativescript/webpack`
-and no `webpack` compiler (`webpack-merge` is only a deep-merge helper). The root
+and no `webpack` in its dependency tree. The root
 [AGENTS.md](../../AGENTS.md) covers the repo conventions (nx, linting,
 environment); this file covers what is specific to the bundler.
 
@@ -17,6 +20,7 @@ anything here.
 ## Architecture at a glance
 
 ```text
+MEMORY.md                   durable gotchas for agents (this file is the workflow)
 src/index.ts                public API: init/chainRspack/mergeRspack/useConfig/resolveChainableConfig/resolveConfig
 src/api.ts                  the surface handed to a dependency's nativescript.rspack.js
 src/env.ts                  the bundler env (INativeScriptRspackEnv) and its module state
@@ -99,13 +103,23 @@ node dist/bin/index.js build --config=<path> [--watch] --env.ios --env.appPath=a
 ## Development workflow
 
 ```bash
-pnpm exec nx run ns-rspack:test        # vitest (node env, no device)
+pnpm exec nx run ns-rspack:test        # Rstest (node env, no device)
 pnpm exec nx run ns-rspack:build       # tsc → dist/
 pnpm exec nx run ns-rspack:typecheck   # tsc --build, declaration-only
 pnpm exec nx run ns-rspack:lint        # oxlint
 ```
 
 - **Never edit `dist/` or `out-tsc/`** — both are gitignored build output.
+- Tests run on **Rstest** (`@rstest/core`), configured by `rstest.config.mts`
+  — a flat config, no nested `test` block. Two consequences worth knowing:
+  Rstest bundles sources through rspack, so a bundler-magic identifier in a
+  *stringified* function gets folded away unless it is read through a local
+  binding (see `hmr-runtime.ts`); and the module-mock APIs are rewritten by a
+  native rspack plugin, so they must be written literally as `rs.mock(...)` /
+  `rs.resetModules()` — aliasing the import throws at runtime.
+- Rstest swaps to a machine-readable reporter when it detects an agent env var
+  (`CLAUDECODE`, `CURSOR_AGENT`, …) and swallows `console.log`. Export
+  `RSTEST_NO_AGENT=1` to get the normal reporter back.
 - **Do not run `nx run ns-rspack:format`.** The repo's committed style is
   prettier's with `--no-semi --single-quote --tab-width 4 --print-width 100`;
   the installed oxfmt reformats every file in the repo to a different style.
@@ -133,3 +147,10 @@ pnpm exec nx run ns-rspack:lint        # oxlint
   the platform file. Extensionless imports still do, via `resolve.extensions`.
 - The `nativescript.config.ts` type widens `bundler` to `string` —
   `@nativescript/core` 9.0's `BundlerType` is still `'webpack' | 'vite'`.
+- **Development source maps stay `inline-source-map`.** Sibling `.map` files
+  cannot be fetched in this DevTools/CSP/ATS path — do not switch {N} 9 to
+  `source-map`. See [MEMORY.md](MEMORY.md).
+- **`getIPS()` skips `internal` addresses** so `127.0.0.1` is not baked into
+  `__NS_DEV_HOST_IPS__`.
+- **`src/testing/` is spec-only** (`tsconfig.lib.json` excludes it;
+  `tsconfig.spec.json` includes it). Do not publish the vitest fixture.

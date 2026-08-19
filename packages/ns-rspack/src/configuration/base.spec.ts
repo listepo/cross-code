@@ -1,5 +1,5 @@
 import type { Configuration } from '@rspack/core'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, rs } from '@rstest/core'
 import type { INativeScriptRspackEnv } from '../env.js'
 import { createProjectFixture, type ProjectFixture } from '../testing/project-fixture.js'
 
@@ -9,7 +9,7 @@ import { createProjectFixture, type ProjectFixture } from '../testing/project-fi
  * graph per test is what gives each case a clean one.
  */
 async function resolve(env: INativeScriptRspackEnv): Promise<Configuration> {
-    vi.resetModules()
+    rs.resetModules()
 
     const bundler = await import('../index.js')
 

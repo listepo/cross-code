@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@rstest/core'
 import { HMR_RUNTIME_SOURCE } from './hmr-runtime.js'
 
 describe('HMR_RUNTIME_SOURCE', () => {

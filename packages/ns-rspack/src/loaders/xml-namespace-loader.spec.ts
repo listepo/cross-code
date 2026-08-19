@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, rs } from '@rstest/core'
 import xmlNamespaceLoader from './xml-namespace-loader.js'
 
 interface RunOptions {
@@ -45,7 +45,7 @@ function run(
                 getOptions: () => ({ ignore: options.ignore }),
                 addDependency: (path: string) => dependencies.push(path),
                 emitWarning: (error: Error) => warnings.push(error),
-                emitError: vi.fn(),
+                emitError: rs.fn(),
                 hot: options.hot ?? false,
             } as never,
             content,

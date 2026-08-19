@@ -1,4 +1,4 @@
-import { merge } from 'webpack-merge'
+import { merge } from 'rspack-merge'
 import { getValue } from './config.js'
 import { addCopyRule, removeCopyRule } from './copy-rules.js'
 import { getAllDependencies, getDependencyPath, hasDependency } from './dependencies.js'

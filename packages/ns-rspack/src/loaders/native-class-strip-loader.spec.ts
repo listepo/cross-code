@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, rs } from '@rstest/core'
 import nativeClassStripLoader from './native-class-strip-loader.js'
 
 function run(source: string): string {
-    const callback = vi.fn()
+    const callback = rs.fn()
 
     nativeClassStripLoader.call({ callback } as never, source, undefined)
 

@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, rs } from '@rstest/core'
 import { HMR_RUNTIME_SOURCE } from './hmr-runtime.js'
 import nativescriptHotLoader from './nativescript-hot-loader.js'
 
 function run(source: string, options: { injectHMRRuntime?: boolean } = {}, hot = true): string {
-    const callback = vi.fn()
+    const callback = rs.fn()
 
     nativescriptHotLoader.call(
         { callback, getOptions: () => options, hot } as never,

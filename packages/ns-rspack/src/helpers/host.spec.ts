@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, rs } from '@rstest/core'
 
-vi.mock('node:os', () => ({
-    networkInterfaces: vi.fn(),
+rs.mock('node:os', () => ({
+    networkInterfaces: rs.fn(),
 }))
 
 import { networkInterfaces } from 'node:os'
@@ -9,7 +9,7 @@ import { getIPS } from './host.js'
 
 describe('getIPS', () => {
     it('skips loopback and other internal addresses', () => {
-        vi.mocked(networkInterfaces).mockReturnValue({
+        rs.mocked(networkInterfaces).mockReturnValue({
             lo0: [
                 {
                     address: '127.0.0.1',
@@ -36,7 +36,7 @@ describe('getIPS', () => {
     })
 
     it('picks a non-internal IPv4 on an interface that also has loopback', () => {
-        vi.mocked(networkInterfaces).mockReturnValue({
+        rs.mocked(networkInterfaces).mockReturnValue({
             en0: [
                 {
                     address: '127.0.0.1',
@@ -61,7 +61,7 @@ describe('getIPS', () => {
     })
 
     it('accepts numeric family 4 from older Node', () => {
-        vi.mocked(networkInterfaces).mockReturnValue({
+        rs.mocked(networkInterfaces).mockReturnValue({
             en0: [
                 {
                     address: '10.0.0.2',

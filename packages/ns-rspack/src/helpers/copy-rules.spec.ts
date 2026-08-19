@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, rs } from '@rstest/core'
 import { createProjectFixture, type ProjectFixture } from '../testing/project-fixture.js'
 import { toRspackGlob } from './copy-rules.js'
 
@@ -24,7 +24,7 @@ describe('copy rules', () => {
 
     beforeEach(() => {
         fixture = createProjectFixture()
-        vi.resetModules()
+        rs.resetModules()
     })
 
     afterEach(() => fixture.restore())

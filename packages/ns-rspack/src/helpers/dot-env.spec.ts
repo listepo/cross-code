@@ -1,5 +1,5 @@
 import { RspackChain } from 'rspack-chain'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, rs } from '@rstest/core'
 import { createProjectFixture, type ProjectFixture } from '../testing/project-fixture.js'
 
 let fixture: ProjectFixture | undefined
@@ -7,7 +7,7 @@ let fixture: ProjectFixture | undefined
 async function definesFor(files: Record<string, string>, env: Record<string, unknown> = {}) {
     fixture?.restore()
     fixture = createProjectFixture({ files })
-    vi.resetModules()
+    rs.resetModules()
 
     const { setEnv } = await import('../env.js')
     const { applyDotEnvPlugin } = await import('./dot-env.js')
