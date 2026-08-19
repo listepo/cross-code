@@ -126,6 +126,22 @@ The iOS and Android targets both use port `17878`; run them serially. Use the
 project-local CLI through `npx ns` when diagnosing launch behavior. Never use a
 bare global `ns` command.
 
+## Native typings
+
+`typings/` holds the native declarations `ns typings` generates from the built
+platform project. They are generated output, not source — gitignored, and
+produced by an Nx target that depends on `prepare.<platform>`:
+
+```bash
+pnpm exec nx run ns-wasm-test:typings.ios
+pnpm exec nx run ns-wasm-test:typings.android
+```
+
+This app owns the generation because it is the one with `platforms/`. Running
+a bare `ns typings android` from a plugin package writes a stray `typings/`
+into that package instead — the plugin packages' `src/lib/native-api.d.ts`
+hold the small hand-written subset they actually ship.
+
 ## Adding coverage
 
 1. Add shared behavior to `runFixtureChecks` or `runGlobalsChecks` when both

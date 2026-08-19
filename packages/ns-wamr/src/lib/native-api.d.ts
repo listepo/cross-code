@@ -1,5 +1,6 @@
 // Minimal ambient declarations for the native classes this plugin ships.
-// Full typings can be generated in an app with `ns typings ios|android`.
+// Full typings are generated output, not source: `nx run ns-wasm-test:typings.ios`
+// (or `typings.android`) writes them to apps/ns-wasm-test/typings, which is gitignored.
 
 // iOS (Swift package NSCWamr, exposed via @objc)
 declare const NSCWamrRuntime: any;

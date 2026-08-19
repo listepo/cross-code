@@ -183,6 +183,40 @@
       "outputs": [
         "{projectRoot}/platforms/android"
       ]
+    },
+    "typings.ios": {
+      "command": "npx ns typings ios",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": [
+        "prepare.ios"
+      ],
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/typings/ios"
+      ]
+    },
+    "typings.android": {
+      "command": "npx ns typings android",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": [
+        "prepare.android"
+      ],
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/typings/android"
+      ]
     }
   }
 }
