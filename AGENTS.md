@@ -80,11 +80,12 @@ layers. Only engine-specific detail lives in each package's AGENTS.md.
   [Endive](https://github.com/bytecodealliance/endive) interpreter — Java/JNI
   on Android with a TypeScript adapter. Android-only.
 - **`ns-rspack`** (`@cross-code/ns-rspack`) — **not a WASM plugin**: an
-  [rspack](https://rspack.rs) bundler for NativeScript apps that reuses
-  `@nativescript/webpack`'s configuration and swaps the webpack-only pieces for
-  rspack equivalents. Installed under the alias the {N} CLI resolves the
-  bundler by (`@nativescript/rspack`). See `packages/ns-rspack/README.md`
-  and `packages/ns-rspack/AGENTS.md`.
+  [rspack](https://rspack.rs) bundler for NativeScript apps. It owns the whole
+  NativeScript build configuration natively — entry stubs, platform-suffixed
+  resolution, XML/CSS loaders, copy rules, defines, HMR — with no
+  `@nativescript/webpack` and no webpack in its dependency tree. Installed
+  under the alias the {N} CLI resolves the bundler by (`@nativescript/rspack`).
+  See `packages/ns-rspack/README.md` and `packages/ns-rspack/AGENTS.md`.
 - **`ns-wry`** (`@cross-code/ns-wry`) — general-purpose NativeScript plugin
   scaffold built on Rust + UniFFI (uniffi-rs) with cargo-ndk Android pipeline.
   See `packages/ns-wry/AGENTS.md` for the bare-metal architecture; extend the
@@ -661,7 +662,7 @@ wasm-pack-generated `.d.ts`. See `packages/ns-wasm-fixture/README.md`.
 | `packages/ns-wasm-edge/AGENTS.md` | (none — no per-package AGENTS yet; follows the Rust/UniFFI architecture of wasm3/wamr, see Shared plugin architecture above) |
 | `packages/ns-wasm-chicory/AGENTS.md` | (none — no per-package AGENTS yet; pure-Java Android runtime, no NDK/Rust needed) |
 | `packages/ns-endive/AGENTS.md` | (none — no per-package AGENTS yet; Java/JNI Android runtime with TypeScript adapter) |
-| `packages/ns-rspack/AGENTS.md` | rspack bundler for NativeScript apps — CLI/IPC contract, compat layer, gotchas (also see `packages/ns-rspack/README.md` for usage) |
+| `packages/ns-rspack/AGENTS.md` | rspack bundler for NativeScript apps — CLI/IPC contract, configuration layout, invariants, gotchas (also see `packages/ns-rspack/README.md` for usage) |
 | `packages/ns-wry/AGENTS.md`            | wry scaffold: Rust + UniFFI architecture, platform stubs, extension guide  |
 | `apps/ns-wasm-test/AGENTS.md` | test app: layout, design decisions, running the suites, adding specs       |
 | `apps/rspack-test-app`                      | rspack-bundled test app — workspace member, installs with the root `pnpm install`; see `packages/ns-rspack/README.md` |
@@ -671,38 +672,47 @@ wasm-pack-generated `.d.ts`. See `packages/ns-wasm-fixture/README.md`.
 
 ## MCP Tools: code-review-graph
 
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
+This repository has a code knowledge graph, served over MCP by
+`code-review-graph` (registered at user scope, so it follows whichever project
+is open). **It is scoped to reviewing changes, not to general exploration** —
+for ordinary "where does this live / what does this do" work, use Grep, Glob
+and Read, or the graph tools this repo's other servers provide.
 
-### When to use graph tools FIRST
+Reach for it when the question is about a *change*: what a diff touches, what
+it can break, and whether the affected code is covered.
 
-- **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool` instead of Grep
-- **Understanding impact**: `get_impact_radius_tool` instead of manually tracing imports
-- **Code review**: `detect_changes_tool` + `get_review_context_tool` instead of reading entire files
-- **Finding relationships**: `query_graph_tool` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview_tool` + `list_communities_tool`
+### When to use it
 
-Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+| Situation                                          | Tool                                            |
+| -------------------------------------------------- | ----------------------------------------------- |
+| Reviewing a diff — what changed and how risky      | `detect_changes_tool`                           |
+| Need the source behind a finding, cheaply          | `get_review_context_tool`, `get_minimal_context_tool` |
+| Blast radius of a change                           | `get_impact_radius_tool`                        |
+| Which execution paths a change sits on             | `get_affected_flows_tool`                       |
+| Callers, callees, imports, tests of a changed symbol | `query_graph_tool` (`callers_of`, `tests_for`, …) |
+| Resolving a name in the diff to a graph node       | `semantic_search_nodes_tool`                    |
+| Is the graph fresh enough to trust                 | `list_graph_stats_tool`                         |
 
-### Key Tools
+The server also exposes architecture, community, wiki and refactor tools. They
+are there for the generated skills below; do not reach for them to answer
+ordinary questions about the codebase.
 
-| Tool                             | Use when                                               |
-| -------------------------------- | ------------------------------------------------------ |
-| `detect_changes_tool`            | Reviewing code changes — gives risk-scored analysis    |
-| `get_review_context_tool`        | Need source snippets for review — token-efficient      |
-| `get_impact_radius_tool`         | Understanding blast radius of a change                 |
-| `get_affected_flows_tool`        | Finding which execution paths are impacted             |
-| `query_graph_tool`               | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes_tool`     | Finding functions/classes by name or keyword           |
-| `get_architecture_overview_tool` | Understanding high-level codebase structure            |
-| `refactor_tool`                  | Planning renames, finding dead code                    |
+### Review workflow
 
-### Workflow
+1. `detect_changes_tool` — risk-scored view of what the branch touched.
+2. `get_impact_radius_tool` / `get_affected_flows_tool` — what else is exposed.
+3. `query_graph_tool` with `pattern="tests_for"` — is the changed code covered.
+4. `get_review_context_tool` — pull only the snippets a finding needs.
 
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes_tool` for code review.
-3. Use `get_affected_flows_tool` to understand impact.
-4. Use `query_graph_tool` pattern="tests_for" to check coverage.
+The graph is kept current by the hooks in `.claude/settings.json`
+(`code-review-graph update` after each Edit/Write, `status` at session start),
+so review answers reflect the working tree rather than the last full build. If
+`list_graph_stats_tool` looks stale, run `code-review-graph update`.
+
+### Generated skills
+
+`.claude/skills/` holds skills generated by the installer: `review-changes`
+(the review flow above), `debug-issue`, `explore-codebase` and
+`refactor-safely`. Only `review-changes` reflects the scope described here —
+treat the other three as opt-in, for when you deliberately want the graph
+outside a review.

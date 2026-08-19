@@ -30,7 +30,7 @@ export default (env: INativeScriptRspackEnv) => {
   });
 
   configureNativeScriptRstest(rspack, {
-    entry: 'ns-rstest.ts',
+    entry: '_ns-rstest.ts',
   });
 
   return rspack.resolveConfig();

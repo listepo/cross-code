@@ -20,10 +20,10 @@ import {
   type HostCall,
 } from '../../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM } from '../../wasm/wasm-assets';
-import { describeRuntime, ENDIVE } from '../runtime-support';
+import { describeRuntime, ENDIVE } from '../_runtime-support';
 
 // Endive runs on the JVM, so this suite is Android-only — and skips even there
-// until the plugin's .aar lands. See ../runtime-support.ts.
+// until the plugin's .aar lands. See ../_runtime-support.ts.
 const describeEndive = describeRuntime(ENDIVE);
 
 describeEndive('the fixture module through @cross-code/ns-endive', () => {

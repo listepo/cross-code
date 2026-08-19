@@ -5,8 +5,8 @@
   },
   "files": [
     "./references.d.ts",
-    "app/ns-rstest.ts",
-    "app/ns-rstest.worker.ts"
+    "app/_ns-rstest.ts",
+    "app/_ns-rstest.worker.ts"
   ],
   "include": ["app/**/*.spec.ts", "app/**/*.d.ts"],
   "exclude": ["node_modules", "platforms"]

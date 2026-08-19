@@ -31,6 +31,24 @@ build artifact, never committed.
 - Keep `app/main-view-model.ts` free of platform branches; the plugin owns
   those.
 
+## Device tests
+
+`app/tests/` runs on a real device through `@cross-code/ns-rstest`
+(`nx run ns-lynx-app:test.ios` / `test.android`; they share port 17878, so run
+them serially). `rspack.config.ts` calls `configureNativeScriptRstest`, which
+swaps the application entry for the coordinator **only** under
+`--env.rstestNativeScript` — a normal build is untouched.
+
+Keep the suite to things only the device can answer: the bundler's defines and
+resolution rules, the assets the copy rules produced, `@NativeClass`
+downleveling, and paths resolved against the synced app folder. Specs run
+inside a NativeScript Worker, which has no view tree — `<LynxView>` rendering
+cannot be covered here, and the plugin's platform-neutral rules belong in
+`packages/ns-lynx`'s own unit tests.
+
+`app/tests/support/platform-marker.{ios,android}.ts` exist only to prove
+platform-suffixed resolution; the neighbouring `.d.ts` is what TypeScript sees.
+
 ## Verification
 
 Run through Nx from the repository root:
@@ -38,6 +56,7 @@ Run through Nx from the repository root:
 ```bash
 pnpm exec nx run ns-lynx-app:typecheck
 pnpm exec nx run ns-lynx-app:build.lynx
+pnpm exec nx run ns-lynx-app:test.ios
 pnpm exec nx run ns-lynx-app:run.ios
 pnpm exec nx run ns-lynx-app:run.android
 ```

@@ -1,8 +1,12 @@
 import { dirname, join } from 'node:path';
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import rspack from '@nativescript/rspack';
 import type { INativeScriptRspackEnv } from '@nativescript/rspack';
+
+const require = createRequire(import.meta.url);
+const configureNativeScriptRstest = require('@cross-code/ns-rstest/bundler');
 
 const appRoot = dirname(fileURLToPath(import.meta.url));
 const lynxDist = join(appRoot, 'lynx', 'dist');
@@ -22,6 +26,12 @@ export default (env: INativeScriptRspackEnv) => {
     from: 'main.lynx.bundle',
     to: 'lynx/main.lynx.bundle',
     context: lynxDist,
+  });
+
+  // Swaps the application entry for the Rstest coordinator, but only for
+  // `--env.rstestNativeScript` runs; a normal build is untouched.
+  configureNativeScriptRstest(rspack, {
+    entry: '_ns-rstest.ts',
   });
 
   return rspack.resolveConfig();

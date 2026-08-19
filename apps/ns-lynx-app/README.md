@@ -25,10 +25,13 @@ Both directions of the host↔Lynx boundary are exercised:
 app/main-page.xml            host page; declares <lynx:LynxView>
 app/main-page.ts             event wiring
 app/main-view-model.ts       initData and the global-event sender
+app/_ns-rstest.ts             device test entry (only used by --env.rstestNativeScript builds)
+app/_ns-rstest.worker.ts      the worker the specs run inside
+app/tests/                   the device suite
 lynx/src/App.tsx             the ReactLynx UI
 lynx/lynx.config.ts          rspeedy config
 lynx/dist/main.lynx.bundle   build output (gitignored)
-rspack.config.ts             copies the bundle into the app folder
+rspack.config.ts             copies the bundle into the app folder, wires the test entry
 ```
 
 ## Run
@@ -53,6 +56,27 @@ pnpm run.android
 
 While iterating on the Lynx UI alone, `pnpm --filter ns-lynx-app-lynx dev`
 serves it to LynxExplorer without rebuilding the NativeScript app.
+
+## Test
+
+The app carries a device suite that runs with
+[`@cross-code/ns-rstest`](../../packages/ns-rstest): real Rstest specs executed
+inside a NativeScript Worker on a simulator or emulator.
+
+```bash
+pnpm exec nx run ns-lynx-app:test.ios
+pnpm exec nx run ns-lynx-app:test.android
+```
+
+The suites share port 17878, so run them one at a time.
+
+What they cover is what only the device can answer — the bundler's
+compile-time defines and resolution rules, the assets the copy rules produced,
+the `@NativeClass` downleveling `@cross-code/ns-rspack` performs, and the
+plugin's bundle resolution against the app folder the CLI actually synced. The
+plugin's platform-neutral rules are unit-tested in
+[`packages/ns-lynx`](../../packages/ns-lynx); `<LynxView>` itself is not
+covered, because a worker runtime has no view tree.
 
 ## Package wiring
 

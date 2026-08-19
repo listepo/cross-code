@@ -1,88 +1,174 @@
-import * as nsWebpack from '@nativescript/webpack'
-import type { IWebpackEnv } from '@nativescript/webpack'
 import type { Configuration } from '@rspack/core'
-import type { RspackChain } from 'rspack-chain'
-import { adaptChain, adaptConfig } from './lib/compat.js'
+import { RspackChain } from 'rspack-chain'
+import { merge } from 'webpack-merge'
+import type { NativeScriptRspackApi } from './api.js'
+import { configs, type ConfigName } from './configuration/index.js'
+import { finalizeChain, finalizeConfig } from './configuration/finalize.js'
+import { getEnv, setEnv, type INativeScriptRspackEnv } from './env.js'
+import { applyExternalConfigs } from './helpers/external-configs.js'
+import { determineProjectFlavor } from './helpers/flavor.js'
+import { Utils } from './helpers/index.js'
+import { error, info } from './helpers/log.js'
 
-export type INativeScriptRspackEnv = IWebpackEnv
+export type { INativeScriptRspackEnv } from './env.js'
+export type { NativeScriptRspackApi } from './api.js'
 
-/**
- * `@nativescript/webpack` builds its chain with webpack-chain. rspack-chain is a
- * fork of it with the same API and rspack-typed options, so the instance crosses
- * this boundary unchanged — only the types swap.
- */
-type WebpackChain = Parameters<Parameters<typeof nsWebpack.chainWebpack>[0]>[0]
+type ChainFn = (config: RspackChain, env: INativeScriptRspackEnv) => unknown
+type MergeFn =
+    | ((config: Configuration, env: INativeScriptRspackEnv) => Configuration | void)
+    | Partial<Configuration>
 
-function asRspackChain(config: WebpackChain): RspackChain {
-    return config as unknown as RspackChain
+let chainFns: { order: number; chainFn: ChainFn; plugin?: string }[] = []
+let mergeFns: MergeFn[] = []
+let explicitUseConfig = false
+let hasInitialized = false
+let currentPlugin: string | undefined
+
+/** The flavor-specific base configs. */
+export const defaultConfigs = configs
+
+/** Utilities to simplify various tasks in a `rspack.config.ts`. */
+export { Utils }
+
+/** `webpack-merge` re-exported for convenience — it is a plain deep merge for config objects. */
+export { merge }
+
+/** @internal */
+export function setCurrentPlugin(plugin: string): void {
+    currentPlugin = plugin
 }
 
-function asWebpackChain(config: RspackChain): WebpackChain {
-    return config as unknown as WebpackChain
+/** @internal */
+export function clearCurrentPlugin(): void {
+    currentPlugin = undefined
 }
 
 /**
- * Initialize @cross-code/ns-rspack with the bundler env. Must be called first.
- *
- * Mirrors `@nativescript/webpack`'s `init`.
+ * Initialize the bundler with the env the {N} CLI passed. Must be called first.
  */
 export function init(env: INativeScriptRspackEnv): void {
-    nsWebpack.init(env)
+    hasInitialized = true
+    setEnv(env)
 }
 
 /**
- * Add a function to be called when building the internal chain config.
- *
- * Mirrors `@nativescript/webpack`'s `chainWebpack`.
+ * Explicitly pick the base config instead of detecting the project flavor.
+ * Useful when the flavor cannot be detected, for example in a custom monorepo.
  */
-export function chainRspack(
-    chainFn: (config: RspackChain, env: INativeScriptRspackEnv) => unknown,
-    options?: { order?: number },
-): void {
-    nsWebpack.chainWebpack((config, env) => chainFn(asRspackChain(config), env), options)
+export function useConfig(config: ConfigName | false): void {
+    explicitUseConfig = true
+
+    if (config) {
+        chainFns.push({ order: -1, chainFn: configs[config] })
+    }
 }
 
 /**
- * Merge an object into the resolved config.
- *
- * Mirrors `@nativescript/webpack`'s `mergeWebpack`.
+ * Add a function that is called with the internal chain config while it is
+ * being built.
  */
-export function mergeRspack(mergeFn: Parameters<typeof nsWebpack.mergeWebpack>[0]): void {
-    nsWebpack.mergeWebpack(mergeFn)
+export function chainRspack(chainFn: ChainFn, options?: { order?: number }): void {
+    chainFns.push({ order: options?.order ?? 0, chainFn, plugin: currentPlugin })
 }
 
-/** Explicitly pick the base config instead of detecting the project flavor. */
-export function useConfig(config: Parameters<typeof nsWebpack.useConfig>[0]): void {
-    nsWebpack.useConfig(config)
+/** Merge an object into the resolved configuration. */
+export function mergeRspack(mergeFn: MergeFn): void {
+    mergeFns.push(mergeFn)
 }
 
-/** Resolve the chain config with all chain functions applied, adapted for rspack. */
+/**
+ * `@nativescript/webpack`'s names, so `nativescript.webpack.js` configs
+ * published by {N} plugins keep working unchanged.
+ */
+export const chainWebpack = chainRspack
+export const mergeWebpack = mergeRspack
+
+// The webpack-named aliases matter here: an external config written for
+// @nativescript/webpack calls chainWebpack on whatever object it is handed.
+const api: NativeScriptRspackApi = {
+    init,
+    chainRspack,
+    mergeRspack,
+    chainWebpack: chainRspack,
+    mergeWebpack: mergeRspack,
+    useConfig,
+    Utils,
+    defaultConfigs,
+    merge,
+    setCurrentPlugin,
+    clearCurrentPlugin,
+}
+
+/** Resolve a new chain config with every chain function applied. */
 export function resolveChainableConfig(): RspackChain {
-    return adaptChain(asRspackChain(nsWebpack.resolveChainableConfig()))
+    const config = new RspackChain()
+
+    if (!explicitUseConfig) {
+        useConfig(determineProjectFlavor())
+    }
+
+    // configs shipped by installed {N} plugins
+    applyExternalConfigs(api)
+
+    for (const { chainFn, plugin } of chainFns.splice(0).sort((a, b) => a.order - b.order)) {
+        try {
+            chainFn(config, getEnv())
+        } catch (err) {
+            if (!plugin) {
+                // the error is from the project config or a missing env flag
+                throw err
+            }
+
+            error(`
+				Unable to apply chain function from: ${plugin}.
+				Error is: ${String(err)}
+			`)
+        }
+    }
+
+    if (getEnv().verbose) {
+        info('Resolved chainable config (before merges):')
+        info(config.toString())
+    }
+
+    return finalizeChain(config)
 }
 
 /**
- * Resolve the final rspack configuration.
- *
- * The NativeScript-specific rules (entry stubs, platform extensions, XML/CSS
- * loaders, copy rules, defines, HMR) come from `@nativescript/webpack`; this
- * only swaps the webpack-only plugins for rspack builtins.
+ * Resolve the final rspack configuration, with every chain and merge function
+ * applied.
  */
 export function resolveConfig(chainableConfig?: RspackChain): Configuration {
-    const chain = chainableConfig ?? resolveChainableConfig()
-    const resolved = nsWebpack.resolveConfig(asWebpackChain(chain))
+    if (!hasInitialized) {
+        throw error('resolveConfig() must be called after init()')
+    }
 
-    return adaptConfig(resolved as unknown as Record<string, unknown>)
+    let config = (chainableConfig ?? resolveChainableConfig()).toConfig() as Configuration
+
+    // not drained: a merge describes the config, and a watch build resolves it
+    // more than once
+    for (const mergeFn of mergeFns) {
+        if (typeof mergeFn !== 'function') {
+            config = merge(config, mergeFn) as Configuration
+            continue
+        }
+
+        const result = mergeFn(config, getEnv())
+
+        if (result) {
+            config = merge(config, result) as Configuration
+        }
+    }
+
+    return finalizeConfig(config)
 }
-
-export const Utils = nsWebpack.Utils
-export const defaultConfigs = nsWebpack.defaultConfigs
-export const merge = nsWebpack.merge
 
 export default {
     init,
     chainRspack,
+    chainWebpack,
     mergeRspack,
+    mergeWebpack,
     useConfig,
     resolveChainableConfig,
     resolveConfig,

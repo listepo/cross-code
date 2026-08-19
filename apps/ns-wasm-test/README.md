@@ -10,7 +10,7 @@ There are two app modes:
 
 - The normal demo entry (`app/app.ts`) renders the shared WASM checks when you
   tap **RUN**.
-- The test entry (`app/ns-rstest.ts`) displays the optional
+- The test entry (`app/_ns-rstest.ts`) displays the optional
   `@cross-code/ns-rstest/ui` results page while Rstest executes the
   specs in a NativeScript Worker.
 
@@ -24,8 +24,8 @@ used by that host/device connection.
 ## Layout
 
 ```text
-app/ns-rstest.ts                    test-only app entry and results UI
-app/ns-rstest.worker.ts             Worker registry for app/tests/**/*.spec.ts
+app/_ns-rstest.ts                    test-only app entry and results UI
+app/_ns-rstest.worker.ts             Worker registry for app/tests/**/*.spec.ts
 app/tests/wasm3/*.spec.ts           Rstest specs for wasm3
 app/tests/wamr/*.spec.ts            Rstest specs for WAMR
 app/wasm/fixture-suite.ts           checks shared by specs and demo page

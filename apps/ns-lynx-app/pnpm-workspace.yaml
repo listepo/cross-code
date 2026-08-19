@@ -8,6 +8,7 @@ packages:
   - lynx
   - ../../packages/ns-rspack
   - ../../packages/ns-lynx
+  - ../../packages/ns-rstest
 
 # pnpm 11 blocks dependency build scripts by default (ERR_PNPM_IGNORED_BUILDS).
 allowBuilds:

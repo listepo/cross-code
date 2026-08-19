@@ -55,7 +55,7 @@ const configureNativeScriptRstest = require('@cross-code/ns-rstest/bundler');
 
 module.exports = (env) => {
   rspack.init(env);
-  configureNativeScriptRstest(rspack, { entry: 'ns-rstest.ts' });
+  configureNativeScriptRstest(rspack, { entry: '_ns-rstest.ts' });
   return rspack.resolveConfig();
 };
 ```
@@ -64,7 +64,10 @@ The helper only changes the app bundle when the `rstestNativeScript`
 environment flag is present, so the test entry stays out of production builds.
 It works with `@nativescript/webpack` too — the chain API is identical.
 
-Create `app/ns-rstest.ts`. Keeping `new Worker()` in application source gives
+Create `app/_ns-rstest.ts`. The `_` prefix keeps it out of the app's
+`require.context`, which would otherwise register the test entry — and through
+it this package's Node-side dependencies — into the application bundle. Keeping
+`new Worker()` in application source gives
 the NativeScript bundler a static worker entry to bundle:
 
 ```ts
@@ -74,7 +77,7 @@ import { NativeScriptRstestCoordinator } from '@cross-code/ns-rstest/runtime';
 import { createRstestResultsPage } from '@cross-code/ns-rstest/ui';
 
 const coordinator = new NativeScriptRstestCoordinator({
-  createWorker: () => new Worker('./ns-rstest.worker.ts'),
+  createWorker: () => new Worker('./_ns-rstest.worker.ts'),
   port: 17878,
 });
 
@@ -82,7 +85,7 @@ Application.run({ create: () => createRstestResultsPage(coordinator) });
 void coordinator.start();
 ```
 
-Create `app/ns-rstest.worker.ts`:
+Create `app/_ns-rstest.worker.ts`:
 
 ```ts
 import '@nativescript/core/globals';

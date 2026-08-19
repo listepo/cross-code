@@ -1,4 +1,9 @@
 /**
+ * `_`-prefixed so the app's `require.context('~/')` never registers it: it
+ * imports `@rstest/core`, whose Node-side packages would then be pulled into
+ * the application bundle and break a normal `ns build`.
+ */
+/**
  * Which platforms each WASM runtime targets, and whether its native layer
  * exists yet — the two facts that decide whether a runtime's device suite
  * runs, skips, or fails.

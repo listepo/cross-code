@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "sourceMap": true
+  },
+  "files": [
+    "./references.d.ts",
+    "app/_ns-rstest.ts",
+    "app/_ns-rstest.worker.ts"
+  ],
+  "include": [
+    "app/**/*.spec.ts",
+    "app/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "platforms",
+    "lynx"
+  ]
+}

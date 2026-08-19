@@ -25,10 +25,10 @@ import {
   type HostCall,
 } from '../../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM } from '../../wasm/wasm-assets';
-import { describeRuntime, WASMKIT } from '../runtime-support';
+import { describeRuntime, WASMKIT } from '../_runtime-support';
 
 // WasmKit is Swift-native, so this suite is iOS-only — and skips even there
-// until the plugin's xcframework lands. See ../runtime-support.ts.
+// until the plugin's xcframework lands. See ../_runtime-support.ts.
 const describeWasmKit = describeRuntime(WASMKIT);
 
 describeWasmKit(

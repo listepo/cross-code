@@ -19,8 +19,7 @@ adapter interfaces, base Runtime/Module/Function classes):
 Also in the monorepo: [`ns-wry`](packages/ns-wry) — a general-purpose NativeScript
 plugin scaffold built on Rust + [UniFFI](https://github.com/mozilla/uniffi-rs)
 (uniffi-rs) auto-generated Kotlin/Swift bindings and cargo-ndk Android pipeline —
-and [`ns-rspack`](packages/ns-rspack), an rspack bundler for NativeScript apps
-that reuses `@nativescript/webpack`'s configuration.
+and [`ns-rspack`](packages/ns-rspack), an rspack bundler for NativeScript apps.
 
 > **Project status: Active development.** APIs and project layout may change without notice; expect breaking changes between releases.
 
@@ -39,7 +38,7 @@ that reuses `@nativescript/webpack`'s configuration.
 | [`@cross-code/ns-lynx`](packages/ns-lynx)                 | NativeScript plugin — embeds the [LynxJS](https://lynxjs.org) engine as a `<LynxView>`, rendering React on Lynx bundles inside a NativeScript page |
 | [`@cross-code/ns-rstest`](packages/ns-rstest)             | [Rstest](https://rstest.rs) device test runner for NativeScript — Node host, Worker runtime, and optional on-device results page        |
 | [`@cross-code/ns-wry`](packages/ns-wry)                                       | NativeScript plugin — Rust + UniFFI (uniffi-rs) Kotlin/Swift bindings, cargo-ndk Android pipeline                                       |
-| [`@cross-code/ns-rspack`](packages/ns-rspack)                                 | [rspack](https://rspack.rs) bundler for NativeScript apps — the `@nativescript/webpack` config, compiled by rspack             |
+| [`@cross-code/ns-rspack`](packages/ns-rspack)                                 | [rspack](https://rspack.rs) bundler for NativeScript apps — the whole NativeScript build pipeline, natively on rspack             |
 | [`@cross-code/nx-buck2`](packages/nx-buck2)                                   | Nx plugin for Buck2 native builds — debug/release profiles, cross-compilation, size optimization                                          |
 | [`ns-wasm-test`](apps/ns-wasm-test)                       | NativeScript test app — runs the plugins on a simulator/emulator from a demo page and through Rstest + `ns-rstest`            |
 | [`ns-lynx-app`](apps/ns-lynx-app)                         | NativeScript host app for @cross-code/ns-lynx — a React on Lynx UI embedded beside native NativeScript views                   |
@@ -170,16 +169,17 @@ or `mise plugin install buck2 https://github.com/izaakschroeder/asdf-buck2`.
 ## rspack bundling
 
 [`@cross-code/ns-rspack`](packages/ns-rspack) is an [rspack](https://rspack.rs)
-bundler for NativeScript apps. It reuses `@nativescript/webpack`'s configuration
-— every NativeScript-specific rule (entry stubs, platform extensions, XML/CSS
-loaders, copy rules, defines, HMR) comes from there — and swaps the webpack-only
-pieces (plugins, loaders, glob syntax, `WatchStatePlugin` IPC) for rspack
-equivalents. See [packages/ns-rspack/README.md](packages/ns-rspack/README.md)
-for usage and the webpack↔rspack differences table.
+bundler for NativeScript apps. It owns every NativeScript-specific rule — entry
+stubs, platform-suffixed resolution, XML/CSS loaders, copy rules, defines, HMR,
+the `WatchStatePlugin` IPC — natively, with no `@nativescript/webpack` and no
+webpack in its dependency tree. See
+[packages/ns-rspack/README.md](packages/ns-rspack/README.md) for usage and the
+differences table.
 
 The `rspack-test-app` exercises it end-to-end (`bundler: 'rspack'` in
 `nativescript.config.ts`); `ns build ios` / `ns run ios` (watch + HMR) run the
-bundler via the CLI bin and read build state over IPC.
+bundler via the CLI bin and read build state over IPC. `ns-lynx-app`'s device
+suite checks the bundle the app actually runs.
 
 ## WebAssembly plugins (wasm3, WAMR, WasmKit, WasmEdge, Chicory & Endive)
 

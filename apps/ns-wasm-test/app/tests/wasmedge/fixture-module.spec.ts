@@ -5,10 +5,10 @@ import { afterEach, beforeEach, expect, it } from '@rstest/core';
 import { WasmEdgeError, WasmEdgeRuntime, type WasmEdgeModule } from '@cross-code/ns-wasm-edge';
 import { callFixture, createHostImports, runFixtureChecks, summarize, type HostCall } from '../../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM } from '../../wasm/wasm-assets';
-import { describeRuntime, WASMEDGE } from '../runtime-support';
+import { describeRuntime, WASMEDGE } from '../_runtime-support';
 
 // WasmEdge targets both platforms, so this suite skips only until the plugin's
-// xcframework / .aar land. See ../runtime-support.ts.
+// xcframework / .aar land. See ../_runtime-support.ts.
 const describeWasmEdge = describeRuntime(WASMEDGE);
 
 describeWasmEdge('the fixture module through @cross-code/ns-wasm-edge', () => {

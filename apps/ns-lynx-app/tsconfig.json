@@ -27,6 +27,9 @@
     },
     {
       "path": "../../packages/ns-lynx"
+    },
+    {
+      "path": "../../packages/ns-rstest"
     }
   ]
 }

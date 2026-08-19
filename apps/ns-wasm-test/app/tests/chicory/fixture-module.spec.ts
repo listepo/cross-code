@@ -6,9 +6,9 @@ import { afterEach, beforeEach, expect, it } from '@rstest/core';
 import { ChicoryError, ChicoryRuntime, type ChicoryModule } from '@cross-code/ns-wasm-chicory';
 import { callFixture, createHostImports, runFixtureChecks, summarize, type HostCall } from '../../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM } from '../../wasm/wasm-assets';
-import { CHICORY, describeRuntime } from '../runtime-support';
+import { CHICORY, describeRuntime } from '../_runtime-support';
 // Chicory is pure Java, so this suite is Android-only — and skips even there
-// until the plugin's .aar lands. See ../runtime-support.ts.
+// until the plugin's .aar lands. See ../_runtime-support.ts.
 const describeChicory = describeRuntime(CHICORY);
 describeChicory('the fixture module through @cross-code/ns-wasm-chicory', () => {
   let runtime: ChicoryRuntime; let module: ChicoryModule; let log: HostCall[];

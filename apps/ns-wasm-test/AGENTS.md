@@ -10,11 +10,11 @@ Workspace-wide Nx and NativeScript rules live in the root `AGENTS.md`.
   launches the NativeScript CLI, assigns files to device worker slots, and
   reports through Rstest's `Reporter` interface. Rstest has no custom-pool API,
   so the `rstest` CLI is never involved.
-- `app/ns-rstest.ts` is the test-only application entry. It owns the
+- `app/_ns-rstest.ts` is the test-only application entry. It owns the
   coordinator and the optional `@cross-code/ns-rstest/ui` page. Its
   first import must remain `@valor/nativescript-websockets` so the transport
   global exists before the coordinator starts.
-- `app/ns-rstest.worker.ts` is a statically discoverable NativeScript
+- `app/_ns-rstest.worker.ts` is a statically discoverable NativeScript
   Worker entry. It imports `@nativescript/core/globals` for timers, and its
   bundler registry must match every file selected by the host configs.
 - Specs execute inside the Worker against the real iOS/Android native plugins.
@@ -32,8 +32,8 @@ automatically when the host config enables coverage.
 
 ```text
 app/
-  ns-rstest.ts                    coordinator + results UI
-  ns-rstest.worker.ts             Worker registry
+  _ns-rstest.ts                    coordinator + results UI
+  _ns-rstest.worker.ts             Worker registry
   tests/wasm3/                    wasm3 Rstest specs
   tests/wamr/                     WAMR Rstest specs
   tests/wasmkit/                  WasmKit specs (iOS-only engine)

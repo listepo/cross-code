@@ -20,7 +20,10 @@ function configureNativeScriptRstest(bundler, options = {}) {
     if (!env.rstestNativeScript) return;
 
     const entryDirectory = bundler.Utils.platform.getEntryDirPath();
-    const entryPath = resolve(entryDirectory, options.entry ?? 'ns-rstest.ts');
+    // `_`-prefixed by convention: the NativeScript bundler's entry stub runs
+    // `require.context('~/')` over the app folder, and a registered test entry
+    // would pull this runner's Node-side packages into the application bundle.
+    const entryPath = resolve(entryDirectory, options.entry ?? '_ns-rstest.ts');
     if (!existsSync(entryPath)) {
       throw new Error(
         `NativeScript Rstest entry not found: ${entryPath}. ` +
