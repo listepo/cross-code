@@ -4,7 +4,8 @@
   "license": "MIT",
   "scripts": {
     "clean.cache": "node tools/clean.mjs",
-    "clean.cache:all": "node tools/clean.mjs --all"
+    "clean.cache:all": "node tools/clean.mjs --all",
+    "verify:lockfiles": "node tools/verify-nested-lockfiles.mjs"
   },
   "private": true,
   "packageManager": "pnpm@11.20.0",

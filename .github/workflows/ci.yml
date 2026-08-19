@@ -70,8 +70,14 @@ jobs:
             pnpm-lock.yaml
             apps/ns-wasm-test/pnpm-lock.yaml
             apps/ns-wry-app/pnpm-lock.yaml
+            apps/ns-lynx-app/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+
+      # Nested NS apps snapshot workspace: deps into their own lockfiles. A dep
+      # change in packages/* must be followed by `pnpm install` in each app.
+      - name: Verify nested app lockfiles
+        run: pnpm run verify:lockfiles
 
       # Both apps resolve the plugins through file: dependencies and import
       # their built dist/. pnpm snapshots file: deps into the app's

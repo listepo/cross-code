@@ -36,8 +36,11 @@ here via `AGENTS.md`.
 - Device rstest suites on iOS and Android share port **17878**. Run them
   serially.
 - `apps/ns-lynx-app`, `apps/ns-wasm-test`, and `apps/ns-wry-app` each have their
-  own pnpm lockfile. A new dependency in a workspace package needs `pnpm install`
-  in the root **and** in every app that lists that package.
+  own pnpm lockfile. A dependency change in a linked workspace package (for
+  example `packages/ns-rspack/package.json`) needs `pnpm install` at the repo
+  root **and** in every nested app that links it — then commit each
+  `pnpm-lock.yaml`. CI runs `pnpm run verify:lockfiles` to catch stale nested
+  lockfiles before the device jobs install `apps/ns-wasm-test`.
 - NativeScript host apps must stay in the `@nx/js/typescript` plugin `exclude`
   list (`apps/ns-wasm-test/*`, `apps/ns-wry-app/*`, `apps/ns-lynx-app/*`). The
   plugin infers `tsc --build --emitDeclarationOnly`, which is wrong for a
