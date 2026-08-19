@@ -50,11 +50,10 @@ export interface Wasm3RuntimeOptions {
 // ---------------------------------------------------------------------------
 
 function createAdapter(stackSizeInBytes: number): NativeRuntimeAdapter {
-  const g = globalThis as any;
-  if (typeof g.NSCWasm3Runtime !== 'undefined' && g.NSCWasm3Runtime !== null) {
+  if (globalThis.NSCWasm3Runtime != null) {
     return new IosRuntime(stackSizeInBytes);
   }
-  if (g.org?.nativescript?.wasm3?.NSCWasm3Runtime) {
+  if (globalThis.org?.nativescript?.wasm3?.NSCWasm3Runtime) {
     return new AndroidRuntime(stackSizeInBytes);
   }
   throw new Wasm3Error(
@@ -63,12 +62,12 @@ function createAdapter(stackSizeInBytes: number): NativeRuntimeAdapter {
 }
 
 function wasm3VersionNative(): string {
-  const g = globalThis as any;
-  if (typeof g.NSCWasm3Runtime !== 'undefined' && g.NSCWasm3Runtime !== null) {
-    return String(g.NSCWasm3Runtime.wasm3Version());
+  if (globalThis.NSCWasm3Runtime != null) {
+    return String(globalThis.NSCWasm3Runtime.wasm3Version());
   }
-  if (g.org?.nativescript?.wasm3?.NSCWasm3Runtime) {
-    return String(g.org.nativescript.wasm3.NSCWasm3Runtime.wasm3Version());
+  const android = globalThis.org?.nativescript?.wasm3?.NSCWasm3Runtime;
+  if (android) {
+    return String(android.wasm3Version());
   }
   throw new Wasm3Error('ns-wasm3 native runtime not found');
 }

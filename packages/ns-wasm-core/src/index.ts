@@ -22,6 +22,28 @@ export {
   type NativeRuntimeAdapter,
 } from './lib/adapter-interfaces.js';
 
+// NativeScript bridge shapes shared by the platform adapters
+export {
+  nativeGlobals,
+  nativeGlobal,
+  nativeArrayToJs,
+  type NativeArrayLike,
+  type NativeMutableArray,
+  type NativeError,
+  type InteropReference,
+  type InteropApi,
+  type ObjCClass,
+  type NativeScriptGlobals,
+  javaLang,
+  toJavaBytes,
+  fromJavaBytes,
+  type JavaByteArray,
+  type JavaLangApi,
+  type JavaApi,
+  type JavaNumberBox,
+  type NativeScriptArrayCtor,
+} from './lib/native-bridge.js';
+
 // Base runtime classes
 export {
   WasmRuntime,
@@ -31,4 +53,6 @@ export {
   type WasmModuleSource,
   type WasmHostFunction,
   type WasmImports,
+  type WasmModuleCtor,
+  type WasmFunctionCtor,
 } from './lib/runtime.js';

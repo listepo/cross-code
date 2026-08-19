@@ -4,6 +4,7 @@
 //! The `nsc_global_get` / `nsc_global_set` shim functions (previously in
 //! `nsc_wasm3_shim.c`) are now pure Rust — see below.
 
+#![deny(unsafe_op_in_unsafe_fn)]
 #![allow(
     non_upper_case_globals,
     non_camel_case_types,
@@ -26,32 +27,37 @@ use std::ffi::c_char;
 /// Returns null on success, or an error string pointer.
 ///
 /// # Safety
-/// `global` must be a valid IM3Global pointer.
+/// `global` must be a valid `IM3Global`; `o_type` and `o_bits` must be
+/// writable. Passing null for either out-param is reported as an error rather
+/// than dereferenced.
 pub unsafe fn nsc_global_get(
     global: IM3Global,
     o_type: *mut i32,
     o_bits: *mut u64,
 ) -> *const c_char {
-    let mut tagged: M3TaggedValue = std::mem::zeroed();
-    let result = m3_GetGlobal(global, &mut tagged);
+    if global.is_null() || o_type.is_null() || o_bits.is_null() {
+        return ERR_INVALID_ARGUMENT.as_ptr() as *const c_char;
+    }
+    // SAFETY: M3TaggedValue is #[repr(C)] plain data (a type tag plus a numeric
+    // union); all-zeros is the i32 tag holding 0, and m3_GetGlobal overwrites it.
+    let mut tagged: M3TaggedValue = unsafe { std::mem::zeroed() };
+    // SAFETY: global was checked non-null and tagged is a writable out-param.
+    let result = unsafe { m3_GetGlobal(global, &mut tagged) };
     if !result.is_null() {
         return result;
     }
 
+    // SAFETY: both out-params were checked non-null above, and each union read
+    // below is guarded by the tag m3_GetGlobal just set.
     unsafe {
         *o_type = tagged.type_ as i32;
-        *o_bits = 0;
-        match tagged.type_ {
-            M3ValueType_c_m3Type_i32 => *o_bits = tagged.value.i32_ as u64,
-            M3ValueType_c_m3Type_i64 => *o_bits = tagged.value.i64_,
-            M3ValueType_c_m3Type_f32 => {
-                *o_bits = tagged.value.f32_.to_bits() as u64;
-            }
-            M3ValueType_c_m3Type_f64 => {
-                *o_bits = tagged.value.f64_.to_bits();
-            }
-            _ => return b"global type mismatch\0".as_ptr() as *const c_char,
-        }
+        *o_bits = match tagged.type_ {
+            M3ValueType_c_m3Type_i32 => tagged.value.i32_ as u64,
+            M3ValueType_c_m3Type_i64 => tagged.value.i64_,
+            M3ValueType_c_m3Type_f32 => tagged.value.f32_.to_bits() as u64,
+            M3ValueType_c_m3Type_f64 => tagged.value.f64_.to_bits(),
+            _ => return ERR_TYPE_MISMATCH.as_ptr() as *const c_char,
+        };
     }
     std::ptr::null()
 }
@@ -60,11 +66,16 @@ pub unsafe fn nsc_global_get(
 /// Returns null on success, or an error string pointer.
 ///
 /// # Safety
-/// `global` must be a valid IM3Global pointer.
+/// `global` must be a valid `IM3Global`.
 pub unsafe fn nsc_global_set(global: IM3Global, i_type: i32, i_bits: u64) -> *const c_char {
+    if global.is_null() {
+        return ERR_INVALID_ARGUMENT.as_ptr() as *const c_char;
+    }
+    // SAFETY: see nsc_global_get — an all-zero M3TaggedValue is valid.
     let mut tagged: M3TaggedValue = unsafe { std::mem::zeroed() };
     tagged.type_ = i_type as M3ValueType;
 
+    // Writing a union field is safe; only reading one needs a tag guarantee.
     match tagged.type_ {
         M3ValueType_c_m3Type_i32 => tagged.value.i32_ = i_bits as u32,
         M3ValueType_c_m3Type_i64 => tagged.value.i64_ = i_bits,
@@ -74,8 +85,58 @@ pub unsafe fn nsc_global_set(global: IM3Global, i_type: i32, i_bits: u64) -> *co
         M3ValueType_c_m3Type_f64 => {
             tagged.value.f64_ = f64::from_bits(i_bits);
         }
-        _ => return b"global type mismatch\0".as_ptr() as *const c_char,
+        _ => return ERR_TYPE_MISMATCH.as_ptr() as *const c_char,
     }
 
-    m3_SetGlobal(global, &mut tagged as IM3TaggedValue)
+    // SAFETY: global was checked non-null and tagged carries a matching tag.
+    unsafe { m3_SetGlobal(global, &mut tagged as IM3TaggedValue) }
+}
+
+// `'static` NUL-terminated error strings. Returned by pointer, never freed.
+const ERR_TYPE_MISMATCH: &str = "global type mismatch\0";
+const ERR_INVALID_ARGUMENT: &str = "invalid argument\0";
+
+#[cfg(test)]
+mod shim_tests {
+    use super::*;
+    use std::ffi::CStr;
+
+    #[test]
+    fn null_global_is_rejected_rather_than_dereferenced() {
+        let mut ty = 0i32;
+        let mut bits = 0u64;
+        let err = unsafe { nsc_global_get(std::ptr::null_mut(), &mut ty, &mut bits) };
+        assert_eq!(
+            unsafe { CStr::from_ptr(err) }.to_str().unwrap(),
+            "invalid argument"
+        );
+        let err = unsafe { nsc_global_set(std::ptr::null_mut(), 0, 0) };
+        assert_eq!(
+            unsafe { CStr::from_ptr(err) }.to_str().unwrap(),
+            "invalid argument"
+        );
+    }
+
+    #[test]
+    fn null_out_params_are_rejected_rather_than_dereferenced() {
+        let dangling = std::ptr::dangling_mut::<u8>() as IM3Global;
+        let mut bits = 0u64;
+        let err = unsafe { nsc_global_get(dangling, std::ptr::null_mut(), &mut bits) };
+        assert_eq!(
+            unsafe { CStr::from_ptr(err) }.to_str().unwrap(),
+            "invalid argument"
+        );
+        let mut ty = 0i32;
+        let err = unsafe { nsc_global_get(dangling, &mut ty, std::ptr::null_mut()) };
+        assert_eq!(
+            unsafe { CStr::from_ptr(err) }.to_str().unwrap(),
+            "invalid argument"
+        );
+    }
+
+    #[test]
+    fn version_literal_is_nul_terminated() {
+        let v = CStr::from_bytes_with_nul(M3_VERSION).expect("bindgen emits a NUL");
+        assert!(!v.to_bytes().is_empty());
+    }
 }

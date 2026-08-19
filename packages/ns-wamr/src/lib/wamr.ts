@@ -81,11 +81,10 @@ function createAdapter(options: {
   wasiEnabled: boolean;
   executionTier: number;
 }): NativeRuntimeAdapter {
-  const g = globalThis as any;
-  if (typeof g.NSCWamrRuntime !== 'undefined' && g.NSCWamrRuntime !== null) {
+  if (globalThis.NSCWamrRuntime != null) {
     return new IosRuntime(options);
   }
-  if (g.org?.nativescript?.wamr?.NSCWamrRuntime) {
+  if (globalThis.org?.nativescript?.wamr?.NSCWamrRuntime) {
     return new AndroidRuntime(options);
   }
   throw new WamrError(
@@ -94,12 +93,12 @@ function createAdapter(options: {
 }
 
 function wamrVersionNative(): string {
-  const g = globalThis as any;
-  if (typeof g.NSCWamrRuntime !== 'undefined' && g.NSCWamrRuntime !== null) {
-    return String(g.NSCWamrRuntime.wamrVersion());
+  if (globalThis.NSCWamrRuntime != null) {
+    return String(globalThis.NSCWamrRuntime.wamrVersion());
   }
-  if (g.org?.nativescript?.wamr?.NSCWamrRuntime) {
-    return String(g.org.nativescript.wamr.NSCWamrRuntime.wamrVersion());
+  const android = globalThis.org?.nativescript?.wamr?.NSCWamrRuntime;
+  if (android) {
+    return String(android.wamrVersion());
   }
   throw new WamrError('ns-wamr native runtime not found');
 }

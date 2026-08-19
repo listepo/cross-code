@@ -22,260 +22,417 @@ pub mod shim;
 // ── C-compatible wrappers for JNI interop ──────────────────────────────────
 // These #[no_mangle] extern "C" functions export the same symbols as the old
 // nsc_wamr_shim.c, so wamr-jni can call them unchanged.
+//
+// Every entry point below is `unsafe` because it takes raw pointers from C.
+// Each one null-checks the pointers it is handed and reports a NUL-terminated
+// static error string rather than dereferencing blindly; the remaining
+// requirements are spelled out in the per-function `# Safety` sections.
 
 use std::ffi::{c_char, CStr, CString};
+use std::sync::OnceLock;
+
+/// Size, in bytes, of the `error_buf` every function taking one expects.
+/// The value is part of the C ABI contract with the Swift/Kotlin callers.
+pub const NSC_WAMR_ERROR_BUF_LEN: usize = 256;
+
+/// Static "invalid argument" strings. Returned by value so callers never try
+/// to free them — unlike the `CString::into_raw` paths, which are documented
+/// as leaked-on-purpose because the ABI has no free hook.
+const ERR_NULL_FUNCTION: &str = "null function\0";
+const ERR_NULL_RUNTIME: &str = "null runtime\0";
+const ERR_INVALID_ARGUMENT: &str = "invalid argument\0";
+const EMPTY_CSTR: &str = "\0";
+
+fn static_err(msg: &'static str) -> *const c_char {
+    msg.as_ptr().cast()
+}
+
+/// Leaks an owned error message into a C string. The ABI exposes no free hook,
+/// so the caller reads it once and the allocation is intentionally abandoned.
+fn leak_err(message: String) -> *const c_char {
+    CString::new(message)
+        .unwrap_or_default()
+        .into_raw()
+        .cast_const()
+}
 
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_to_simple_type(wamr_type_byte: i32) -> i32 {
+pub extern "C" fn nsc_wamr_to_simple_type(wamr_type_byte: i32) -> i32 {
     shim::to_simple_type(wamr_type_byte)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_from_simple_type(simple_type: i32) -> i32 {
+pub extern "C" fn nsc_wamr_from_simple_type(simple_type: i32) -> i32 {
     shim::from_simple_type(simple_type)
 }
 
+/// Returns the WAMR version as a `'static` C string. The pointer stays valid
+/// for the life of the process and must not be freed.
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_version() -> *const std::os::raw::c_char {
-    static mut VERSION_BUF: [std::os::raw::c_char; 64] = [0; 64];
-    let v = shim::version();
-    let bytes = v.as_bytes();
-    let len = bytes.len().min(63);
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            bytes.as_ptr() as *const c_char,
-            std::ptr::addr_of_mut!(VERSION_BUF) as *mut c_char,
-            len,
-        );
-        (*std::ptr::addr_of_mut!(VERSION_BUF))[len] = 0;
-    }
-    std::ptr::addr_of!(VERSION_BUF) as *const std::os::raw::c_char
+pub extern "C" fn nsc_wamr_version() -> *const c_char {
+    // A `static mut` buffer here would be a data race between two threads
+    // asking for the version at once; OnceLock initialises exactly once and
+    // hands out a shared, immutable pointer afterwards.
+    static VERSION: OnceLock<CString> = OnceLock::new();
+    VERSION
+        .get_or_init(|| CString::new(shim::version()).unwrap_or_default())
+        .as_ptr()
 }
 
+/// # Safety
+/// `error_buf` must be null or writable for [`NSC_WAMR_ERROR_BUF_LEN`] bytes.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_create_runtime(
     stack_size_in_bytes: i32,
-    error_buf: *mut std::os::raw::c_char,
+    error_buf: *mut c_char,
 ) -> *mut shim::NscWamrRuntime {
-    let mut buf: [c_char; 256] = [0; 256];
+    let mut buf: [c_char; NSC_WAMR_ERROR_BUF_LEN] = [0; NSC_WAMR_ERROR_BUF_LEN];
     let rt = shim::create_runtime(stack_size_in_bytes, &mut buf);
     if rt.is_null() && !error_buf.is_null() {
-        unsafe {
-            std::ptr::copy_nonoverlapping(buf.as_ptr(), error_buf, buf.len().min(256));
-        }
+        // SAFETY: the caller guarantees error_buf holds NSC_WAMR_ERROR_BUF_LEN
+        // bytes, which is exactly the length of the local buffer.
+        unsafe { std::ptr::copy_nonoverlapping(buf.as_ptr(), error_buf, buf.len()) };
     }
     rt
 }
 
+/// # Safety
+/// `runtime` must be null or a pointer returned by [`nsc_wamr_create_runtime`]
+/// that has not already been destroyed.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_destroy_runtime(runtime: *mut shim::NscWamrRuntime) {
-    shim::destroy_runtime(runtime);
+    unsafe { shim::destroy_runtime(runtime) };
 }
 
+/// # Safety
+/// `bytes` must be readable for `size` bytes and stay alive for as long as the
+/// returned module is loaded — WAMR does not copy it. `error_buf` must be null
+/// or writable for [`NSC_WAMR_ERROR_BUF_LEN`] bytes.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_load_module(
     runtime: *mut shim::NscWamrRuntime,
     bytes: *const u8,
     size: i32,
-    error_buf: *mut std::os::raw::c_char,
+    error_buf: *mut c_char,
 ) -> wasm_module_t {
-    shim::load_module(runtime, bytes, size, error_buf)
+    if bytes.is_null() || size <= 0 {
+        return std::ptr::null_mut();
+    }
+    unsafe { shim::load_module(runtime, bytes, size, error_buf) }
 }
 
+/// # Safety
+/// `module` and `runtime` must be null or live handles; `error_buf` must be
+/// null or writable for [`NSC_WAMR_ERROR_BUF_LEN`] bytes.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_instantiate(
     module: wasm_module_t,
     runtime: *mut shim::NscWamrRuntime,
-    error_buf: *mut std::os::raw::c_char,
+    error_buf: *mut c_char,
 ) -> wasm_module_inst_t {
-    shim::instantiate(module, runtime, error_buf)
+    unsafe { shim::instantiate(module, runtime, error_buf) }
 }
 
+/// Always returns a `'static` empty string — WAMR exposes no module name here.
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_module_name(
-    _module: wasm_module_t,
-) -> *const std::os::raw::c_char {
-    // Returns a static empty string — same as before
-    b"\0".as_ptr() as *const std::os::raw::c_char
+pub extern "C" fn nsc_wamr_module_name(_module: wasm_module_t) -> *const c_char {
+    static_err(EMPTY_CSTR)
 }
 
+/// # Safety
+/// `name` must be null or a NUL-terminated string; `error_buf` must be null or
+/// writable for [`NSC_WAMR_ERROR_BUF_LEN`] bytes.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_find_function(
     runtime: *mut shim::NscWamrRuntime,
-    name: *const std::os::raw::c_char,
-    error_buf: *mut std::os::raw::c_char,
+    name: *const c_char,
+    error_buf: *mut c_char,
 ) -> wasm_function_inst_t {
-    shim::find_function(runtime, name, error_buf)
+    unsafe { shim::find_function(runtime, name, error_buf) }
 }
 
+/// Always returns a `'static` empty string — the name is looked up on the
+/// Rust side through `shim::function_name` instead.
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_function_name(
-    _func: wasm_function_inst_t,
-) -> *const std::os::raw::c_char {
-    b"\0".as_ptr() as *const std::os::raw::c_char
+pub extern "C" fn nsc_wamr_function_name(_func: wasm_function_inst_t) -> *const c_char {
+    static_err(EMPTY_CSTR)
 }
 
+/// # Safety
+/// `func` must be null or a handle previously returned by
+/// [`nsc_wamr_find_function`].
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_function_arg_count(func: wasm_function_inst_t) -> i32 {
-    shim::function_arg_count(func)
+    unsafe { shim::function_arg_count(func) }
 }
 
+/// # Safety
+/// See [`nsc_wamr_function_arg_count`].
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_function_arg_type(func: wasm_function_inst_t, index: i32) -> i32 {
-    shim::function_arg_type(func, index)
+pub unsafe extern "C" fn nsc_wamr_function_arg_type(
+    func: wasm_function_inst_t,
+    index: i32,
+) -> i32 {
+    unsafe { shim::function_arg_type(func, index) }
 }
 
+/// # Safety
+/// See [`nsc_wamr_function_arg_count`].
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_function_ret_count(func: wasm_function_inst_t) -> i32 {
-    shim::function_ret_count(func)
+    unsafe { shim::function_ret_count(func) }
 }
 
+/// # Safety
+/// See [`nsc_wamr_function_arg_count`].
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_function_ret_type(func: wasm_function_inst_t, index: i32) -> i32 {
-    shim::function_ret_type(func, index)
+pub unsafe extern "C" fn nsc_wamr_function_ret_type(
+    func: wasm_function_inst_t,
+    index: i32,
+) -> i32 {
+    unsafe { shim::function_ret_type(func, index) }
 }
 
+/// # Safety
+/// `arg_ptrs` must be null, or an array of `n_args` pointers each null or
+/// pointing at a readable `u64`.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_call(
     func: wasm_function_inst_t,
     n_args: i32,
     arg_ptrs: *mut *mut u64,
-) -> *const std::os::raw::c_char {
+) -> *const c_char {
     if func.is_null() {
-        return b"null function\0".as_ptr() as *const std::os::raw::c_char;
+        return static_err(ERR_NULL_FUNCTION);
     }
-    // Convert arg_ptrs to Rust &[u64]
-    let n = n_args as usize;
-    let mut args = Vec::with_capacity(n.max(1));
+    let n = n_args.max(0) as usize;
+    // A non-empty argument list with no array behind it is a caller bug, not
+    // something to dereference: report it rather than reading from null.
+    if n > 0 && arg_ptrs.is_null() {
+        return static_err(ERR_INVALID_ARGUMENT);
+    }
+    let mut args = Vec::with_capacity(n);
     for i in 0..n {
+        // SAFETY: arg_ptrs is non-null and holds n entries per the contract.
         let ptr = unsafe { *arg_ptrs.add(i) };
         args.push(if ptr.is_null() { 0 } else { unsafe { *ptr } });
     }
-    match shim::call(func, &args) {
+    match unsafe { shim::call(func, &args) } {
         Ok(()) => std::ptr::null(),
-        Err(e) => {
-            let c_err = CString::new(e).unwrap_or_default();
-            c_err.into_raw() as *const std::os::raw::c_char
-        }
+        Err(e) => leak_err(e),
     }
 }
 
+/// # Safety
+/// `ret_ptrs` must be null, or an array of `n_rets` pointers each null or
+/// pointing at a writable `u64`.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_get_results(
     func: wasm_function_inst_t,
     n_rets: i32,
     ret_ptrs: *mut *mut u64,
-) -> *const std::os::raw::c_char {
+) -> *const c_char {
     if func.is_null() {
-        return b"null function\0".as_ptr() as *const std::os::raw::c_char;
+        return static_err(ERR_NULL_FUNCTION);
     }
-    let n = n_rets as usize;
-    let mut buf = vec![0u64; n.max(1)];
-    match shim::get_results(func, &mut buf) {
+    let n = n_rets.max(0) as usize;
+    if n > 0 && ret_ptrs.is_null() {
+        return static_err(ERR_INVALID_ARGUMENT);
+    }
+    let mut buf = vec![0u64; n];
+    match unsafe { shim::get_results(func, &mut buf) } {
         Ok(()) => {
-            for i in 0..n {
+            for (i, &value) in buf.iter().enumerate() {
+                // SAFETY: ret_ptrs is non-null and holds n entries per the
+                // contract, and buf has exactly n elements.
                 let ptr = unsafe { *ret_ptrs.add(i) };
                 if !ptr.is_null() {
-                    unsafe { *ptr = buf[i] };
+                    unsafe { *ptr = value };
                 }
             }
             std::ptr::null()
         }
-        Err(e) => {
-            let c_err = CString::new(e).unwrap_or_default();
-            c_err.into_raw() as *const std::os::raw::c_char
-        }
+        Err(e) => leak_err(e),
     }
 }
 
+/// # Safety
+/// `runtime` must be null or a live runtime handle.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_memory_size(runtime: *mut shim::NscWamrRuntime) -> i32 {
-    shim::memory_size(runtime)
+    unsafe { shim::memory_size(runtime) }
 }
 
+/// # Safety
+/// `runtime` must be null or a live runtime handle. The returned pointer aims
+/// into WAMR's linear memory and is only valid while the instance lives.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_get_memory(runtime: *mut shim::NscWamrRuntime) -> *mut u8 {
-    shim::get_memory(runtime)
+    unsafe { shim::get_memory(runtime) }
 }
 
+/// # Safety
+/// `module_name`, `name` and `signature` must be null or NUL-terminated
+/// strings. `callback` must be a raw-convention WAMR native function pointer
+/// that stays valid until the runtime is destroyed.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_link_host_function(
     runtime: *mut shim::NscWamrRuntime,
-    module_name: *const std::os::raw::c_char,
-    name: *const std::os::raw::c_char,
-    signature: *const std::os::raw::c_char,
+    module_name: *const c_char,
+    name: *const c_char,
+    signature: *const c_char,
     callback: *mut std::os::raw::c_void,
-) -> *const std::os::raw::c_char {
+) -> *const c_char {
     if runtime.is_null() {
-        return b"null runtime\0".as_ptr() as *const std::os::raw::c_char;
+        return static_err(ERR_NULL_RUNTIME);
     }
+    if module_name.is_null() || name.is_null() || signature.is_null() {
+        return static_err(ERR_INVALID_ARGUMENT);
+    }
+    // SAFETY: all three pointers were just checked non-null and the caller
+    // guarantees they are NUL-terminated.
     let mod_name = unsafe { CStr::from_ptr(module_name) }.to_string_lossy();
     let func_name = unsafe { CStr::from_ptr(name) }.to_string_lossy();
     let sig = unsafe { CStr::from_ptr(signature) }.to_string_lossy();
-    match shim::link_host_function(runtime, &mod_name, &func_name, &sig, callback) {
+    match unsafe { shim::link_host_function(runtime, &mod_name, &func_name, &sig, callback) } {
         Ok(()) => std::ptr::null(),
-        Err(e) => {
-            // Leak the error string — caller reads it once
-            let c_err = CString::new(e).unwrap_or_default();
-            c_err.into_raw() as *const std::os::raw::c_char
-        }
+        Err(e) => leak_err(e),
     }
 }
 
+/// # Safety
+/// `name` must be a NUL-terminated string; `type_out` and `bits_out` must be
+/// writable.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_get_global(
     inst: wasm_module_inst_t,
-    name: *const std::os::raw::c_char,
+    name: *const c_char,
     type_out: *mut i32,
     bits_out: *mut u64,
-) -> *const std::os::raw::c_char {
+) -> *const c_char {
     if inst.is_null() || name.is_null() || type_out.is_null() || bits_out.is_null() {
-        return b"invalid argument\0".as_ptr() as *const std::os::raw::c_char;
+        return static_err(ERR_INVALID_ARGUMENT);
     }
+    // SAFETY: name was just checked non-null and is NUL-terminated.
     let n = unsafe { CStr::from_ptr(name) }.to_string_lossy();
-    match shim::get_global(inst, &n) {
+    match unsafe { shim::get_global(inst, &n) } {
         Ok((t, b)) => {
+            // SAFETY: both out-params were checked non-null above.
             unsafe {
                 *type_out = t;
                 *bits_out = b;
             }
             std::ptr::null()
         }
-        Err(e) => {
-            let c_err = CString::new(e).unwrap_or_default();
-            c_err.into_raw() as *const std::os::raw::c_char
-        }
+        Err(e) => leak_err(e),
     }
 }
 
+/// # Safety
+/// `name` must be a NUL-terminated string.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_get_global_type(
     inst: wasm_module_inst_t,
-    name: *const std::os::raw::c_char,
+    name: *const c_char,
 ) -> i32 {
     if inst.is_null() || name.is_null() {
         return -1;
     }
+    // SAFETY: name was just checked non-null and is NUL-terminated.
     let n = unsafe { CStr::from_ptr(name) }.to_string_lossy();
-    shim::get_global_type(inst, &n)
+    unsafe { shim::get_global_type(inst, &n) }
 }
 
+/// # Safety
+/// `name` must be a NUL-terminated string.
 #[no_mangle]
 pub unsafe extern "C" fn nsc_wamr_set_global(
     inst: wasm_module_inst_t,
-    name: *const std::os::raw::c_char,
+    name: *const c_char,
     type_: i32,
     bits: u64,
-) -> *const std::os::raw::c_char {
+) -> *const c_char {
     if inst.is_null() || name.is_null() {
-        return b"invalid argument\0".as_ptr() as *const std::os::raw::c_char;
+        return static_err(ERR_INVALID_ARGUMENT);
     }
+    // SAFETY: name was just checked non-null and is NUL-terminated.
     let n = unsafe { CStr::from_ptr(name) }.to_string_lossy();
-    match shim::set_global(inst, &n, type_, bits) {
+    match unsafe { shim::set_global(inst, &n, type_, bits) } {
         Ok(()) => std::ptr::null(),
-        Err(e) => {
-            let c_err = CString::new(e).unwrap_or_default();
-            c_err.into_raw() as *const std::os::raw::c_char
+        Err(e) => leak_err(e),
+    }
+}
+
+#[cfg(test)]
+mod ffi_tests {
+    use super::*;
+
+    #[test]
+    fn version_is_a_valid_c_string() {
+        let ptr = nsc_wamr_version();
+        assert!(!ptr.is_null());
+        // Stable across calls: OnceLock hands back the same allocation.
+        assert_eq!(ptr, nsc_wamr_version());
+        let s = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
+        assert_eq!(s.split('.').count(), 3, "expected major.minor.patch, got {s}");
+    }
+
+    #[test]
+    fn static_error_strings_are_nul_terminated() {
+        for msg in [
+            ERR_NULL_FUNCTION,
+            ERR_NULL_RUNTIME,
+            ERR_INVALID_ARGUMENT,
+            EMPTY_CSTR,
+        ] {
+            let s = unsafe { CStr::from_ptr(static_err(msg)) };
+            assert_eq!(s.to_bytes().len(), msg.len() - 1);
         }
+    }
+
+    #[test]
+    fn call_rejects_a_null_argument_array() {
+        // func is null first, so this exercises the null-func guard; the
+        // arg_ptrs guard is checked with a non-null dummy handle below.
+        let err = unsafe { nsc_wamr_call(std::ptr::null_mut(), 0, std::ptr::null_mut()) };
+        assert_eq!(unsafe { CStr::from_ptr(err) }.to_str().unwrap(), "null function");
+
+        let dangling = std::ptr::dangling_mut::<u8>() as wasm_function_inst_t;
+        let err = unsafe { nsc_wamr_call(dangling, 2, std::ptr::null_mut()) };
+        assert_eq!(
+            unsafe { CStr::from_ptr(err) }.to_str().unwrap(),
+            "invalid argument"
+        );
+        let err = unsafe { nsc_wamr_get_results(dangling, 2, std::ptr::null_mut()) };
+        assert_eq!(
+            unsafe { CStr::from_ptr(err) }.to_str().unwrap(),
+            "invalid argument"
+        );
+    }
+
+    #[test]
+    fn null_name_pointers_are_rejected_before_deref() {
+        let dangling = std::ptr::dangling_mut::<u8>() as wasm_module_inst_t;
+        let err = unsafe {
+            nsc_wamr_get_global(
+                dangling,
+                std::ptr::null(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+        };
+        assert_eq!(
+            unsafe { CStr::from_ptr(err) }.to_str().unwrap(),
+            "invalid argument"
+        );
+        assert_eq!(
+            unsafe { nsc_wamr_get_global_type(dangling, std::ptr::null()) },
+            -1
+        );
+        let err = unsafe { nsc_wamr_set_global(dangling, std::ptr::null(), 0, 0) };
+        assert_eq!(
+            unsafe { CStr::from_ptr(err) }.to_str().unwrap(),
+            "invalid argument"
+        );
     }
 }
