@@ -29,6 +29,12 @@ declare const global: Record<string | symbol, unknown> & {
     require(path: string): unknown
 }
 
+// This function is stringified, never called: the text is appended to the app
+// bundle. Coverage instrumentation would inject `cov_*()` counters into that
+// text, referencing a global that does not exist on device — so it has to reach
+// `.toString()` uninstrumented. Its behaviour is covered through
+// HMR_RUNTIME_SOURCE in hmr-runtime.spec.ts.
+/* istanbul ignore next */
 function nativeScriptHmrRuntime(): void {
     // `module` is read through a local binding on purpose: a bundler that
     // parses this file (Rstest bundles with rspack) statically folds a direct

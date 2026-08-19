@@ -11,7 +11,11 @@ export default defineConfig({
     globals: true,
     reporters: ['default'],
     coverage: {
-        provider: 'v8',
+        // Istanbul, not v8: it instruments the source, so the numbers do not
+        // depend on the engine running the tests. It is also what the device
+        // suites in @cross-code/ns-rstest have to use — the {N} runtimes expose
+        // no V8 coverage — so both halves of this repo report the same way.
+        provider: 'istanbul',
         reportsDirectory: './test-output/rstest/coverage',
     },
 })

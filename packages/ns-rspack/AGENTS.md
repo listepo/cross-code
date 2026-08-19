@@ -107,6 +107,7 @@ pnpm exec nx run ns-rspack:test        # Rstest (node env, no device)
 pnpm exec nx run ns-rspack:build       # tsc → dist/
 pnpm exec nx run ns-rspack:typecheck   # tsc --build, declaration-only
 pnpm exec nx run ns-rspack:lint        # oxlint
+pnpm exec nx run ns-rspack:coverage    # Rstest + istanbul
 ```
 
 - **Never edit `dist/` or `out-tsc/`** — both are gitignored build output.
@@ -117,6 +118,12 @@ pnpm exec nx run ns-rspack:lint        # oxlint
   binding (see `hmr-runtime.ts`); and the module-mock APIs are rewritten by a
   native rspack plugin, so they must be written literally as `rs.mock(...)` /
   `rs.resetModules()` — aliasing the import throws at runtime.
+- Coverage uses the **istanbul** provider, not v8: it instruments the source, so
+  the numbers do not depend on the engine running the tests, and it matches the
+  device suites in `@cross-code/ns-rstest`, which have no choice — the {N}
+  runtimes expose no V8 coverage. The one cost is that instrumentation must not
+  reach `hmr-runtime.ts`'s stringified function, hence the `istanbul ignore
+  next` there.
 - Rstest swaps to a machine-readable reporter when it detects an agent env var
   (`CLAUDECODE`, `CURSOR_AGENT`, …) and swallows `console.log`. Export
   `RSTEST_NO_AGENT=1` to get the normal reporter back.
