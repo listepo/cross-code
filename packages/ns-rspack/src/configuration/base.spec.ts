@@ -240,7 +240,7 @@ describe('base configuration', () => {
     })
 
     it('inlines source maps for a development build', async () => {
-        expect((await resolve({ ios: true })).devtool).toBe('source-map')
+        expect((await resolve({ ios: true })).devtool).toBe('inline-source-map')
         expect((await resolve({ ios: true, production: true })).devtool).toBe(false)
     })
 

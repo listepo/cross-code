@@ -10,7 +10,7 @@ import type { LoaderContext } from '@rspack/core'
  * decorators in between are fine), and never touches anything else.
  */
 const DECORATOR_RE =
-    /(^|\n)\s*@NativeClass(?:\([\s\S]*?\))?\s*\n(?=(\s*@[\w$][^\n]*\n)*\s*(?:export\s+)?class\s)/g
+    /(^|\n)\s*@NativeClass(?:\([\s\S]*?\))?\s*\n(?=(\s*@[\w$][^\n]*\n)*\s*(?:export\s+(?:default\s+)?)?(?:abstract\s+)?class\s)/g
 
 export default function nativeClassStripLoader(
     this: LoaderContext<never>,

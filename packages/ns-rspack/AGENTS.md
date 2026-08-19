@@ -5,7 +5,7 @@ AI-agent guidance for working on the `@cross-code/ns-rspack` bundler.
 `ns-rspack` is **not a WASM plugin**: it is an
 [rspack](https://rspack.rs) bundler for NativeScript apps. It owns the whole
 NativeScript build configuration natively — there is no `@nativescript/webpack`
-and no `webpack` in its dependency tree. The root
+and no `webpack` compiler (`webpack-merge` is only a deep-merge helper). The root
 [AGENTS.md](../../AGENTS.md) covers the repo conventions (nx, linting,
 environment); this file covers what is specific to the bundler.
 

@@ -22,6 +22,15 @@ describe('native-class-downlevel-loader', () => {
         expect(output).not.toContain('/*__NativeClass__*/')
     })
 
+    it('downlevels a marked export default class', () => {
+        const output = run(
+            '/*__NativeClass__*/\nexport default class Foo extends NSObject {\n  bar() {}\n}',
+        )
+
+        expect(output).not.toMatch(/\bclass Foo\b/)
+        expect(output).toContain('function Foo')
+    })
+
     it('leaves unmarked classes in the same file as modern syntax', () => {
         const output = run(
             'class Plain {}\n/*__NativeClass__*/\nclass Marked extends NSObject {}\n',

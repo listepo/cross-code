@@ -172,7 +172,7 @@ or `mise plugin install buck2 https://github.com/izaakschroeder/asdf-buck2`.
 bundler for NativeScript apps. It owns every NativeScript-specific rule — entry
 stubs, platform-suffixed resolution, XML/CSS loaders, copy rules, defines, HMR,
 the `WatchStatePlugin` IPC — natively, with no `@nativescript/webpack` and no
-webpack in its dependency tree. See
+webpack compiler (`webpack-merge` is only a deep-merge helper). See
 [packages/ns-rspack/README.md](packages/ns-rspack/README.md) for usage and the
 differences table.
 

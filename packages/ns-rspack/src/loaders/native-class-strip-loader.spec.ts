@@ -22,6 +22,15 @@ describe('native-class-strip-loader', () => {
         )
     })
 
+    it('marks export default and abstract classes', () => {
+        expect(run('@NativeClass\nexport default class Foo {}')).toContain('/*__NativeClass__*/')
+        expect(run('@NativeClass()\nexport abstract class Bar {}')).toContain('/*__NativeClass__*/')
+        expect(run('@NativeClass\nabstract class Baz {}')).toContain('/*__NativeClass__*/')
+        expect(run('@NativeClass\nexport default abstract class Qux {}')).toContain(
+            '/*__NativeClass__*/',
+        )
+    })
+
     it('handles multi-line decorator arguments', () => {
         expect(run('@NativeClass({\n  a: 1,\n})\nclass Baz {}')).toContain('/*__NativeClass__*/')
     })

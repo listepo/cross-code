@@ -3,7 +3,7 @@
 The NativeScript build pipeline on [rspack](https://rspack.rs). It owns the
 whole configuration — entry stubs, platform-suffixed resolution, XML/CSS
 loaders, copy rules, defines, HMR — natively, with no `@nativescript/webpack`
-and no webpack anywhere in the tree.
+and no webpack compiler (`webpack-merge` is only a deep-merge helper).
 
 ## Usage
 

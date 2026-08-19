@@ -83,7 +83,7 @@ layers. Only engine-specific detail lives in each package's AGENTS.md.
   [rspack](https://rspack.rs) bundler for NativeScript apps. It owns the whole
   NativeScript build configuration natively — entry stubs, platform-suffixed
   resolution, XML/CSS loaders, copy rules, defines, HMR — with no
-  `@nativescript/webpack` and no webpack in its dependency tree. Installed
+  `@nativescript/webpack` and no webpack compiler (`webpack-merge` is only a deep-merge helper). Installed
   under the alias the {N} CLI resolves the bundler by (`@nativescript/rspack`).
   See `packages/ns-rspack/README.md` and `packages/ns-rspack/AGENTS.md`.
 - **`ns-wry`** (`@cross-code/ns-wry`) — general-purpose NativeScript plugin

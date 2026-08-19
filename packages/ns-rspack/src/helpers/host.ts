@@ -7,7 +7,9 @@ export function getIPS(): string[] {
     return Object.values(interfaces)
         .map((bindings) =>
             bindings?.find(
-                (binding) => binding.family === 'IPv4' || binding.family === (4 as never),
+                (binding) =>
+                    !binding.internal &&
+                    (binding.family === 'IPv4' || binding.family === (4 as never)),
             ),
         )
         .filter((binding) => !!binding)

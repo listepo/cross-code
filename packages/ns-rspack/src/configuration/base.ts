@@ -55,12 +55,12 @@ export default function base(
 
     config.mode(mode)
 
-    // Inline source maps for v9+ dev builds. Chrome DevTools cannot fetch
+    // Inline source maps in development. Chrome DevTools cannot fetch
     // external .map files in this debugging flow (bundled DevTools blocks
     // http:// via CSP, the appspot frontend hits the same CSP, and the iOS V8
     // inspector backend fetch is blocked by App Transport Security). A `data:`
     // URL inlined in the bundle sidesteps all three.
-    let defaultSourceMap = 'inline-source-map'
+    const defaultSourceMap = 'inline-source-map'
 
     // {N} 9 runtimes execute ESM; anything older needs CommonJS output.
     const runtimes = ['@nativescript/ios', '@nativescript/visionos', '@nativescript/android']
@@ -76,11 +76,7 @@ export default function base(
             getResolvedDependencyVersionForCheck(runtimeForPlatform, '9.0.0') ??
             getDependencyVersion(runtimeForPlatform)
 
-        if (isVersionGte(resolved, '9.0.0')) {
-            if (mode === 'development') {
-                defaultSourceMap = 'source-map'
-            }
-        } else {
+        if (!isVersionGte(resolved, '9.0.0')) {
             env.commonjs = true
         }
     } else if (runtimeForPlatform) {
