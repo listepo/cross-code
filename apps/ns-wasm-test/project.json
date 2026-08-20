@@ -29,7 +29,7 @@
         "cwd": "{projectRoot}"
       },
       "dependsOn": [
-        "^build"
+        "^build.xcframework"
       ],
       "cache": false
     },
@@ -39,7 +39,7 @@
         "cwd": "{projectRoot}"
       },
       "dependsOn": [
-        "^build"
+        "^build.android"
       ],
       "cache": false
     },
@@ -49,7 +49,7 @@
         "cwd": "{projectRoot}"
       },
       "dependsOn": [
-        "^build"
+        "^build.xcframework"
       ],
       "cache": false
     },
@@ -59,7 +59,7 @@
         "cwd": "{projectRoot}"
       },
       "dependsOn": [
-        "^build"
+        "^build.android"
       ],
       "cache": false
     },
@@ -73,7 +73,7 @@
       "dependsOn": [
         {
           "projects": "dependencies",
-          "target": "build"
+          "target": "build.xcframework"
         }
       ],
       "cache": true,
@@ -118,7 +118,7 @@
       "dependsOn": [
         {
           "projects": "dependencies",
-          "target": "build"
+          "target": "build.android"
         }
       ],
       "cache": true,
