@@ -12,6 +12,9 @@
 // jlongArray args they receive — the JVM owns and validates those pointers,
 // so the `not_unsafe_ptr_arg_deref` lint does not apply here.
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
+// Every unsafe operation inside an `unsafe fn` must still name itself, so the
+// SAFETY comments below sit on the actual dereference rather than the header.
+#![deny(unsafe_op_in_unsafe_fn)]
 
 use jni::objects::{
     GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValue, JValueOwned,
@@ -29,11 +32,24 @@ fn throw(env: &mut JNIEnv, msg: &str) {
     let _ = env.throw_new("org/nativescript/wasm3/NSCWasm3Exception", msg);
 }
 
-unsafe fn ptr_to_str<'a>(ptr: *const c_char) -> &'a str {
+/// Copies a wasm3-owned C string into an owned `String`.
+///
+/// Returning `&'a str` for a caller-chosen `'a`, as this used to, let the
+/// borrow outlive whatever wasm3 buffer it pointed into — the compiler could
+/// not catch a single misuse. An owned copy costs one small allocation on
+/// error paths and removes the hazard entirely.
+///
+/// # Safety
+/// `ptr` must be null, or point at a NUL-terminated string valid for the
+/// duration of the call.
+unsafe fn cstr_to_string(ptr: *const c_char) -> String {
     if ptr.is_null() {
-        return "";
+        return String::new();
     }
-    CStr::from_ptr(ptr).to_str().unwrap_or("")
+    // SAFETY: checked non-null; the caller guarantees NUL termination.
+    unsafe { CStr::from_ptr(ptr) }
+        .to_string_lossy()
+        .into_owned()
 }
 
 fn java_str_to_cstring(env: &mut JNIEnv, s: &JString) -> Result<CString, String> {
@@ -45,8 +61,9 @@ fn check_m3_result(env: &mut JNIEnv, result: *const c_char) -> bool {
     if result.is_null() {
         return true;
     }
-    let msg = unsafe { ptr_to_str(result) };
-    throw(env, msg);
+    // SAFETY: a non-null M3Result is one of wasm3's NUL-terminated strings.
+    let msg = unsafe { cstr_to_string(result) };
+    throw(env, &msg);
     false
 }
 
@@ -59,14 +76,19 @@ fn check_m3_result_with_runtime(
         return true;
     }
 
-    let fallback = unsafe { ptr_to_str(result) };
-    let mut info: M3ErrorInfo = unsafe { std::mem::zeroed() };
-    unsafe { m3_GetErrorInfo(runtime, &mut info) };
-    let detail = unsafe { ptr_to_str(info.message) };
+    // SAFETY: a non-null M3Result is one of wasm3's NUL-terminated strings;
+    // M3ErrorInfo is #[repr(C)] plain data, so zeroed is a valid "unset" state,
+    // and m3_GetErrorInfo fills it from the runtime handle.
+    let (fallback, detail) = unsafe {
+        let fallback = cstr_to_string(result);
+        let mut info: M3ErrorInfo = std::mem::zeroed();
+        m3_GetErrorInfo(runtime, &mut info);
+        (fallback, cstr_to_string(info.message))
+    };
     let message = if detail.is_empty() {
-        fallback.to_string()
-    } else if fallback.is_empty() || detail.contains(fallback) {
-        detail.to_string()
+        fallback
+    } else if fallback.is_empty() || detail.contains(&fallback) {
+        detail
     } else {
         format!("{fallback}: {detail}")
     };
@@ -105,7 +127,11 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_version(
     env: JNIEnv,
     _class: JClass,
 ) -> jni::sys::jstring {
-    let ver = unsafe { ptr_to_str(M3_VERSION.as_ptr() as *const c_char) };
+    // bindgen emits M3_VERSION as a NUL-terminated byte literal, so no raw
+    // pointer walk is needed to read it.
+    let ver = CStr::from_bytes_with_nul(M3_VERSION)
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
     env.new_string(ver)
         .map(|s| s.into_raw())
         .unwrap_or(std::ptr::null_mut())
@@ -237,7 +263,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_parseModule(
     mut env: JNIEnv,
     _class: JClass,
     env_ptr: jlong,
-    wasm_bytes: jni::sys::jbyteArray,
+    wasm_bytes: JByteArray,
 ) -> jlong {
     let environment = env_ptr as IM3Environment;
     if environment.is_null() {
@@ -245,40 +271,41 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_parseModule(
         return 0;
     }
 
-    let wasm_bytes_ref = unsafe { JByteArray::from_raw(wasm_bytes) };
-    let len = env.get_array_length(&wasm_bytes_ref).unwrap_or(0) as usize;
-    if len == 0 {
-        throw(&mut env, "empty WASM bytecode");
-        return 0;
-    }
-
     // Read bytes into a buffer this layer keeps alive for the module's lifetime.
-    let mut buf = vec![0u8; len].into_boxed_slice();
-    // get_byte_array_region expects &mut [i8]; transmute from &mut [u8]
-    if env
-        .get_byte_array_region(&wasm_bytes_ref, 0, unsafe {
-            std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut i8, len)
-        })
-        .is_err()
-    {
-        throw(&mut env, "failed to read byte array");
-        return 0;
-    }
+    // convert_byte_array does the jbyte→u8 copy itself, so no slice has to be
+    // reinterpreted through a raw pointer here.
+    let buf = match env.convert_byte_array(&wasm_bytes) {
+        Ok(b) if !b.is_empty() => b.into_boxed_slice(),
+        Ok(_) => {
+            throw(&mut env, "empty WASM bytecode");
+            return 0;
+        }
+        Err(e) => {
+            throw(&mut env, &format!("failed to read byte array: {e}"));
+            return 0;
+        }
+    };
+    let len = buf.len();
 
-    let module = unsafe {
-        let mut out: IM3Module = std::ptr::null_mut();
-        let res = m3_ParseModule(
+    let mut out: IM3Module = std::ptr::null_mut();
+    // SAFETY: environment is a live handle, `out` is a writable out-param, and
+    // `buf` is readable for `len` bytes and kept alive in MODULE_BUFFERS below
+    // for as long as the module exists.
+    let res = unsafe {
+        m3_ParseModule(
             environment,
             &mut out as *mut IM3Module,
             buf.as_ptr(),
             len as u32,
-        );
-        if !res.is_null() {
-            throw(&mut env, ptr_to_str(res));
-            return 0;
-        }
-        out
+        )
     };
+    if !res.is_null() {
+        // SAFETY: a non-null M3Result is a NUL-terminated wasm3 string.
+        let msg = unsafe { cstr_to_string(res) };
+        throw(&mut env, &msg);
+        return 0;
+    }
+    let module = out;
 
     module_buffers(|buffers| {
         buffers.insert(
@@ -342,7 +369,8 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_moduleName(
     if module.is_null() {
         return std::ptr::null_mut();
     }
-    let name = unsafe { ptr_to_str(m3_GetModuleName(module)) };
+    // SAFETY: module is a live handle; wasm3 returns null or a name it owns.
+    let name = unsafe { cstr_to_string(m3_GetModuleName(module)) };
     env.new_string(name)
         .map(|s| s.into_raw())
         .unwrap_or(std::ptr::null_mut())
@@ -389,7 +417,8 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_functionName(
     if func.is_null() {
         return std::ptr::null_mut();
     }
-    let name = unsafe { ptr_to_str(m3_GetFunctionName(func)) };
+    // SAFETY: func is a live handle; wasm3 returns null or a name it owns.
+    let name = unsafe { cstr_to_string(m3_GetFunctionName(func)) };
     env.new_string(name)
         .map(|s| s.into_raw())
         .unwrap_or(std::ptr::null_mut())
@@ -458,8 +487,11 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_call(
     mut env: JNIEnv,
     _class: JClass,
     func_ptr: jlong,
-    n_args: jint,
-    args: jlongArray,
+    // Kept for ABI compatibility with the Kotlin side; the authoritative count
+    // is the array's own length. Trusting this value let a caller ask wasm3 to
+    // read more argument pointers than `arg_ptrs` actually holds.
+    _n_args: jint,
+    args: JLongArray,
 ) -> jni::sys::jstring {
     let func = func_ptr as IM3Function;
     if func.is_null() {
@@ -467,8 +499,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_call(
         return std::ptr::null_mut();
     }
 
-    let args_ref = unsafe { JLongArray::from_raw(args) };
-    let arg_vals = match read_long_array(&mut env, &args_ref) {
+    let arg_vals = match read_long_array(&mut env, &args) {
         Ok(v) => v,
         Err(e) => {
             throw(&mut env, &e);
@@ -482,16 +513,19 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_call(
         .map(|v| v as *const i64 as *mut u64)
         .collect();
 
+    // SAFETY: func is a live handle and arg_ptrs holds exactly the number of
+    // valid pointers declared alongside it, each into the live `arg_vals`.
     let res = unsafe {
         m3_Call(
             func,
-            n_args as u32,
+            arg_ptrs.len() as u32,
             arg_ptrs.as_mut_ptr() as *mut *const ::std::os::raw::c_void,
         )
     };
 
     if !res.is_null() {
-        let msg = unsafe { ptr_to_str(res) };
+        // SAFETY: a non-null M3Result is a NUL-terminated wasm3 string.
+        let msg = unsafe { cstr_to_string(res) };
         return env
             .new_string(msg)
             .map(|s| s.into_raw())
@@ -516,17 +550,20 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_getResults(
     let mut ret_vals: Vec<u64> = vec![0u64; n_rets as usize];
     let mut ret_ptrs: Vec<*mut u64> = ret_vals.iter_mut().map(|v| v as *mut u64).collect();
 
+    // SAFETY: func is a live handle and ret_ptrs holds exactly the declared
+    // number of pointers, each into the live `ret_vals`.
     let res = unsafe {
         m3_GetResults(
             func,
-            n_rets as u32,
+            ret_ptrs.len() as u32,
             ret_ptrs.as_mut_ptr() as *mut *const ::std::os::raw::c_void,
         )
     };
 
     if !res.is_null() {
-        let msg = unsafe { ptr_to_str(res) };
-        throw(&mut env, msg);
+        // SAFETY: a non-null M3Result is a NUL-terminated wasm3 string.
+        let msg = unsafe { cstr_to_string(res) };
+        throw(&mut env, &msg);
         return std::ptr::null_mut();
     }
 
@@ -566,6 +603,9 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_getMemory(
     if ptr.is_null() || mem_size == 0 {
         return std::ptr::null_mut();
     }
+    // SAFETY: ptr/mem_size come from wasm3's own linear memory, which stays
+    // mapped for as long as the runtime lives; the Kotlin side must not keep
+    // the buffer past freeRuntime.
     match unsafe { env.new_direct_byte_buffer(ptr, mem_size as usize) } {
         Ok(buf) => buf.into_raw(),
         Err(_) => std::ptr::null_mut(),
@@ -606,14 +646,21 @@ unsafe extern "C" fn wasm3_host_trampoline(
     sp: *mut u64,
     _mem: *mut ::std::os::raw::c_void,
 ) -> *const ::std::os::raw::c_void {
-    if ctx.is_null() || (*ctx).userdata.is_null() || (*ctx).function.is_null() {
-        return trap(TRAP_INVALID_CONTEXT);
-    }
-
-    let host_ctx = &*((*ctx).userdata as *const HostCtx);
-    let function = (*ctx).function;
-    let n_args = m3_GetArgCount(function) as usize;
-    let n_rets = m3_GetRetCount(function) as usize;
+    // SAFETY: wasm3 passes a live IM3ImportContext whose userdata is the
+    // HostCtx linkRawFunctionEx leaked, and whose `function` is the import
+    // being invoked. Every field is read once, here, behind null checks.
+    let (host_ctx, n_args, n_rets) = unsafe {
+        if ctx.is_null() || (*ctx).userdata.is_null() || (*ctx).function.is_null() {
+            return trap(TRAP_INVALID_CONTEXT);
+        }
+        let host_ctx = &*((*ctx).userdata as *const HostCtx);
+        let function = (*ctx).function;
+        (
+            host_ctx,
+            m3_GetArgCount(function) as usize,
+            m3_GetRetCount(function) as usize,
+        )
+    };
 
     let mut env = match host_ctx.jvm.attach_current_thread() {
         Ok(e) => e,
@@ -624,7 +671,10 @@ unsafe extern "C" fn wasm3_host_trampoline(
     let arg_data: Vec<i64> = if n_args == 0 || sp.is_null() {
         Vec::new()
     } else {
-        std::slice::from_raw_parts(sp.add(n_rets), n_args)
+        // SAFETY: wasm3's raw stack layout puts n_rets return slots first,
+        // then one 64-bit slot per declared argument; both counts came from
+        // the function wasm3 is invoking.
+        unsafe { std::slice::from_raw_parts(sp.add(n_rets), n_args) }
             .iter()
             .map(|&v| v as i64)
             .collect()
@@ -659,11 +709,13 @@ unsafe extern "C" fn wasm3_host_trampoline(
         _ => return trap(TRAP_INVALID_RETURN),
     };
 
-    let result_arr = JLongArray::from_raw(obj.as_raw() as jlongArray);
+    // SAFETY: the call returned a non-null object; the "([J)[J" descriptor
+    // makes it a long[], and JLongArray borrows the local ref without owning it.
+    let result_arr = unsafe { JLongArray::from_raw(obj.as_raw() as jlongArray) };
     if env.get_array_length(&result_arr).unwrap_or(-1) as usize != n_rets {
         return trap(TRAP_INVALID_RETURN);
     }
-    if n_rets > 0 {
+    if n_rets > 0 && !sp.is_null() {
         let mut result_buf = vec![0i64; n_rets];
         if env
             .get_long_array_region(&result_arr, 0, &mut result_buf)
@@ -671,7 +723,9 @@ unsafe extern "C" fn wasm3_host_trampoline(
         {
             return trap(TRAP_INVALID_RETURN);
         }
-        let result_slice = std::slice::from_raw_parts_mut(sp, n_rets);
+        // SAFETY: the first n_rets slots of the raw stack are the return
+        // slots wasm3 reserved for exactly this function's results.
+        let result_slice = unsafe { std::slice::from_raw_parts_mut(sp, n_rets) };
         for (slot, &v) in result_slice.iter_mut().zip(result_buf.iter()) {
             *slot = v as u64;
         }
@@ -739,6 +793,9 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_linkRawFunctionEx
     });
     let ctx_ptr = Box::into_raw(ctx);
 
+    // SAFETY: module is a live handle, the three C strings are NUL-terminated
+    // and wasm3 copies the names it needs, and ctx_ptr stays valid for the
+    // life of the process (see the registry insert below).
     let res = unsafe {
         m3_LinkRawFunctionEx(
             module,
@@ -755,8 +812,14 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_linkRawFunctionEx
         return 0;
     }
 
+    // The context has to outlive every call wasm3 may make through the import,
+    // and wasm3 offers no unlink hook, so it is deliberately kept for the life
+    // of the process. Recorded here so it is reachable rather than lost.
+    //
+    // `.unwrap()` on a poisoned mutex would panic across the `extern "system"`
+    // boundary — recover the guard instead; the map is plain bookkeeping.
     let id = NEXT_HOST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let mut map = HOST_CTX_REGISTRY.lock().unwrap();
+    let mut map = HOST_CTX_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
     map.get_or_insert_with(HashMap::new)
         .insert(id, ctx_ptr as usize);
 
@@ -858,9 +921,13 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_getErrorInfo(
     if rt.is_null() {
         return std::ptr::null_mut();
     }
-    let mut info: M3ErrorInfo = unsafe { std::mem::zeroed() };
-    unsafe { m3_GetErrorInfo(rt, &mut info) };
-    let msg = unsafe { ptr_to_str(info.message) };
+    // SAFETY: rt is non-null; M3ErrorInfo is #[repr(C)] plain data, so zeroed is
+    // a valid "unset" state and m3_GetErrorInfo fills it from the runtime.
+    let msg = unsafe {
+        let mut info: M3ErrorInfo = std::mem::zeroed();
+        m3_GetErrorInfo(rt, &mut info);
+        cstr_to_string(info.message)
+    };
     env.new_string(msg)
         .map(|s| s.into_raw())
         .unwrap_or(std::ptr::null_mut())

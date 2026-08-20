@@ -1,4 +1,4 @@
-import { Observable } from '@nativescript/core';
+import { isAndroid, isIOS, Observable } from '@nativescript/core';
 import { WamrExecutionTier, WamrRuntime } from '@cross-code/ns-wamr';
 import { Wasm3Runtime } from '@cross-code/ns-wasm3';
 import { WasmKitRuntime } from '@cross-code/ns-wasm-kit-runtime';
@@ -21,9 +21,9 @@ import { appWasmPath, FIXTURE_WASM, GLOBALS_WASM } from './wasm/wasm-assets';
 /**
  * Runs the fixture suite on both of the device's runtimes — wasm3 and WAMR —
  * so the demo page shows the same module behaving identically on each. The
- * checks themselves live in `wasm/fixture-suite.ts`; the Vitest specs in
+ * checks themselves live in `wasm/fixture-suite.ts`; the Rstest specs in
  * `app/tests/wasm3/` and `app/tests/wamr/` assert on the same list under
- * the `vitest-ns` worker.
+ * the `ns-rstest` worker.
  *
  * WAMR runs on its Interpreter tier here, the one tier available in every
  * build; the specs cover Fast JIT, LLVM JIT and AOT where they are compiled in.
@@ -64,11 +64,11 @@ export class WasmDemoModel extends Observable {
   onRun() {
     const sections = [runWasm3(), runWamr(), runWasmEdge()];
     // WasmKit is Swift-native — only include it on iOS.
-    if ((globalThis as any).isIOS) {
+    if (isIOS) {
       sections.push(runWasmKit());
     }
     // Endive is Java-native — only include it on Android.
-    if ((globalThis as any).isAndroid) {
+    if (isAndroid) {
       sections.push(runEndive());
       // Chicory is also pure-Java, Android-only.
       sections.push(runChicory());

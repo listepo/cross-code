@@ -1,0 +1,4 @@
+dist
+.rspeedy
+node_modules
+*.tsbuildinfo

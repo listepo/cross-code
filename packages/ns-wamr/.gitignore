@@ -1,6 +1,7 @@
 .build
 .gradle
 build/
+.gradle-build/
 bin/
 test-output
 dist

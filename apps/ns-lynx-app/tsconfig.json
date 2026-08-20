@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "target": "ES2020",
+    "moduleResolution": "bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "noEmitHelpers": true,
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "lib": ["ESNext", "dom"],
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["app/*"],
+      "@/*": ["app/*"]
+    }
+  },
+  "include": ["app/**/*"],
+  "files": ["./references.d.ts"],
+  // Rstest specs and the test-only app/Worker entries are owned by
+  // tsconfig.spec.json. `lynx/` is a separate rspeedy project with its own
+  // tsconfig — it compiles for the Lynx runtime, not the NativeScript one.
+  "exclude": [
+    "node_modules",
+    "platforms",
+    "lynx",
+    "app/_ns-rstest.ts",
+    "app/_ns-rstest.worker.ts",
+    "app/tests/**"
+  ],
+  "references": [
+    {
+      "path": "../../packages/ns-rspack"
+    },
+    {
+      "path": "../../packages/ns-lynx"
+    },
+    {
+      "path": "../../packages/ns-rstest"
+    }
+  ]
+}

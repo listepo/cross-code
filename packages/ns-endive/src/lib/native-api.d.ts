@@ -1,38 +1,78 @@
-// Native type declarations for the Endive Kotlin classes exposed on globalThis
-// by the NativeScript Android runtime (org.nativescript.endive.*).
+// Ambient declarations for the Endive Kotlin classes the NativeScript Android
+// runtime exposes on `globalThis.org.nativescript.endive`.
 //
-// Generate with: cd apps/ns-wasm-test && ns typings android
+// Full typings are generated output, not source: `cd apps/ns-wasm-test && ns
+// typings android`. What is declared here is only the surface the adapter
+// calls, so a renamed method or a wrong arity fails the build instead of
+// returning `undefined` on a device.
 
-declare namespace org.nativescript.endive {
-  class NSCEndiveRuntime {
-    static endiveVersion(): string;
-    constructor(stackSizeInBytes: number);
-    loadModuleFromBytes(bytes: java.util.ArrayList<number>): NSCEndiveModule;
-    loadModuleFromFile(path: string): NSCEndiveModule;
-    findFunction(name: string): NSCEndiveFunction;
-    memorySize(): number;
-    readMemory(offset: number, length: number): java.util.ArrayList<number>;
-    writeMemory(offset: number, bytes: java.util.ArrayList<number>): void;
-    dispose(): void;
-    static jsByteArrayToJava(buffer: ArrayBuffer, offset: number, length: number): java.util.ArrayList<number>;
-    static javaByteArrayToJs(bytes: java.util.ArrayList<number>): ArrayBuffer;
-  }
+/** A wire value as it crosses the bridge: i32/f32/f64 as number, i64 as string. */
+type EndiveWireValue = number | string;
 
-  class NSCEndiveModule {
-    name(): string;
-    linkHostFunction(mod: string, name: string, signature: string, callback: NSCEndiveHostCallback): void;
-    getGlobal(name: string): any;
-    setGlobal(name: string, value: any): void;
-  }
+type EndiveJavaList = import('@cross-code/ns-wasm-core').JavaList;
 
-  class NSCEndiveFunction {
-    name(): string;
-    paramTypes(): string[];
-    returnTypes(): string[];
-    call(args: java.util.ArrayList<any>): java.util.ArrayList<any>;
-  }
-
-  class NSCEndiveHostCallback {
-    constructor(callback: (args: any[]) => any[]);
-  }
+interface NSCEndiveJavaFunction {
+  name(): string;
+  paramTypes(): EndiveJavaList;
+  returnTypes(): EndiveJavaList;
+  call(args: EndiveJavaList): EndiveJavaList | null;
 }
+
+interface NSCEndiveJavaModule {
+  name(): string;
+  linkHostFunction(
+    module: string,
+    name: string,
+    signature: string,
+    callback: object,
+  ): void;
+  // Declared `Any` on the Kotlin side: a boxed java.lang.Number arrives as an
+  // object proxy, so the adapter normalizes rather than trusting a primitive.
+  getGlobal(name: string): unknown;
+  setGlobal(name: string, value: unknown): void;
+}
+
+interface NSCEndiveJavaRuntime {
+  loadModuleFromBytes(bytes: unknown): NSCEndiveJavaModule;
+  loadModuleFromFile(path: string): NSCEndiveJavaModule;
+  findFunction(name: string): NSCEndiveJavaFunction;
+  memorySize(): number;
+  readMemory(offset: number, length: number): unknown;
+  writeMemory(offset: number, bytes: unknown): void;
+  dispose(): void;
+}
+
+interface NSCEndiveJavaRuntimeClass {
+  new (stackSizeInBytes: number): NSCEndiveJavaRuntime;
+  endiveVersion(): string;
+  // Bulk byte helpers. Optional: older plugin builds ship without them and the
+  // adapter falls back to filling an ArrayList element by element.
+  jsByteArrayToJava?(buffer: ArrayBufferLike, offset: number, length: number): unknown;
+  javaByteArrayToJs?(bytes: unknown): ArrayBuffer;
+}
+
+interface NSCEndiveHostCallbackClass {
+  new (
+    callback: import('@cross-code/ns-wasm-core').WireHostCallback,
+  ): object;
+}
+
+interface NSCEndiveAndroidNamespace {
+  NSCEndiveRuntime: NSCEndiveJavaRuntimeClass;
+  NSCEndiveHostCallback: NSCEndiveHostCallbackClass;
+}
+
+// Declared with `var` rather than `const` so `globalThis.X` is typed too — the
+// adapters probe through globalThis to avoid a ReferenceError on the platform
+// that does not install them.
+declare var org:
+  | { nativescript?: { endive?: NSCEndiveAndroidNamespace } }
+  | undefined;
+
+/** Endive is JVM-only; iOS never installs this, but the factory still probes. */
+declare var NSCEndiveRuntime: { endiveVersion(): string } | undefined;
+
+// Declared through `import(...)` type syntax so this file stays a global script
+// (a top-level `import` would turn it into a module and take the declarations
+// out of global scope).
+declare var java: import('@cross-code/ns-wasm-core').JavaApi | undefined;

@@ -16,6 +16,9 @@
 // jlongArray args they receive — the JVM owns and validates those pointers,
 // so the `not_unsafe_ptr_arg_deref` lint does not apply here.
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
+// Every unsafe operation inside an `unsafe fn` must still name itself, so the
+// SAFETY comments below sit on the actual dereference rather than the header.
+#![deny(unsafe_op_in_unsafe_fn)]
 
 use jni::objects::{
     GlobalRef, JByteArray, JClass, JLongArray, JObject, JString, JValue, JValueOwned,
@@ -37,13 +40,36 @@ fn throw(env: &mut JNIEnv, msg: &str) {
     let _ = env.throw_new("org/nativescript/wamr/NSCWamrException", msg);
 }
 
-/// Returns the C string from a `*const c_char`, or an empty string if null.
-unsafe fn ptr_to_str<'a>(ptr: *const c_char) -> &'a str {
+/// Copies a shim-owned C string into an owned `String`.
+///
+/// Returning `&'a str` for a caller-chosen `'a`, as this used to, let the
+/// borrow outlive whatever buffer it pointed into — the compiler could not
+/// catch a single misuse. An owned copy removes the hazard entirely.
+///
+/// # Safety
+/// `ptr` must be null, or point at a NUL-terminated string valid for the
+/// duration of the call.
+unsafe fn cstr_to_string(ptr: *const c_char) -> String {
     if ptr.is_null() {
-        return "";
+        return String::new();
     }
-    CStr::from_ptr(ptr).to_str().unwrap_or("")
+    // SAFETY: checked non-null; the caller guarantees NUL termination.
+    unsafe { CStr::from_ptr(ptr) }
+        .to_string_lossy()
+        .into_owned()
 }
+
+/// Reads a shim error buffer. The shim may leave it untouched, so the scan is
+/// bounded by the array itself rather than trusting a NUL to appear.
+fn error_text(buf: &[c_char; ERROR_BUF_LEN]) -> String {
+    let bytes: Vec<u8> = buf.iter().map(|&c| c as u8).collect();
+    CStr::from_bytes_until_nul(&bytes)
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+/// Size the shim documents for the `char *error_buf` out-params.
+const ERROR_BUF_LEN: usize = wamr_sys::NSC_WAMR_ERROR_BUF_LEN;
 
 fn java_str_to_cstring(env: &mut JNIEnv, s: &JString) -> Result<CString, String> {
     let java_str: String = env.get_string(s).map_err(|e| e.to_string())?.into();
@@ -79,8 +105,9 @@ fn check_c_result(env: &mut JNIEnv, result: *const c_char) -> bool {
     if result.is_null() {
         return true;
     }
-    let msg = unsafe { ptr_to_str(result) };
-    throw(env, msg);
+    // SAFETY: a non-null shim result is one of its NUL-terminated strings.
+    let msg = unsafe { cstr_to_string(result) };
+    throw(env, &msg);
     false
 }
 
@@ -93,7 +120,8 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_version(
     env: JNIEnv,
     _class: JClass,
 ) -> jni::sys::jstring {
-    let ver = unsafe { ptr_to_str(nsc_wamr_version()) };
+    // SAFETY: nsc_wamr_version returns a 'static NUL-terminated string.
+    let ver = unsafe { cstr_to_string(nsc_wamr_version()) };
     env.new_string(ver)
         .map(|s| s.into_raw())
         .unwrap_or(std::ptr::null_mut())
@@ -140,16 +168,16 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_createRuntime(
     _class: JClass,
     stack_size: jint,
 ) -> jlong {
-    let mut error_buf: [c_char; 256] = [0; 256];
+    let mut error_buf: [c_char; ERROR_BUF_LEN] = [0; ERROR_BUF_LEN];
     let rt = unsafe { nsc_wamr_create_runtime(stack_size, error_buf.as_mut_ptr()) };
     if rt.is_null() {
-        let msg = unsafe { ptr_to_str(error_buf.as_ptr()) };
+        let msg = error_text(&error_buf);
         throw(
             &mut env,
             if msg.is_empty() {
                 "failed to create WAMR runtime"
             } else {
-                msg
+                &msg
             },
         );
         return 0;
@@ -195,7 +223,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
     mut env: JNIEnv,
     _class: JClass,
     runtime_ptr: jlong,
-    wasm_bytes: jni::sys::jbyteArray,
+    wasm_bytes: JByteArray,
 ) -> jlong {
     let rt = runtime_ptr as *mut nsc_wamr_runtime_t;
     if rt.is_null() {
@@ -203,35 +231,38 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
         return 0;
     }
 
-    let wasm_bytes_ref = unsafe { JByteArray::from_raw(wasm_bytes) };
-    let len = env.get_array_length(&wasm_bytes_ref).unwrap_or(0) as usize;
-    if len == 0 {
-        throw(&mut env, "empty WASM bytecode");
-        return 0;
-    }
-
-    let mut error_buf: [c_char; 256] = [0; 256];
+    let mut error_buf: [c_char; ERROR_BUF_LEN] = [0; ERROR_BUF_LEN];
 
     // Read bytes into a buffer this layer keeps alive for the module's lifetime
-    // (see MODULE_BUFFERS).
-    let mut buf = vec![0u8; len].into_boxed_slice();
-    if let Err(e) = env.get_byte_array_region(&wasm_bytes_ref, 0, unsafe {
-        std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut i8, len)
-    }) {
-        throw(&mut env, &format!("failed to read byte array: {}", e));
-        return 0;
-    }
+    // (see MODULE_BUFFERS) — WAMR borrows them rather than copying.
+    // convert_byte_array performs the jbyte→u8 copy itself, so no slice has to
+    // be reinterpreted through a raw pointer here.
+    let buf = match env.convert_byte_array(&wasm_bytes) {
+        Ok(b) if !b.is_empty() => b.into_boxed_slice(),
+        Ok(_) => {
+            throw(&mut env, "empty WASM bytecode");
+            return 0;
+        }
+        Err(e) => {
+            throw(&mut env, &format!("failed to read byte array: {e}"));
+            return 0;
+        }
+    };
+    let len = buf.len();
 
+    // SAFETY: rt is a live runtime handle, `buf` is readable for `len` bytes
+    // and is parked in MODULE_BUFFERS below for as long as the module exists,
+    // and error_buf is the ERROR_BUF_LEN bytes the shim documents.
     let module =
         unsafe { nsc_wamr_load_module(rt, buf.as_ptr(), len as i32, error_buf.as_mut_ptr()) };
     if module.is_null() {
-        let msg = unsafe { ptr_to_str(error_buf.as_ptr()) };
+        let msg = error_text(&error_buf);
         throw(
             &mut env,
             if msg.is_empty() {
                 "failed to load module"
             } else {
-                msg
+                &msg
             },
         );
         return 0;
@@ -257,17 +288,17 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_instantiate(
         return 0;
     }
 
-    let mut error_buf: [c_char; 256] = [0; 256];
+    let mut error_buf: [c_char; ERROR_BUF_LEN] = [0; ERROR_BUF_LEN];
     let inst = unsafe { nsc_wamr_instantiate(module, rt, error_buf.as_mut_ptr()) };
 
     if inst.is_null() {
-        let msg = unsafe { ptr_to_str(error_buf.as_ptr()) };
+        let msg = error_text(&error_buf);
         throw(
             &mut env,
             if msg.is_empty() {
                 "failed to instantiate module"
             } else {
-                msg
+                &msg
             },
         );
         return 0;
@@ -286,7 +317,8 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_moduleName(
     if module.is_null() {
         return std::ptr::null_mut();
     }
-    let name = unsafe { ptr_to_str(nsc_wamr_module_name(module)) };
+    // SAFETY: module is non-null; the shim returns null or a name it owns.
+    let name = unsafe { cstr_to_string(nsc_wamr_module_name(module)) };
     env.new_string(name)
         .map(|s| s.into_raw())
         .unwrap_or(std::ptr::null_mut())
@@ -317,17 +349,17 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_findFunction(
         }
     };
 
-    let mut error_buf: [c_char; 256] = [0; 256];
+    let mut error_buf: [c_char; ERROR_BUF_LEN] = [0; ERROR_BUF_LEN];
     let func = unsafe { nsc_wamr_find_function(rt, c_name.as_ptr(), error_buf.as_mut_ptr()) };
 
     if func.is_null() {
-        let msg = unsafe { ptr_to_str(error_buf.as_ptr()) };
+        let msg = error_text(&error_buf);
         throw(
             &mut env,
             if msg.is_empty() {
                 "function not found"
             } else {
-                msg
+                &msg
             },
         );
         return 0;
@@ -416,7 +448,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_call(
     _class: JClass,
     func_ptr: jlong,
     _n_args: jint,
-    args: jlongArray,
+    args: JLongArray,
 ) -> jni::sys::jstring {
     let func = func_ptr as wasm_function_inst_t;
     if func.is_null() {
@@ -425,8 +457,7 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_call(
     }
 
     // Read the array of i64 values
-    let args_ref = unsafe { JLongArray::from_raw(args) };
-    let arg_vals = match read_long_array(&mut env, &args_ref) {
+    let arg_vals = match read_long_array(&mut env, &args) {
         Ok(v) => v,
         Err(e) => {
             throw(&mut env, &e);
@@ -449,7 +480,8 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_call(
     };
 
     if !result.is_null() {
-        let msg = unsafe { ptr_to_str(result) };
+        // SAFETY: a non-null shim result is a NUL-terminated error string.
+        let msg = unsafe { cstr_to_string(result) };
         // Return error as a Java string (Kotlin checks for non-null)
         return env
             .new_string(msg)
@@ -490,8 +522,9 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_getResults(
     };
 
     if !result.is_null() {
-        let msg = unsafe { ptr_to_str(result) };
-        throw(&mut env, msg);
+        // SAFETY: a non-null shim result is a NUL-terminated error string.
+        let msg = unsafe { cstr_to_string(result) };
+        throw(&mut env, &msg);
         return std::ptr::null_mut();
     }
 
@@ -601,16 +634,25 @@ fn host_registrations<R>(f: impl FnOnce(&mut HashMap<usize, Vec<HostRegistration
     f(guard.get_or_insert_with(HashMap::new))
 }
 
+/// # Safety
+/// `entry` must come from a `wasm_runtime_register_natives_raw` call made by
+/// [`Java_org_nativescript_wamr_NativeWamr_linkHostFunction`] that has not been
+/// freed yet, and no WASM instance may still be able to invoke it.
 unsafe fn free_host_registration(entry: HostRegistration) {
-    wasm_runtime_unregister_natives(
-        entry.module_name as *const c_char,
-        entry.symbols as *mut NativeSymbol,
-    );
-    let symbols = Box::from_raw(entry.symbols as *mut [NativeSymbol; 1]);
-    drop(CString::from_raw(symbols[0].symbol as *mut c_char));
-    drop(symbols);
-    drop(CString::from_raw(entry.module_name as *mut c_char));
-    drop(Box::from_raw(entry.ctx as *mut HostCtx));
+    // SAFETY: withdrawing the registration first guarantees WAMR can no longer
+    // reach the symbols or the context; each pointer below was produced by
+    // exactly one Box::into_raw / CString::into_raw and is freed exactly once.
+    unsafe {
+        wasm_runtime_unregister_natives(
+            entry.module_name as *const c_char,
+            entry.symbols as *mut NativeSymbol,
+        );
+        let symbols = Box::from_raw(entry.symbols as *mut [NativeSymbol; 1]);
+        drop(CString::from_raw(symbols[0].symbol as *mut c_char));
+        drop(symbols);
+        drop(CString::from_raw(entry.module_name as *mut c_char));
+        drop(Box::from_raw(entry.ctx as *mut HostCtx));
+    }
 }
 
 /// WAMR's native registry is process-global. Remove a matching registration
@@ -622,7 +664,9 @@ fn release_idle_matching_registration(module_name: &CStr, name: &CStr) {
         return;
     };
     for (runtime, entries) in map.iter_mut() {
-        if wamr_sys::shim::runtime_has_instances(*runtime as *mut nsc_wamr_runtime_t) {
+        // SAFETY: the keys of this map are runtime handles that have not been
+        // destroyed — destroyRuntime removes its own entry before freeing.
+        if unsafe { wamr_sys::shim::runtime_has_instances(*runtime as *mut nsc_wamr_runtime_t) } {
             continue;
         }
         let mut keep = Vec::with_capacity(entries.len());
@@ -679,10 +723,21 @@ const TRAP_MISSING_IMPORT: &[u8] = b"NSCWamr: missing imported function\0";
 
 /// A raw native reports failure by setting an exception on the instance —
 /// unlike wasm3's trampoline, its return type carries no error channel.
+/// # Safety
+/// `exec_env` must be the live environment WAMR passed to the trampoline, and
+/// `message` must be NUL-terminated.
 unsafe fn trap(exec_env: wasm_exec_env_t, message: &[u8]) {
-    let inst = wasm_runtime_get_module_inst(exec_env);
-    if !inst.is_null() {
-        wasm_runtime_set_exception(inst, message.as_ptr() as *const c_char);
+    debug_assert_eq!(
+        message.last(),
+        Some(&0),
+        "trap message must be NUL-terminated"
+    );
+    // SAFETY: the caller guarantees a live exec_env; WAMR copies the message.
+    unsafe {
+        let inst = wasm_runtime_get_module_inst(exec_env);
+        if !inst.is_null() {
+            wasm_runtime_set_exception(inst, message.as_ptr() as *const c_char);
+        }
     }
 }
 
@@ -693,37 +748,46 @@ unsafe fn trap(exec_env: wasm_exec_env_t, message: &[u8]) {
 /// The arity is not passed, so it comes from the HostCtx; the context itself
 /// arrives through `wasm_runtime_get_function_attachment`.
 unsafe extern "C" fn wamr_host_trampoline(exec_env: wasm_exec_env_t, argv: *mut u64) {
-    let attachment = wasm_runtime_get_function_attachment(exec_env);
-    if attachment.is_null() {
-        return trap(exec_env, TRAP_INVALID_CONTEXT);
-    }
-
-    let ctx = &*(attachment as *const HostCtx);
-    let inst = wasm_runtime_get_module_inst(exec_env);
-    let owner = wasm_runtime_get_custom_data(inst) as usize;
-    if owner != ctx.runtime {
-        return trap(exec_env, TRAP_MISSING_IMPORT);
-    }
+    // SAFETY: WAMR passes a live exec_env; the attachment is the HostCtx that
+    // linkHostFunction registered alongside this trampoline, and it outlives
+    // every call WAMR can make through the import (see the unlink paths).
+    let ctx = unsafe {
+        let attachment = wasm_runtime_get_function_attachment(exec_env);
+        if attachment.is_null() {
+            return trap(exec_env, TRAP_INVALID_CONTEXT);
+        }
+        let ctx = &*(attachment as *const HostCtx);
+        let inst = wasm_runtime_get_module_inst(exec_env);
+        // The custom data is the runtime handle that owns this instance; a
+        // mismatch means the context belongs to a different (likely freed)
+        // runtime, so refuse rather than call into it.
+        if wasm_runtime_get_custom_data(inst) as usize != ctx.runtime {
+            return trap(exec_env, TRAP_MISSING_IMPORT);
+        }
+        ctx
+    };
     let mut env = match ctx.jvm.attach_current_thread() {
         Ok(e) => e,
-        Err(_) => return trap(exec_env, TRAP_INVALID_CONTEXT),
+        Err(_) => return unsafe { trap(exec_env, TRAP_INVALID_CONTEXT) },
     };
 
     // Build arguments as a Java long[].
     let arg_data: Vec<i64> = if ctx.n_args == 0 || argv.is_null() {
         Vec::new()
     } else {
-        std::slice::from_raw_parts(argv, ctx.n_args)
+        // SAFETY: invoke_native_raw hands over one 64-bit slot per declared
+        // parameter, and n_args is that declared count.
+        unsafe { std::slice::from_raw_parts(argv, ctx.n_args) }
             .iter()
             .map(|&v| v as i64)
             .collect()
     };
     let arg_array = match env.new_long_array(arg_data.len() as i32) {
         Ok(arr) => arr,
-        Err(_) => return trap(exec_env, TRAP_INVALID_CONTEXT),
+        Err(_) => return unsafe { trap(exec_env, TRAP_INVALID_CONTEXT) },
     };
     if !arg_data.is_empty() && env.set_long_array_region(&arg_array, 0, &arg_data).is_err() {
-        return trap(exec_env, TRAP_INVALID_CONTEXT);
+        return unsafe { trap(exec_env, TRAP_INVALID_CONTEXT) };
     }
 
     // Call HostTrampoline.invoke([J) → [J. A null return means the Kotlin side
@@ -739,17 +803,19 @@ unsafe extern "C" fn wamr_host_trampoline(exec_env: wasm_exec_env_t, argv: *mut 
     // surfaces as a WAMR error rather than tripping the next JNI call.
     if env.exception_check().unwrap_or(false) {
         let _ = env.exception_clear();
-        return trap(exec_env, TRAP_INVALID_RETURN);
+        return unsafe { trap(exec_env, TRAP_INVALID_RETURN) };
     }
 
     let obj = match result {
         Ok(JValueOwned::Object(obj)) if !obj.is_null() => obj,
-        _ => return trap(exec_env, TRAP_INVALID_RETURN),
+        _ => return unsafe { trap(exec_env, TRAP_INVALID_RETURN) },
     };
 
-    let result_arr = JLongArray::from_raw(obj.as_raw() as jlongArray);
+    // SAFETY: the call returned a non-null object and the "([J)[J" descriptor
+    // makes it a long[]; JLongArray borrows the local ref without owning it.
+    let result_arr = unsafe { JLongArray::from_raw(obj.as_raw() as jlongArray) };
     if env.get_array_length(&result_arr).unwrap_or(-1) as usize != ctx.n_rets {
-        return trap(exec_env, TRAP_INVALID_RETURN);
+        return unsafe { trap(exec_env, TRAP_INVALID_RETURN) };
     }
     if ctx.n_rets > 0 && !argv.is_null() {
         let mut result_buf = vec![0i64; ctx.n_rets];
@@ -757,10 +823,12 @@ unsafe extern "C" fn wamr_host_trampoline(exec_env: wasm_exec_env_t, argv: *mut 
             .get_long_array_region(&result_arr, 0, &mut result_buf)
             .is_err()
         {
-            return trap(exec_env, TRAP_INVALID_RETURN);
+            return unsafe { trap(exec_env, TRAP_INVALID_RETURN) };
         }
         // invoke_native_raw reads the result back out of argv[0].
-        let result_slice = std::slice::from_raw_parts_mut(argv, ctx.n_rets);
+        // SAFETY: argv is non-null and the raw calling convention reserves at
+        // least n_rets slots there for the results on the way out.
+        let result_slice = unsafe { std::slice::from_raw_parts_mut(argv, ctx.n_rets) };
         for (slot, &v) in result_slice.iter_mut().zip(result_buf.iter()) {
             *slot = v as u64;
         }
@@ -806,7 +874,8 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_linkHostFunction(
     let runtime = runtime_ptr as *mut nsc_wamr_runtime_t;
     let module_name_str = c_module.to_string_lossy();
     let name_str = c_name.to_string_lossy();
-    if !wamr_sys::shim::import_declared(runtime, &module_name_str, &name_str) {
+    // SAFETY: runtime is the handle Kotlin holds; the shim null-checks it.
+    if !unsafe { wamr_sys::shim::import_declared(runtime, &module_name_str, &name_str) } {
         throw(
             &mut env,
             &format!("import not declared: {module_name_str}.{name_str}"),

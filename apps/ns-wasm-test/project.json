@@ -18,8 +18,8 @@
         "{projectRoot}/references.d.ts",
         "{projectRoot}/tsconfig.json",
         "{projectRoot}/tsconfig.spec.json",
-        "{projectRoot}/vitest.*.config.mts",
-        "{projectRoot}/webpack.config.js",
+        "{projectRoot}/ns-rstest.*.mts",
+        "{projectRoot}/rspack.config.ts",
         "^production"
       ]
     },
@@ -29,7 +29,7 @@
         "cwd": "{projectRoot}"
       },
       "dependsOn": [
-        "^build"
+        "^build.xcframework"
       ],
       "cache": false
     },
@@ -39,7 +39,7 @@
         "cwd": "{projectRoot}"
       },
       "dependsOn": [
-        "^build"
+        "^build.android"
       ],
       "cache": false
     },
@@ -49,7 +49,7 @@
         "cwd": "{projectRoot}"
       },
       "dependsOn": [
-        "^build"
+        "^build.xcframework"
       ],
       "cache": false
     },
@@ -59,7 +59,7 @@
         "cwd": "{projectRoot}"
       },
       "dependsOn": [
-        "^build"
+        "^build.android"
       ],
       "cache": false
     },
@@ -73,7 +73,7 @@
       "dependsOn": [
         {
           "projects": "dependencies",
-          "target": "build"
+          "target": "build.xcframework"
         }
       ],
       "cache": true,
@@ -118,7 +118,7 @@
       "dependsOn": [
         {
           "projects": "dependencies",
-          "target": "build"
+          "target": "build.android"
         }
       ],
       "cache": true,
@@ -182,6 +182,40 @@
       ],
       "outputs": [
         "{projectRoot}/platforms/android"
+      ]
+    },
+    "typings.ios": {
+      "command": "npx ns typings ios",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": [
+        "prepare.ios"
+      ],
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/typings/ios"
+      ]
+    },
+    "typings.android": {
+      "command": "npx ns typings android",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": [
+        "prepare.android"
+      ],
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/typings/android"
       ]
     }
   }

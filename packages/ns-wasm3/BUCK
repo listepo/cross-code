@@ -3,13 +3,45 @@
 genrule(
     name = "wasm3-c",
     srcs = glob([
-        "src/vendors/wasm3/source/**/*.c",
-        "src/vendors/wasm3/source/**/*.h",
-        "src/vendors/wasm3-rust/wasm3-sys/**/*.rs",
-        "src/vendors/wasm3-rust/wasm3-sys/Cargo.toml",
+        "src/vendors/wasm3/**/*.c",
+        "src/vendors/wasm3/**/*.h",
+        # cargo needs every workspace member's manifest to resolve the
+        # workspace, even to build just wasm3-sys (see wasm3-jni/wasm3-ffi).
+        "src/vendors/wasm3-rust/**/*.rs",
+        "src/vendors/wasm3-rust/**/*.toml",
+        "src/vendors/wasm3-rust/**/*.h",
+        "src/vendors/wasm3-rust/**/*.udl",
     ]),
     out = "libwasm3_sys.a",
-    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cd $SRCDIR/src/vendors/wasm3-rust && cargo build -p wasm3-sys --profile $PROFILE 2>&1 && cp target/$PROFILE/libwasm3_sys.a $OUT",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; DIR=\"release\"; if [ \"$MODE\" = debug ]; then PROFILE=\"dev\"; DIR=\"debug\"; fi; cd $SRCDIR/src/vendors/wasm3-rust && cargo build -p wasm3-sys --profile $PROFILE 2>&1 && cp target/$DIR/libwasm3_sys.a $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "wasm3-android-aar",
+    srcs = glob([
+        "platforms/android/wasm3-android/**/*.kt",
+        "platforms/android/wasm3-android/**/*.kts",
+        "platforms/android/wasm3-android/**/gradle/**",
+        "platforms/android/wasm3-android/gradlew",
+        "platforms/android/wasm3-android/**/*.pro",
+        "src/vendors/wasm3-rust/**/*.rs",
+        "src/vendors/wasm3-rust/**/*.toml",
+        "src/vendors/wasm3-rust/**/*.h",
+        "src/vendors/wasm3-rust/**/*.udl",
+        "src/vendors/wasm3-rust/Cargo.lock",
+        "src/vendors/wasm3/**/*.c",
+        "src/vendors/wasm3/**/*.h",
+        # gradle's buildNative task declares this as an input dir (shimSources)
+        "src/native/shim/**/*.c",
+        "src/native/shim/**/*.h",
+    ]),
+    out = "nativescript-wasm3.aar",
+    # deployAar writes one level up from wasm3-android/; capture $OUT
+    # before cd'ing. install-nativescript-aar.sh copies $OUT out of the
+    # buck2 sandbox into packages/ns-wasm3/platforms/android/ — see
+    # packages/ns-wamr/BUCK's wamr-android-aar comment.
+    cmd = "OUT_ABS=\"$PWD/$OUT\"; ROOT=\"`git rev-parse --show-toplevel`\"; cd $SRCDIR/platforms/android/wasm3-android && bash \"$ROOT/tools/gradlew-retry.sh\" :library:deployAar && cp ../nativescript-wasm3.aar \"$OUT_ABS\" && bash \"$ROOT/tools/install-nativescript-aar.sh\" ns-wasm3 nativescript-wasm3.aar \"$OUT_ABS\"",
     visibility = ["PUBLIC"],
 )
 
@@ -18,9 +50,11 @@ genrule(
     srcs = glob([
         "src/vendors/wasm3-rust/**/*.rs",
         "src/vendors/wasm3-rust/**/*.toml",
+        "src/vendors/wasm3/**/*.c",
+        "src/vendors/wasm3/**/*.h",
     ]),
     out = "libwasm3_jni.so",
-    cmd = "echo 'wasm3 JNI Android build via cargo-ndk' && touch $OUT",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; DIR=\"release\"; if [ \"$MODE\" = debug ]; then PROFILE=\"dev\"; DIR=\"debug\"; fi; cd $SRCDIR/src/vendors/wasm3-rust && cargo ndk -t arm64-v8a build -p wasm3-jni --profile $PROFILE 2>&1 && find target -name 'libwasm3_jni.so' | head -1 | xargs -I{} cp {} $OUT && echo 'JNI .so built'",
     visibility = ["PUBLIC"],
 )
 
@@ -31,14 +65,33 @@ genrule(
         "platforms/ios/NSCWasm3/Package.swift",
     ]),
     out = "NSCWasm3.dylib",
-    cmd = "echo 'NSCWasm3 Swift build' && touch $OUT",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; CONF=\"release\"; [ \"$MODE\" = debug ] && CONF=\"debug\"; cd $SRCDIR/platforms/ios/NSCWasm3 && swift build --disable-sandbox --configuration $CONF 2>&1 && cp .build/$CONF/libNSCWasm3.dylib $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "ns-wasm3-xcframework",
+    srcs = glob([
+        "platforms/ios/**/*.swift",
+        "platforms/ios/**/*.h",
+        "platforms/ios/**/Package.swift",
+    ]),
+    out = "NSCWasm3.xcframework.stamp",
+    # See packages/ns-wamr/BUCK for why this goes through git rev-parse
+    # rather than $SRCDIR: $SRCDIR only mirrors this package's own globbed
+    # srcs, not the shared script one level up at the repo root.
+    cmd = "bash \"`git rev-parse --show-toplevel`/tools/build-xcframework.sh\" NSCWasm3 2>&1 && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
 genrule(
     name = "all",
-    srcs = [],
     out = "all.stamp",
-    cmd = "echo 'ns-wasm3: all targets' && touch $OUT",
+    cmd = "echo 'ns-wasm3: all targets built' && touch $OUT",
+    srcs = [
+        ":wasm3-c",
+        ":wasm3-android-aar",
+        ":ns-wasm3-xcframework",
+    ],
     visibility = ["PUBLIC"],
 )

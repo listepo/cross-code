@@ -38,9 +38,12 @@ export interface NativeChicoryFunctionProxy {
   call(args: JavaArrayList): JavaArrayList;
 }
 
+/** An instance of the Kotlin fun interface — opaque once constructed. */
+export type NativeChicoryHostFunction = object;
+
 /** Shape of the NSCChicoryHostFunction Kotlin fun interface as seen from TypeScript. */
 export interface NativeChicoryHostFunctionProxy {
-  new (impl: { invoke: (args: unknown[]) => unknown }): NativeChicoryHostFunctionProxy;
+  new (impl: { invoke: (args: unknown[]) => unknown }): NativeChicoryHostFunction;
 }
 
 /** Namespace shape for globalThis.org.nativescript.chicory */

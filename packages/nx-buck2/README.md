@@ -11,7 +11,7 @@ Buck2 is **not** available via `cargo install` (the crates.io `buck2` crate
 is a placeholder). Use the prebuilt binary:
 
 ```bash
-curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-aarch64-apple-darwin.zst \
+curl -fsSL https://github.com/facebook/buck2/releases/download/latest/buck2-aarch64-apple-darwin.zst \
   | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null && sudo chmod +x /usr/local/bin/buck2
 ```
 
@@ -21,9 +21,13 @@ The plugin also honors `BUCK2_PATH` if the binary lives elsewhere.
 ## Usage
 
 ```bash
-# Build (default: release — -Oz, LTO, stripped)
+# Build (default: release — -Osize, LTO, stripped; debug — fast iteration)
 nx run ns-wamr:buck2-build --configuration=release
-nx run ns-wamr:buck2-build --configuration=debug     # -O0 -g3, DWARF
+nx run ns-wamr:buck2-build --configuration=debug
+
+# Native artifacts (prefer these over raw gradle/swift scripts)
+nx run ns-wamr:build.android --configuration=debug
+nx run ns-wamr:build.xcframework --configuration=release
 
 # Cross-compilation (platform/arch flags)
 nx run ns-wamr:buck2-build --platform=ios --arch=arm64
@@ -38,7 +42,8 @@ project), `project` (scaffold a Buck2-aware project).
 
 ## Layout
 
-- `executors/` + `generators/` — compiled JS + schemas (built from `src/`)
+- `dist/` — compiled JS + schemas, built from `src/` via `@nx/js:tsc`
+  (gitignored; `executors.json`/`generators.json` point into it)
 - `src/executors/` — TypeScript sources (`build`, `test`, `run`)
 - `src/generators/` — TypeScript sources (`init`, `project`)
 - root `BUCK` / per-package `BUCK` files — Buck2 target definitions
@@ -49,8 +54,8 @@ project), `project` (scaffold a Buck2-aware project).
 ## Development
 
 ```bash
-nx run nx-buck2:build   # tsc + schema copy (prebuild cleans stale JS)
-nx run nx-buck2:test    # vitest unit tests (24 specs)
+nx run nx-buck2:build   # @nx/js:tsc — cleans and rebuilds dist/ (cached)
+nx run nx-buck2:test    # vitest unit tests
 ```
 
 Clean compiled output: `node tools/clean.mjs` (covers `.buck-out/` too).

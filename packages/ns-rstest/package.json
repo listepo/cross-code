@@ -1,0 +1,97 @@
+{
+  "name": "@cross-code/ns-rstest",
+  "version": "0.0.1",
+  "description": "Run Rstest unit tests inside isolated NativeScript runtimes on Android and iOS, with an optional on-device results UI.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@cross-code/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./protocol": {
+      "@cross-code/source": "./src/protocol.ts",
+      "types": "./dist/protocol.d.ts",
+      "import": "./dist/protocol.js",
+      "default": "./dist/protocol.js"
+    },
+    "./runtime": {
+      "@cross-code/source": "./src/runtime/index.ts",
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js",
+      "default": "./dist/runtime/index.js"
+    },
+    "./runtime/shim": {
+      "@cross-code/source": "./src/runtime/shim.ts",
+      "types": "./dist/runtime/shim.d.ts",
+      "import": "./dist/runtime/shim.js",
+      "default": "./dist/runtime/shim.js"
+    },
+    "./ui": {
+      "@cross-code/source": "./src/ui/index.ts",
+      "types": "./dist/ui/index.d.ts",
+      "import": "./dist/ui/index.js",
+      "default": "./dist/ui/index.js"
+    },
+    "./bundler": {
+      "require": "./bundler.cjs",
+      "default": "./bundler.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "bundler.cjs",
+    "!**/*.tsbuildinfo"
+  ],
+  "keywords": [
+    "rstest",
+    "rspack",
+    "nativescript",
+    "unit-testing",
+    "android",
+    "ios"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "nx": {
+    "name": "ns-rstest",
+    "targets": {
+      "coverage": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "babel-loader": "^9.2.1",
+    "babel-plugin-istanbul": "^7.0.1",
+    "tslib": "^2.3.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@nativescript/core": "^9.0.20",
+    "@rstest/core": "0.11.6",
+    "@types/ws": "^8.18.1",
+    "vitest": "~4.1.10"
+  },
+  "peerDependencies": {
+    "@nativescript/core": "^9.0.20",
+    "@rstest/core": "0.11.6"
+  },
+  "peerDependenciesMeta": {
+    "@nativescript/core": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "coverage": "vitest run --coverage"
+  }
+}

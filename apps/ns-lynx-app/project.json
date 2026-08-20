@@ -1,0 +1,177 @@
+{
+  "name": "ns-lynx-app",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/ns-lynx-app/app",
+  "targets": {
+    "build.lynx": {
+      "command": "pnpm build.lynx",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/lynx/src/**/*",
+        "{projectRoot}/lynx/lynx.config.ts",
+        "{projectRoot}/lynx/package.json"
+      ],
+      "outputs": [
+        "{projectRoot}/lynx/dist"
+      ]
+    },
+    "typecheck": {
+      "command": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.spec.json && tsc --noEmit -p lynx/src/tsconfig.json",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/app/**/*",
+        "{projectRoot}/lynx/src/**/*",
+        "{projectRoot}/references.d.ts",
+        "{projectRoot}/tsconfig.json",
+        "{projectRoot}/tsconfig.spec.json",
+        "{projectRoot}/ns-rstest.*.mts",
+        "{projectRoot}/rspack.config.ts",
+        "^production"
+      ]
+    },
+    "build.ios": {
+      "executor": "@cross-code/nx-ns-app:build",
+      "options": {
+        "platform": "ios",
+        "configuration": "debug",
+        "noHmr": true
+      },
+      "dependsOn": [
+        {
+          "projects": "dependencies",
+          "target": "build"
+        },
+        "build.lynx"
+      ],
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/platforms/ios"
+      ]
+    },
+    "run.ios": {
+      "executor": "@cross-code/nx-ns-app:run",
+      "options": {
+        "platform": "ios",
+        "device": "emulator",
+        "noHmr": true
+      },
+      "dependsOn": [
+        "build.ios"
+      ],
+      "cache": false
+    },
+    "debug.ios": {
+      "executor": "@cross-code/nx-ns-app:debug",
+      "options": {
+        "platform": "ios",
+        "device": "emulator"
+      },
+      "dependsOn": [
+        "build.ios"
+      ],
+      "cache": false
+    },
+    "build.android": {
+      "executor": "@cross-code/nx-ns-app:build",
+      "options": {
+        "platform": "android",
+        "configuration": "debug",
+        "noHmr": true
+      },
+      "dependsOn": [
+        {
+          "projects": "dependencies",
+          "target": "build"
+        },
+        "build.lynx"
+      ],
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/platforms/android"
+      ]
+    },
+    "run.android": {
+      "executor": "@cross-code/nx-ns-app:run",
+      "options": {
+        "platform": "android",
+        "device": "emulator",
+        "noHmr": true
+      },
+      "dependsOn": [
+        "build.android"
+      ],
+      "cache": false
+    },
+    "debug.android": {
+      "executor": "@cross-code/nx-ns-app:debug",
+      "options": {
+        "platform": "android",
+        "device": "emulator"
+      },
+      "dependsOn": [
+        "build.android"
+      ],
+      "cache": false
+    },
+    "clean": {
+      "executor": "@cross-code/nx-ns-app:clean"
+    },
+    "prepare": {
+      "executor": "@cross-code/nx-ns-app:prepare",
+      "options": {
+        "platform": "ios"
+      },
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/platforms/ios"
+      ],
+      "dependsOn": [
+        "build.lynx"
+      ]
+    },
+    "test.ios": {
+      "command": "pnpm run test.ios",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": [
+        "^build",
+        "build.lynx"
+      ],
+      "cache": false
+    },
+    "test.android": {
+      "command": "pnpm run test.android",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": [
+        "^build",
+        "build.lynx"
+      ],
+      "cache": false
+    }
+  }
+}

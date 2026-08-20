@@ -22,6 +22,14 @@
 
 <!-- nx configuration end-->
 
+## AI agent files
+
+This file is the canonical agent instructions. Durable gotchas and decisions
+live in [MEMORY.md](MEMORY.md) — read both before editing. `CLAUDE.md`,
+`GEMINI.md`, `CODEX.md`, and `.cursorrules` are pointers here. Per-package
+`AGENTS.md` (and `MEMORY.md` where it exists) covers package-specific
+invariants.
+
 ## NativeScript
 
 - Docs: https://docs.nativescript.org (append .md to any URL for markdown)
@@ -42,9 +50,10 @@ TypeScript API (wire protocol, error mapping, and `WasmRuntime` / `WasmModule` /
 `WasmFunction` class shapes). The Rust cargo workspace and UniFFI (uniffi-rs)
 Kotlin/Swift bindings — together with the mirror-image native architecture
 described in [Shared plugin architecture](#shared-plugin-architecture) — apply
-to **ns-wasm3 and ns-wamr**. The newer runtimes (`ns-wasm-kit-runtime`, the
-Swift-native WasmKit interpreter; `ns-endive`, the Java-native Endive
-interpreter) share the same TypeScript adapter pattern, wire protocol, and
+to **ns-wasm3, ns-wamr and ns-wasm-edge**. The newer runtimes
+(`ns-wasm-kit-runtime`, the Swift-native WasmKit interpreter; `ns-wasm-chicory`
+and `ns-endive`, the Java-native Chicory and Endive interpreters) share the
+same TypeScript adapter pattern, wire protocol, and
 `@cross-code/ns-wasm-core` foundation, but have their own per-engine native
 layers. Only engine-specific detail lives in each package's AGENTS.md.
 
@@ -68,23 +77,55 @@ layers. Only engine-specific detail lives in each package's AGENTS.md.
   iOS-only at this time (WasmKit is Swift-native and served through SwiftPM);
   Android throws a clear unsupported error. Follows the same TypeScript
   adapter pattern as the other two plugins.
+- **`ns-wasm-edge`** (`@cross-code/ns-wasm-edge`) — plugin binding the
+  [WasmEdge](https://github.com/WasmEdge/WasmEdge) runtime (Swift Package on
+  iOS, Kotlin + Rust JNI (cargo-ndk) on Android). Follows the Rust/UniFFI
+  architecture of ns-wasm3/ns-wamr.
+- **`ns-wasm-chicory`** (`@cross-code/ns-wasm-chicory`) — plugin binding the
+  [Chicory](https://github.com/dylibso/chicory) interpreter, a pure-Java
+  runtime (no NDK/Rust needed) — Android-only.
+- **`ns-endive`** (`@cross-code/ns-endive`) — plugin binding the
+  [Endive](https://github.com/bytecodealliance/endive) interpreter — Java/JNI
+  on Android with a TypeScript adapter. Android-only.
+- **`ns-rspack`** (`@cross-code/ns-rspack`) — **not a WASM plugin**: an
+  [rspack](https://rspack.rs) bundler for NativeScript apps. It owns the whole
+  NativeScript build configuration natively — entry stubs, platform-suffixed
+  resolution, XML/CSS loaders, copy rules, defines, HMR — with no
+  `@nativescript/webpack` and no webpack in its dependency tree. Installed
+  under the alias the {N} CLI resolves the bundler by (`@nativescript/rspack`).
+  See `packages/ns-rspack/README.md` and `packages/ns-rspack/AGENTS.md`.
 - **`ns-wry`** (`@cross-code/ns-wry`) — general-purpose NativeScript plugin
   scaffold built on Rust + UniFFI (uniffi-rs) with cargo-ndk Android pipeline.
   See `packages/ns-wry/AGENTS.md` for the bare-metal architecture; extend the
   `wry-rust` workspace and `wry_ffi.udl` IDL to add engine-specific APIs.
 
-### Vitest + NativeScript unit-test packages
+### LynxJS integration
 
-- **`vitest-ns`** (`@cross-code/vitest-ns`) — a Vitest
-  custom pool that runs unit tests in NativeScript Worker runtimes. Read
-  `packages/vitest-ns/AGENTS.md` before changing its Node/device
-  protocol or webpack aliases.
-- **`vitest-ns-ui`** (`@cross-code/vitest-ns-ui`) — an
-  optional NativeScript Core results view. It is presentation-only and should
-  remain removable for headless or CI usage.
-- These packages support one-shot unit tests; they are not a component-testing
-  or end-to-end framework. Run their Nx `build`, `typecheck`, and `test`
-  targets with `pnpm exec nx`.
+- **`ns-lynx`** (`@cross-code/ns-lynx`) — embeds the
+  [Lynx](https://lynxjs.org) engine in a NativeScript app as a `<LynxView>`,
+  with NativeScript as the host. Unlike the WASM plugins it has **no native
+  layer at all**: Lynx publishes its engine through CocoaPods and Maven, and
+  NativeScript reaches those classes from JavaScript directly, so the package
+  is TypeScript plus a Podfile and an include.gradle. Read
+  `packages/ns-lynx/AGENTS.md` before changing the view or the SDK versions —
+  the two manifests pin the same engine and must move together.
+- `apps/ns-lynx-app` is the worked example: a NativeScript host page around a
+  rspeedy/ReactLynx bundle built from its own `lynx/` sub-project.
+
+### Rstest + NativeScript unit-test package
+
+- **`ns-rstest`** (`@cross-code/ns-rstest`) — runs Rstest unit tests in
+  NativeScript Worker runtimes. Rstest has no custom-pool API, so the package
+  owns its own Node host (`runNativeScriptTests`) and drives Rstest's own
+  runtime (`@rstest/core/internal/browser-runtime`) on the device. Read
+  `packages/ns-rstest/AGENTS.md` before changing its Node/device protocol or
+  bundler aliases.
+- The optional on-device results view ships from the same package under
+  `@cross-code/ns-rstest/ui`. It is presentation-only and should remain
+  removable for headless or CI usage.
+- The package supports one-shot unit tests; it is not a component-testing or
+  end-to-end framework. Run its Nx `build`, `typecheck`, and `test` targets
+  with `pnpm exec nx`.
 
 **wamr native suites**: if the vendored WAMR C sources are ever absent, the
 wamr native commands and CI jobs (`wamr-ios`, `wamr-android`) skip gracefully
@@ -225,16 +266,19 @@ in `CWamr/include/` pointing at the four public headers (`wasm_export.h`,
 
 ### iOS: prebuilt XCFrameworks (SwiftPM replaced)
 
-Each plugin ships a **prebuilt dynamic `.xcframework`** in
-`platforms/ios/<NSCWamr|NSCWasm3|NSCWry>.xcframework` (plus
-`<name>.xcframework.dSYMs/` with the debug symbols). The NativeScript CLI
+Each plugin ships a **dynamic `.xcframework`** under
+`platforms/ios/<NSCWamr|NSCWasm3|NSCWry|NSWasmKit>.xcframework` (plus
+`<name>.xcframework.dSYMs/`). These are **gitignored** — build them with
+`nx run <pkg>:build.xcframework` (nx-buck2, release by default) before
+running a NativeScript app or CI device jobs. The NativeScript CLI
 9.x discovers any `platforms/ios/*.xcframework` in a plugin automatically
 (`FRAMEWORK_EXTENSIONS` in `ios-project-service.js`) — it links the matching
 slice, adds it to **Embed Frameworks** with `CodeSignOnCopy`, and re-signs.
 No `SPMPackages` entry is used anymore (that mechanism predates this change;
 see git history for the old SwiftPM declaration).
 
-Rebuild with `npm run build.xcframework` (per plugin). All three plugins
+Rebuild with `nx run <pkg>:build.xcframework --configuration=release`
+(or `--configuration=debug` for fast iteration). The Rust/Swift/C plugins
 share ONE builder: `tools/build-xcframework.sh <ENGINE>` (each package's
 `tools/build-xcframework.sh` is a 3-line wrapper). It builds each slice with
 `swift build --disable-sandbox --triple <arm64-apple-ios|arm64-apple-ios-simulator|x86_64-apple-ios-simulator>`
@@ -291,8 +335,12 @@ Both plugins use the identical Android architecture (no JavaCPP):
   `NSCWasm3.kt` + `NativeWasm3.kt`) loads `libwasm3_jni.so` / `libwamr_jni.so`
   via JNI and `System.loadLibrary`.
 - `deployAar` copies the release `.aar` to `platforms/android/nativescript-<engine>.aar`.
-  The `.aar` is **committed** because it contains precompiled `.so` files —
-  consumers don't need the NDK or a Rust toolchain.
+  AARs are **gitignored**. `nx run <pkg>:build.android` (nx-buck2) must also
+  copy that AAR out of the Buck2 srcs sandbox into the plugin tree —
+  NativeScript scans `platforms/android/**/*.aar`, not `.buck-out/`
+  (`tools/install-nativescript-aar.sh`). Without that copy the app still
+  builds, linking only `gradle-wrapper.jar` from the nested Gradle project,
+  and device tests fail with "native runtime not found".
 - `hosttest/` is a pure-JVM module that compiles the Kotlin wrapper sources
   and runs JUnit tests against a host (`cargo build --release -p <engine>-jni`)
   build of the library, with `java.library.path` pointed at `target/release`.
@@ -404,11 +452,13 @@ No globally installed gradle, cocoapods, or wasm toolchain is required.
 
 ### Buck2 builds (nx-buck2)
 
-Native builds can optionally run through **Buck2** via the `@cross-code/nx-buck2`
+Native builds run through **Buck2** via the `@cross-code/nx-buck2`
 Nx plugin (`packages/nx-buck2`): executors `build`/`test`/`run` dispatch
-`buck2 build/test/run` against per-project `BUCK` files (currently genrule
-wrappers around the Cargo/SwiftPM toolchains — the standard Buck2 migration
-path). Debug/release is selected per invocation:
+`buck2 build/test/run` against per-project `BUCK` files (genrule wrappers
+around Cargo/SwiftPM/Gradle). Use `build.android`, `build.xcframework`, or
+`buck2-build` on each engine plugin — all route through nx-buck2 with
+`--configuration=debug` (fast: `-Onone`/`-O0`, no LTO/strip) or `release`
+(size-optimized). Debug/release is selected per invocation:
 
 ```bash
 nx run ns-wamr:buck2-build --configuration=release          # -Oz, LTO, stripped
@@ -421,7 +471,7 @@ Buck2 is NOT installed by mise (the crates.io `buck2` crate is a
 placeholder). Install the prebuilt binary once:
 
 ```bash
-curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-aarch64-apple-darwin.zst \
+curl -fsSL https://github.com/facebook/buck2/releases/download/latest/buck2-aarch64-apple-darwin.zst \
   | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null && sudo chmod +x /usr/local/bin/buck2
 ```
 
@@ -474,6 +524,16 @@ Three test layers, each covering a different slice:
   i64-as-decimal-string on both. Run its suite on **both** platforms when you
   touch `wire.ts` or an adapter file. Details in
   `apps/ns-wasm-test/AGENTS.md`.
+
+### CI jobs are real gates — never `continue-on-error`
+
+The CI jobs that run the test app's suite (`wasm-test-ios`,
+`wasm-test-android` in `.github/workflows/ci.yml`) are the only place the
+TypeScript adapters meet the real native layers, so a failure in either is a
+release-blocking signal. **Do not add `continue-on-error` to any CI job** —
+emulator/simulator flakiness must be fixed, not bypassed. If a job is
+genuinely environment-broken, disable it with an `if:` condition and a
+comment instead, never a silent `continue-on-error`.
 
 ### Kotlin linting (Detekt + Ktlint)
 
@@ -616,46 +676,60 @@ wasm-pack-generated `.d.ts`. See `packages/ns-wasm-fixture/README.md`.
 | `packages/ns-wasm3/AGENTS.md` | wasm3-specific: stack ABI, globals, fixtures, build/test                |
 | `packages/ns-wamr/AGENTS.md`  | WAMR-specific: two-phase load, exec env, WASI, tiers, trampolines, shim |
 | `packages/ns-wasm-kit-runtime/AGENTS.md` | WasmKit-specific: iOS-only Swift interpreter, Android unsupported stub |
+| `packages/ns-wasm-edge/AGENTS.md` | (none — no per-package AGENTS yet; follows the Rust/UniFFI architecture of wasm3/wamr, see Shared plugin architecture above) |
+| `packages/ns-wasm-chicory/AGENTS.md` | (none — no per-package AGENTS yet; pure-Java Android runtime, no NDK/Rust needed) |
+| `packages/ns-endive/AGENTS.md` | (none — no per-package AGENTS yet; Java/JNI Android runtime with TypeScript adapter) |
+| `packages/ns-rspack/AGENTS.md` | rspack bundler — CLI/IPC, layout, invariants (see also `MEMORY.md`, `README.md`) |
 | `packages/ns-wry/AGENTS.md`            | wry scaffold: Rust + UniFFI architecture, platform stubs, extension guide  |
 | `apps/ns-wasm-test/AGENTS.md` | test app: layout, design decisions, running the suites, adding specs       |
+| `apps/rspack-test-app`                      | rspack-bundled test app — workspace member, installs with the root `pnpm install`; see `packages/ns-rspack/README.md` |
 | `apps/ns-wry-app`                      | test app: WebView demo, build-plugin-and-run workflow                       |
 
 <!-- code-review-graph MCP tools -->
 
 ## MCP Tools: code-review-graph
 
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
+This repository has a code knowledge graph, served over MCP by
+`code-review-graph` (registered at user scope, so it follows whichever project
+is open). **It is scoped to reviewing changes, not to general exploration** —
+for ordinary "where does this live / what does this do" work, use Grep, Glob
+and Read, or the graph tools this repo's other servers provide.
 
-### When to use graph tools FIRST
+Reach for it when the question is about a *change*: what a diff touches, what
+it can break, and whether the affected code is covered.
 
-- **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool` instead of Grep
-- **Understanding impact**: `get_impact_radius_tool` instead of manually tracing imports
-- **Code review**: `detect_changes_tool` + `get_review_context_tool` instead of reading entire files
-- **Finding relationships**: `query_graph_tool` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview_tool` + `list_communities_tool`
+### When to use it
 
-Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+| Situation                                          | Tool                                            |
+| -------------------------------------------------- | ----------------------------------------------- |
+| Reviewing a diff — what changed and how risky      | `detect_changes_tool`                           |
+| Need the source behind a finding, cheaply          | `get_review_context_tool`, `get_minimal_context_tool` |
+| Blast radius of a change                           | `get_impact_radius_tool`                        |
+| Which execution paths a change sits on             | `get_affected_flows_tool`                       |
+| Callers, callees, imports, tests of a changed symbol | `query_graph_tool` (`callers_of`, `tests_for`, …) |
+| Resolving a name in the diff to a graph node       | `semantic_search_nodes_tool`                    |
+| Is the graph fresh enough to trust                 | `list_graph_stats_tool`                         |
 
-### Key Tools
+The server also exposes architecture, community, wiki and refactor tools. They
+are there for the generated skills below; do not reach for them to answer
+ordinary questions about the codebase.
 
-| Tool                             | Use when                                               |
-| -------------------------------- | ------------------------------------------------------ |
-| `detect_changes_tool`            | Reviewing code changes — gives risk-scored analysis    |
-| `get_review_context_tool`        | Need source snippets for review — token-efficient      |
-| `get_impact_radius_tool`         | Understanding blast radius of a change                 |
-| `get_affected_flows_tool`        | Finding which execution paths are impacted             |
-| `query_graph_tool`               | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes_tool`     | Finding functions/classes by name or keyword           |
-| `get_architecture_overview_tool` | Understanding high-level codebase structure            |
-| `refactor_tool`                  | Planning renames, finding dead code                    |
+### Review workflow
 
-### Workflow
+1. `detect_changes_tool` — risk-scored view of what the branch touched.
+2. `get_impact_radius_tool` / `get_affected_flows_tool` — what else is exposed.
+3. `query_graph_tool` with `pattern="tests_for"` — is the changed code covered.
+4. `get_review_context_tool` — pull only the snippets a finding needs.
 
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes_tool` for code review.
-3. Use `get_affected_flows_tool` to understand impact.
-4. Use `query_graph_tool` pattern="tests_for" to check coverage.
+The graph is kept current by the hooks in `.claude/settings.json`
+(`code-review-graph update` after each Edit/Write, `status` at session start),
+so review answers reflect the working tree rather than the last full build. If
+`list_graph_stats_tool` looks stale, run `code-review-graph update`.
+
+### Generated skills
+
+`.claude/skills/` holds skills generated by the installer: `review-changes`
+(the review flow above), `debug-issue`, `explore-codebase` and
+`refactor-safely`. Only `review-changes` reflects the scope described here —
+treat the other three as opt-in, for when you deliberately want the graph
+outside a review.

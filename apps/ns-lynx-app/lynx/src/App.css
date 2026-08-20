@@ -1,0 +1,57 @@
+page {
+  --bg: #1a1b26;
+  --surface: #24283b;
+  --text: #c0caf5;
+  --dim: #565f89;
+  --accent: #7aa2f7;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background-color: #1a1b26;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background-color: #24283b;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #7aa2f7;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #565f89;
+  margin-top: 2px;
+}
+
+.label {
+  font-size: 11px;
+  color: #565f89;
+  margin-top: 6px;
+}
+
+.value {
+  font-size: 15px;
+  color: #c0caf5;
+}
+
+.button {
+  background-color: #7aa2f7;
+  align-items: center;
+}
+
+.button-text {
+  font-size: 15px;
+  font-weight: bold;
+  color: #1a1b26;
+}

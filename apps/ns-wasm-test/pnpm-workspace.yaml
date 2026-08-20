@@ -2,13 +2,21 @@
 # (packages/*): the ns CLI needs its own node_modules. Declaring the app
 # directory as its own pnpm workspace root gives it a separate install and
 # its own pnpm-lock.yaml.
-packages: []
-
-# The app consumes local plugins through `file:`. Their source manifests use
-# `workspace:*` for the shared core, which is otherwise resolved against this
-# intentionally isolated workspace. Pin that transitive dependency locally.
-overrides:
-  '@cross-code/ns-wasm-core': file:../../packages/ns-wasm-core
+#
+# The local plugins are consumed through the `workspace:` protocol, so the
+# sibling packages are exposed to this workspace. The app itself stays a
+# standalone install — only packages/* is reachable, never the root workspace.
+packages:
+  - ../../packages/ns-rspack
+  - ../../packages/ns-wasm-core
+  - ../../packages/ns-wasm3
+  - ../../packages/ns-wamr
+  - ../../packages/ns-wasm-kit-runtime
+  - ../../packages/ns-endive
+  - ../../packages/ns-wasm-chicory
+  - ../../packages/ns-wasm-edge
+  - ../../packages/ns-wasm-fixture
+  - ../../packages/ns-rstest
 
 # pnpm 11 blocks dependency build scripts by default (ERR_PNPM_IGNORED_BUILDS).
 # These packages ship native binaries or CLI glue used by the app build.

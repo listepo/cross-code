@@ -79,7 +79,12 @@ fn main() {
 
     let mut build = cc::Build::new();
 
-    build.flag("-std=gnu11").warnings(false).opt_level(2);
+    let profile = env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
+    let opt = if profile == "release" { 2 } else { 0 };
+    build.flag("-std=gnu11").warnings(false).opt_level(opt);
+    if profile != "release" {
+        build.flag("-g");
+    }
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if target_os == "macos" {
@@ -98,6 +103,18 @@ fn main() {
         build.define("d_m3HasTracer", "0");
         // Skip WASI/uvwasi backend compilation on Android — use libc fallback
         build.define("d_m3EnableWasi", "0");
+
+        if target == "armv7-linux-androideabi" {
+            // NDK clang's ARM32 backend crashes ("failed to perform tail
+            // call elimination on a call site marked musttail") compiling
+            // wasm3's interpreter dispatch at -O2 — an LLVM ICE specific to
+            // armv7's constrained AAPCS calling convention (arm64-v8a, x86,
+            // x86_64 all compile fine). M3_HAS_TAIL_CALL is wasm3's own
+            // override for exactly this: falls back to a plain (not
+            // forced-tail) call, same as every compiler wasm3 supports
+            // without a musttail attribute (GCC, MSVC, older Clang).
+            build.define("M3_HAS_TAIL_CALL", "0");
+        }
     }
 
     // Compile all wasm3 .c source files

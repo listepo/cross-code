@@ -33,9 +33,13 @@ declare class NSCChicoryFunction {
   callWithArgumentsError(args: unknown[], error: unknown): unknown[];
 }
 
+/** An instance of the callback subclass — opaque once constructed. */
+type NSCChicoryHostCallbackRef = object;
+
 declare class NSCChicoryHostCallback {
   static extend(config: { invoke(args: unknown[]): unknown[] }): {
-    new (): NSCChicoryHostCallback;
+    new (): NSCChicoryHostCallbackRef;
   };
-  static new(): NSCChicoryHostCallback;
+  /** ObjC's `+new` factory — `alloc` and `init` in one selector. */
+  static new: () => NSCChicoryHostCallbackRef;
 }

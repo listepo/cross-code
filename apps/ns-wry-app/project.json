@@ -17,7 +17,7 @@
         "{projectRoot}/app/**/*",
         "{projectRoot}/references.d.ts",
         "{projectRoot}/tsconfig.json",
-        "{projectRoot}/webpack.config.js",
+        "{projectRoot}/rspack.config.ts",
         "^production"
       ]
     },

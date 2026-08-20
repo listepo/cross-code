@@ -1,0 +1,63 @@
+{
+  "name": "@cross-code/ns-lynx",
+  "version": "0.1.0",
+  "description": "NativeScript plugin that embeds LynxJS \u2014 render ReactLynx bundles in a <LynxView> inside a NativeScript host app on iOS and Android.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@cross-code/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "nativescript.config.ts",
+    "platforms/android/include.gradle",
+    "platforms/ios/Podfile",
+    "!**/*.tsbuildinfo"
+  ],
+  "keywords": [
+    "NativeScript",
+    "Lynx",
+    "LynxJS",
+    "ReactLynx",
+    "ios",
+    "android"
+  ],
+  "nativescript": {
+    "platforms": {
+      "ios": "8.6.0",
+      "android": "8.6.0"
+    }
+  },
+  "nx": {
+    "name": "ns-lynx",
+    "targets": {
+      "coverage": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "coverage"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@nativescript/core": "^9.0.20",
+    "vitest": "~4.1.10"
+  },
+  "peerDependencies": {
+    "@nativescript/core": "^9.0.20"
+  }
+}

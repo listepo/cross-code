@@ -2,8 +2,7 @@
 platforms/ios/NSCWasm3/.build
 platforms/android/wasm3-android/.gradle
 platforms/android/wasm3-android/build
-platforms/android/wasm3-android/library/build
-platforms/android/wasm3-android/hosttest/build
+.gradle-build/
 
 # Eclipse/Buildship IDE output (covers hosttest/bin, library/bin, and any
 # future module in the wasm3-android gradle project)

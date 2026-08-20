@@ -9,7 +9,7 @@
     "test": {
       "implementation": "./executors/test/executor",
       "schema": "./executors/test/schema.json",
-      "description": "Run NativeScript tests on a device or emulator. Wraps vitest-ns for the Vitest pool or falls back to ns test."
+      "description": "Run NativeScript tests on a device or emulator via ns test. Rstest device runs are driven by @cross-code/ns-rstest instead."
     },
     "run": {
       "implementation": "./executors/run/executor",

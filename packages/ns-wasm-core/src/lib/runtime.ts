@@ -55,10 +55,24 @@ export interface WasmImports {
 // WasmRuntime
 // ---------------------------------------------------------------------------
 
+/**
+ * Constructor shape `WasmRuntime` uses to build modules. Naming the signature
+ * is what lets engine plugins pass their own subclass without a cast — a
+ * `typeof WasmModule` describes the whole static side, which a subclass is not
+ * required to match.
+ */
+export type WasmModuleCtor = new (
+  adapter: NativeModuleAdapter,
+  runtime: WasmRuntime,
+) => WasmModule;
+
+/** Same, for the function wrapper. */
+export type WasmFunctionCtor = new (adapter: NativeFunctionAdapter) => WasmFunction;
+
 export class WasmRuntime {
   private readonly adapter: NativeRuntimeAdapter;
-  private readonly _ModuleCtor: typeof WasmModule;
-  private readonly _FunctionCtor: typeof WasmFunction;
+  private readonly _ModuleCtor: WasmModuleCtor;
+  private readonly _FunctionCtor: WasmFunctionCtor;
 
   /**
    * @param adapter          A platform-specific `NativeRuntimeAdapter`.
@@ -69,7 +83,7 @@ export class WasmRuntime {
    */
   constructor(
     adapter: NativeRuntimeAdapter,
-    opts?: { moduleCtor?: typeof WasmModule; functionCtor?: typeof WasmFunction },
+    opts?: { moduleCtor?: WasmModuleCtor; functionCtor?: WasmFunctionCtor },
   ) {
     this.adapter = adapter;
     this._ModuleCtor = opts?.moduleCtor ?? WasmModule;
@@ -83,13 +97,10 @@ export class WasmRuntime {
   loadModule(source: WasmModuleSource, imports?: WasmImports): WasmModule {
     let module: WasmModule;
     if (typeof source === 'string') {
-      // Cast: constructor-types stored in a variable need `as any` for
-      // `new` in strict TS (the precise constructor overload isn't known
-      // at the call-site).
-      module = new (this._ModuleCtor as any)(this.adapter.loadModuleFromFile(source), this);
+      module = new this._ModuleCtor(this.adapter.loadModuleFromFile(source), this);
     } else {
       const adapter = this.adapter.loadModuleFromBytes(toBytes(source));
-      module = new (this._ModuleCtor as any)(adapter, this);
+      module = new this._ModuleCtor(adapter, this);
     }
     if (imports) module.linkImports(imports);
     return module;
@@ -105,8 +116,7 @@ export class WasmRuntime {
 
   findFunction(name: string): WasmFunction {
     const fn = this.adapter.findFunction(name);
-    // Same cast rationale as loadModule.
-    return new (this._FunctionCtor as any)(fn);
+    return new this._FunctionCtor(fn);
   }
 
   get memorySize(): number {

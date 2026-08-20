@@ -5,12 +5,13 @@ AGENTS.md — read it before working in this repo. -->
 
 This project's canonical instructions for AI agents are in **`AGENTS.md`**
 (the industry-standard agent guidance file; Claude Code reads it
-automatically). This file exists only so older tools that look for
-`CLAUDE.md` find a path to the same content.
+automatically). Durable gotchas live in **`MEMORY.md`**. This file exists
+only so older tools that look for `CLAUDE.md` find a path to the same
+content.
 
-**Read `AGENTS.md` before exploring, building, or editing anything.**
-It covers: Nx task conventions, the NativeScript plugins (ns-wamr,
-ns-wasm3, ns-wry), the vitest-ns device test pool, the shared wire
-protocol, native build pipelines (prebuilt xcframeworks, cargo-ndk,
-Buck2 via `nx-buck2`), testing layers, and the code-review-graph MCP
-tools that should be used before Grep/Glob/Read.
+**Read `AGENTS.md` and `MEMORY.md` before exploring, building, or editing
+anything.** They cover: Nx task conventions, the NativeScript plugins
+(ns-wamr, ns-wasm3, ns-wry), the ns-rstest device test runner, the
+ns-rspack bundler, the shared wire protocol, native build pipelines
+(prebuilt xcframeworks, cargo-ndk, Buck2 via `nx-buck2`), testing layers,
+and the code-review-graph MCP tools (review-only).

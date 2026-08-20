@@ -1,0 +1,74 @@
+{
+    "name": "@cross-code/ns-rspack",
+    "version": "0.0.1",
+    "description": "rspack bundler for NativeScript apps \u2014 the NativeScript build pipeline, natively on rspack.",
+    "bin": {
+        "ns-rspack": "./dist/bin/index.js"
+    },
+    "files": [
+        "dist",
+        "!**/*.tsbuildinfo"
+    ],
+    "type": "module",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        "./package.json": "./package.json",
+        ".": {
+            "@cross-code/source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        }
+    },
+    "dependencies": {
+        "@rspack/core": "^2.1.9",
+        "css": "^3.0.0",
+        "jiti": "^2.4.2",
+        "postcss": "^8.5.25",
+        "postcss-import": "^16.1.1",
+        "postcss-loader": "^8.2.1",
+        "rspack-chain": "^2.2.0",
+        "rspack-merge": "^1.0.1",
+        "sass": "^1.102.0",
+        "sass-loader": "^16.0.8",
+        "sax": "^1.6.1",
+        "tslib": "^2.3.0"
+    },
+    "devDependencies": {
+        "@rstest/core": "0.11.6",
+        "@rstest/coverage-istanbul": "0.11.6",
+        "@types/css": "^0.0.38",
+        "@types/sax": "^1.2.7",
+        "typescript": "~6.0.0"
+    },
+    "peerDependencies": {
+        "typescript": "*"
+    },
+    "peerDependenciesMeta": {
+        "typescript": {
+            "optional": true
+        }
+    },
+    "scripts": {
+        "test": "rstest run",
+        "coverage": "rstest run --coverage"
+    },
+    "nx": {
+        "targets": {
+            "test": {
+                "executor": "nx:run-script",
+                "options": {
+                    "script": "test"
+                }
+            },
+            "coverage": {
+                "executor": "nx:run-script",
+                "options": {
+                    "script": "coverage"
+                }
+            }
+        }
+    }
+}

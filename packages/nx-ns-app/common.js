@@ -1,11 +1,27 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.nsAppRoot = nsAppRoot;
 exports.resolveNsCli = resolveNsCli;
 exports.buildNsArgs = buildNsArgs;
 exports.buildNsEnv = buildNsEnv;
 exports.runNsCli = runNsCli;
 const devkit_1 = require("@nx/devkit");
 const node_child_process_1 = require("node:child_process");
+const node_path_1 = require("node:path");
+/**
+ * Absolute path to the NativeScript app directory.
+ *
+ * `context.root` is the Nx *workspace* root; the `ns` CLI and `platforms/`
+ * both live in the project root, so every path here goes through this.
+ */
+function nsAppRoot(context) {
+    const project = context.projectName;
+    const relative = (project &&
+        (context.projectGraph?.nodes?.[project]?.data?.root ??
+            context.projectsConfigurations?.projects?.[project]?.root)) ||
+        '.';
+    return (0, node_path_1.join)(context.root, relative);
+}
 /** Resolve the 'ns' CLI — prefers the project-local install, falls back to npx. */
 function resolveNsCli(context) {
     // Prefer NS_CLI_PATH env var for custom installs
@@ -60,13 +76,13 @@ function runNsCli(command, platform, options, context) {
         const cleanArgs = ['ns', 'clean'];
         devkit_1.logger.info(`🧹 Cleaning platform: npx ${cleanArgs.join(' ')}`);
         (0, node_child_process_1.spawnSync)(nsBin, cleanArgs, {
-            cwd: context.root,
+            cwd: nsAppRoot(context),
             env,
             stdio: 'inherit',
         });
     }
     const result = (0, node_child_process_1.spawnSync)(nsBin, args, {
-        cwd: context.root,
+        cwd: nsAppRoot(context),
         env,
         stdio: 'inherit',
     });

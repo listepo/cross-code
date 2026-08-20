@@ -1,7 +1,7 @@
 {
   "name": "@cross-code/ns-wasm-kit-runtime",
   "version": "0.1.0",
-  "description": "NativeScript plugin that runs WebAssembly modules with the WasmKit interpreter (https://github.com/swiftwasm/WasmKit) — Swift Package on iOS, TypeScript adapter with platform-native classes.",
+  "description": "NativeScript plugin that runs WebAssembly modules with the WasmKit interpreter (https://github.com/swiftwasm/WasmKit) \u2014 Swift Package on iOS, TypeScript adapter with platform-native classes.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -33,7 +33,8 @@
     "test.ios": "cd platforms/ios/NSWasmKit && swift test --disable-sandbox",
     "lint.ios": "swiftlint lint --config ../../.swiftlint.yml platforms/ios/NSWasmKit/Sources platforms/ios/NSWasmKit/Tests",
     "periphery.ios": "cd platforms/ios/NSWasmKit && periphery scan --config $(git rev-parse --show-toplevel)/.periphery.yml --disable-update-check",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "build.xcframework": "pnpm exec nx run ns-wasm-kit-runtime:build.xcframework"
   },
   "nx": {
     "name": "ns-wasm-kit-runtime",
@@ -59,8 +60,38 @@
       "buck2-build": {
         "executor": "@cross-code/nx-buck2:build",
         "options": {
+          "target": "//packages/ns-wasm-kit-runtime:all",
           "configuration": "release"
-        }
+        },
+        "configurations": {
+          "release": {
+            "configuration": "release",
+            "target": "//packages/ns-wasm-kit-runtime:all"
+          },
+          "debug": {
+            "configuration": "debug",
+            "target": "//packages/ns-wasm-kit-runtime:all"
+          }
+        },
+        "defaultConfiguration": "release"
+      },
+      "build.xcframework": {
+        "executor": "@cross-code/nx-buck2:build",
+        "options": {
+          "target": "//packages/ns-wasm-kit-runtime:ns-wasmkit-xcframework-release",
+          "configuration": "release"
+        },
+        "configurations": {
+          "release": {
+            "configuration": "release",
+            "target": "//packages/ns-wasm-kit-runtime:ns-wasmkit-xcframework-release"
+          },
+          "debug": {
+            "configuration": "debug",
+            "target": "//packages/ns-wasm-kit-runtime:ns-wasmkit-xcframework-debug"
+          }
+        },
+        "defaultConfiguration": "release"
       }
     }
   },

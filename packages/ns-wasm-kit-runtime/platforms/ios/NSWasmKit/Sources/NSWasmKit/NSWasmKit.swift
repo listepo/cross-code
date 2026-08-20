@@ -34,15 +34,18 @@ private func parseSignature(_ sig: String) throws -> FunctionType {
     return FunctionType(parameters: params, results: results)
 }
 
-/// Map a ValueType to its single-letter wire code.
-private func wireTypeCode(_ type: ValueType) -> String {
+/// Map a ValueType to the wire type name `paramTypes`/`returnTypes` report,
+/// matching NSCWamr and NSCWasm3. These are names ("i64"), not the
+/// single-letter codes used inside signature strings — the shared core keys
+/// its i64 string decoding off them.
+private func typeName(_ type: ValueType) -> String {
     switch type {
-    case .i32: return "i"
-    case .i64: return "I"
-    case .f32: return "f"
-    case .f64: return "F"
-    case .v128: return "V"
-    case .ref: return "r"
+    case .i32: return "i32"
+    case .i64: return "i64"
+    case .f32: return "f32"
+    case .f64: return "f64"
+    case .v128: return "v128"
+    case .ref: return "ref"
     }
 }
 
@@ -66,10 +69,12 @@ private func valueType(of value: Value) -> ValueType {
 /// Convert a WasmKit Value to an NSNumber for the bridge.
 private func valueToNs(_ value: Value) -> Any {
     switch value {
-    case .i32(let v): return NSNumber(value: v)
-    case .i64(let v): return String(v)
-    case .f32(let v): return NSNumber(value: v)
-    case .f64(let v): return NSNumber(value: v)
+    // WasmKit stores every scalar as raw bits, so each case reinterprets rather
+    // than boxing the storage. Matches NSCWamr's WireCoding.value(for:slot:).
+    case .i32(let v): return NSNumber(value: Int32(bitPattern: v))
+    case .i64(let v): return String(Int64(bitPattern: v))
+    case .f32(let v): return NSNumber(value: Double(Float32(bitPattern: v)))
+    case .f64(let v): return NSNumber(value: Float64(bitPattern: v))
     default: return String(describing: value)
     }
 }
@@ -78,12 +83,17 @@ private func valueToNs(_ value: Value) -> Any {
 private func nsToValue(_ val: Any, type: ValueType) throws -> Value {
     switch type {
     case .i32:
-        if let n = val as? NSNumber { return .i32(n.uint32Value) }
-        if let s = val as? String, let v = UInt32(s) { return .i32(v) }
+        if let n = val as? NSNumber { return .i32(UInt32(bitPattern: n.int32Value)) }
+        if let s = val as? String, let v = Int32(s) { return .i32(UInt32(bitPattern: v)) }
         throw NSWasmKitError("cannot convert \(val) to i32")
     case .i64:
-        if let s = val as? String, let v = UInt64(s) { return .i64(v) }
-        if let n = val as? NSNumber { return .i64(n.uint64Value) }
+        // Signed first: the wire format is a signed decimal string, and
+        // UInt64("-1") fails. Fall back to UInt64 for values above Int64.max.
+        if let s = val as? String {
+            if let v = Int64(s) { return .i64(UInt64(bitPattern: v)) }
+            if let v = UInt64(s) { return .i64(v) }
+        }
+        if let n = val as? NSNumber { return .i64(UInt64(bitPattern: n.int64Value)) }
         throw NSWasmKitError("cannot convert \(val) to i64")
     case .f32:
         if let n = val as? NSNumber { return .f32(n.floatValue.bitPattern) }
@@ -119,11 +129,10 @@ class NSWasmKitError: NSError, @unchecked Sendable {
 /// Base class for host callbacks. NativeScript subclasses this via `.extend()`.
 /// The `invoke(_:)` method must be `@objc open dynamic` to bypass the
 /// NativeScript ObjC block-bridging bug.
-@objc open class NSWasmKitHostCallback: NSObject {
+@objc(NSWasmKitHostCallback)
+open class NSWasmKitHostCallback: NSObject {
     /// Override this method to handle host function calls from WebAssembly.
-    @objc open dynamic func invoke(_ args: NSArray) -> NSArray {
-        return NSArray()
-    }
+    @objc open dynamic func invoke(_ args: NSArray) -> NSArray? { nil }
 }
 
 /// Internal wrapper holding a Swift closure for host callbacks.
@@ -179,11 +188,11 @@ public class NSWasmKitFunction: NSObject {
     @objc public var name: String { _name }
 
     @objc public var paramTypes: NSArray {
-        return function.type.parameters.map { wireTypeCode($0) as NSString } as NSArray
+        return function.type.parameters.map { typeName($0) as NSString } as NSArray
     }
 
     @objc public var returnTypes: NSArray {
-        return function.type.results.map { wireTypeCode($0) as NSString } as NSArray
+        return function.type.results.map { typeName($0) as NSString } as NSArray
     }
 
     @objc public func call(withArguments args: NSArray) throws -> NSArray {
@@ -219,10 +228,39 @@ public class NSWasmKitModule: NSObject {
 
     @objc public var name: String { _name }
 
-    @objc public func findFunction(_ name: String) throws -> NSWasmKitFunction {
-        guard let instance else {
-            throw NSWasmKitError("module not instantiated")
+    /// WasmKit takes imports at instantiation time, but the wire protocol links
+    /// host functions after `loadModule` returns, so instantiation is deferred
+    /// until the module is first used.
+    private func ensureInstance() throws -> Instance {
+        if let instance { return instance }
+        var imports = Imports()
+        for importEntry in module.imports {
+            guard case .function(let typeIndex) = importEntry.descriptor else { continue }
+            let funcType = module.types[Int(typeIndex)]
+            let key = "\(importEntry.module).\(importEntry.name)"
+            let fn: Function
+            if let callback = hostCallbacks[key] as? NSWasmKitHostCallback {
+                fn = makeHostCallback(
+                    callback,
+                    module: importEntry.module,
+                    name: importEntry.name,
+                    type: funcType,
+                    store: store
+                )
+            } else {
+                fn = Function(store: store, type: funcType) { _, _ in
+                    throw NSWasmKitError("unlinked import: \(importEntry.module).\(importEntry.name)")
+                }
+            }
+            imports.define(module: importEntry.module, name: importEntry.name, fn)
         }
+        let created = try module.instantiate(store: store, imports: imports)
+        instance = created
+        return created
+    }
+
+    @objc public func findFunction(_ name: String) throws -> NSWasmKitFunction {
+        let instance = try ensureInstance()
         guard let fn = instance.exports[function: name] else {
             throw NSWasmKitError("exported function '\(name)' not found")
         }
@@ -235,14 +273,15 @@ public class NSWasmKitModule: NSObject {
         signature: String,
         callback: NSWasmKitHostCallback,
     ) throws {
-        // Store the callback to prevent deallocation
+        guard instance == nil else {
+            throw NSWasmKitError(
+                "cannot link '\(moduleName).\(name)' after the module is instantiated")
+        }
         hostCallbacks["\(moduleName).\(name)"] = callback
     }
 
     @objc public func getGlobal(_ name: String) throws -> Any {
-        guard let instance else {
-            throw NSWasmKitError("module not instantiated")
-        }
+        let instance = try ensureInstance()
         guard let global = instance.exports[global: name] else {
             throw NSWasmKitError("exported global '\(name)' not found")
         }
@@ -250,9 +289,7 @@ public class NSWasmKitModule: NSObject {
     }
 
     @objc public func setGlobal(_ name: String, value: Any) throws {
-        guard let instance else {
-            throw NSWasmKitError("module not instantiated")
-        }
+        let instance = try ensureInstance()
         guard let global = instance.exports[global: name] else {
             throw NSWasmKitError("exported global '\(name)' not found")
         }
@@ -270,58 +307,34 @@ public class NSWasmKitRuntime: NSObject {
     let store: Store
     var modules: [NSWasmKitModule] = []
 
-    @objc public init(_ stackSizeInBytes: Int) {
+    @objc(initWithStackSize:)
+    public init(stackSizeInBytes: Int) {
         var config = EngineConfiguration()
         config.stackSize = stackSizeInBytes
+        // WasmKit's default direct-threaded interpreter miscompiles under Swift
+        // optimization here: every optimized build (-O and -Osize, with and
+        // without LTO) faults in objc_retain on a raw wasm operand inside
+        // runDirectThreaded, while -Onone runs clean. Take WasmKit's own
+        // documented fallback instead of shipping a debug-built binary.
+        config.threadingModel = .token
         self.engine = Engine(configuration: config)
         self.store = Store(engine: engine)
         super.init()
     }
 
     @objc public convenience override init() {
-        self.init(64 * 1024)
+        self.init(stackSizeInBytes: 64 * 1024)
     }
 
     @objc public static func wasmkitVersion() -> String {
-        return "WasmKit"
+        // Tracks the WasmKit version pinned in Package.resolved.
+        return "0.3.1"
     }
 
     @objc public func loadModule(fromBytes data: Data) throws -> NSWasmKitModule {
         let bytes = [UInt8](data)
         let module = try parseWasm(bytes: bytes)
         let nscModule = NSWasmKitModule(module: module, store: store, name: "module")
-
-        // Build imports from linked host callbacks
-        var imports = Imports()
-        for importEntry in module.imports {
-            switch importEntry.descriptor {
-            case .function(let typeIndex):
-                let funcType = module.types[Int(typeIndex)]
-                let key = "\(importEntry.module).\(importEntry.name)"
-                if let callback = nscModule.hostCallbacks[key] as? NSWasmKitHostCallback {
-                    let fn = makeHostCallback(
-                        callback,
-                        module: importEntry.module,
-                        name: importEntry.name,
-                        type: funcType,
-                        store: store
-                    )
-                    imports.define(module: importEntry.module, name: importEntry.name, fn)
-                } else {
-                    // Create a default host function that throws
-                    let fn = Function(store: store, type: funcType) { _, _ in
-                        throw NSWasmKitError("unlinked import: \(importEntry.module).\(importEntry.name)")
-                    }
-                    imports.define(module: importEntry.module, name: importEntry.name, fn)
-                }
-            default:
-                break
-            }
-        }
-
-        // Instantiate the module
-        let instance = try module.instantiate(store: store, imports: imports)
-        nscModule.instance = instance
         modules.append(nscModule)
         return nscModule
     }

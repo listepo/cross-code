@@ -1,7 +1,13 @@
 # This app is intentionally NOT part of the root monorepo workspace (packages/*):
 # the ns CLI needs its own node_modules. Declaring the app directory as its
 # own pnpm workspace root gives it a separate install and its own pnpm-lock.yaml.
-packages: []
+#
+# The rspack bundler is consumed through the `workspace:` protocol, so the
+# sibling package is exposed to this workspace. The app itself stays a
+# standalone install — only packages/* is reachable, never the root workspace.
+packages:
+  - ../../packages/ns-rspack
+  - ../../packages/ns-wry
 
 # pnpm 11 blocks dependency build scripts by default (ERR_PNPM_IGNORED_BUILDS).
 allowBuilds:

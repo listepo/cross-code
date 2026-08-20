@@ -1,5 +1,8 @@
 # GitHub Copilot Instructions
 
+Canonical agent guidance is [`AGENTS.md`](../AGENTS.md). Durable gotchas
+are [`MEMORY.md`](../MEMORY.md). Read both before editing.
+
 ## Code Review
 
 The following paths contain **vendored third-party sources** and should be excluded from code review:

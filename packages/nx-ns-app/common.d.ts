@@ -22,8 +22,6 @@ export interface NsBuildOptions extends NsPlatformOptions {
 export interface NsTestOptions extends NsPlatformOptions {
     /** Generate coverage reports. */
     coverage?: boolean;
-    /** Use vitest-ns pool (default: true for apps that have it). */
-    vitest?: boolean;
 }
 export interface NsRunOptions extends NsPlatformOptions {
     /** Force clean before running. */
@@ -44,6 +42,13 @@ export interface NsPrepareOptions {
     /** Pass environment variables. */
     env?: Record<string, string>;
 }
+/**
+ * Absolute path to the NativeScript app directory.
+ *
+ * `context.root` is the Nx *workspace* root; the `ns` CLI and `platforms/`
+ * both live in the project root, so every path here goes through this.
+ */
+export declare function nsAppRoot(context: ExecutorContext): string;
 /** Resolve the 'ns' CLI — prefers the project-local install, falls back to npx. */
 export declare function resolveNsCli(context: ExecutorContext): string;
 /** Build the argument list for `ns <command>`. */

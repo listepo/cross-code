@@ -2,23 +2,27 @@
 // globalThis by the NativeScript iOS runtime.
 
 import { WamrError, type WasmValueType, type WireValue } from './wire.js';
-import type { WireHostCallback, NativeFunctionAdapter, NativeModuleAdapter, NativeRuntimeAdapter } from '@cross-code/ns-wasm-core';
+import {
+  nativeArrayToJs,
+  nativeGlobals,
+  type WireHostCallback,
+  type NativeFunctionAdapter,
+  type NativeModuleAdapter,
+  type NativeRuntimeAdapter,
+  type InteropApi,
+  type NativeMutableArray,
+} from '@cross-code/ns-wasm-core';
 
 // ---------------------------------------------------------------------------
 // iOS helpers
 // ---------------------------------------------------------------------------
 
-function nsArrayToJs(value: any): any[] {
-  if (value == null) return [];
-  if (Array.isArray(value)) return value as any[];
-  const result: any[] = [];
-  const count = value.count ?? 0;
-  for (let i = 0; i < count; i++) result.push(value.objectAtIndex(i));
-  return result;
+function nsArrayToJs(value: unknown): unknown[] {
+  return nativeArrayToJs(value);
 }
 
-function iosInterop(): any {
-  return (globalThis as any).interop;
+function iosInterop(): InteropApi | undefined {
+  return nativeGlobals().interop;
 }
 
 /**
@@ -29,18 +33,20 @@ function iosInterop(): any {
  * error at all. Individual numbers and strings do convert, so filling a
  * genuine NSMutableArray is enough.
  */
-function toNsArray(values: WireValue[]): any {
-  const array = (globalThis as any).NSMutableArray.alloc().init();
+function toNsArray(values: WireValue[]): NativeMutableArray {
+  const NSMutableArray = nativeGlobals().NSMutableArray;
+  if (!NSMutableArray) throw new WamrError('NSMutableArray not available');
+  const array = NSMutableArray.alloc().init();
   for (const value of values) array.addObject(value);
   return array;
 }
 
-function newErrorRef(): any {
+function newErrorRef(): NativeErrorRef | null {
   const interop = iosInterop();
-  return interop?.Reference ? new interop.Reference() : null;
+  return interop?.Reference ? new interop.Reference<NativeErrorValue>() : null;
 }
 
-function checkErrorRef(errorRef: any, context: string): void {
+function checkErrorRef(errorRef: NativeErrorRef | null, context: string): void {
   if (!errorRef?.value) return;
   const msg = errorRef.value.localizedDescription ?? String(errorRef.value);
   throw new WamrError(`${context}: ${String(msg).replace(/^[\w.]*NSCWamrException:\s*/, '')}`);
@@ -62,7 +68,7 @@ function rethrow(error: unknown, context: string): never {
  * `call` receives the arguments to append: one error reference, or nothing at
  * all on a runtime that exposes no `interop.Reference`.
  */
-function withErrorRef<T>(context: string, call: (errorArgs: any[]) => T): T {
+function withErrorRef<T>(context: string, call: (errorArgs: NativeErrorRef[]) => T): T {
   const errorRef = newErrorRef();
   try {
     const result = call(errorRef ? [errorRef] : []);
@@ -78,7 +84,7 @@ function withErrorRef<T>(context: string, call: (errorArgs: any[]) => T): T {
 // ---------------------------------------------------------------------------
 
 class IosFunction implements NativeFunctionAdapter {
-  constructor(private readonly fn: any) {}
+  constructor(private readonly fn: NSCWamrFunctionRef) {}
   name(): string {
     return String(this.fn.name);
   }
@@ -104,8 +110,8 @@ class IosFunction implements NativeFunctionAdapter {
  * Using a subclassable ObjC object avoids the NativeScript ObjC block-bridging
  * bug that causes EXC_BAD_ACCESS when a JS lambda is passed as a block parameter.
  */
-function makeIosHostCallback(cb: WireHostCallback): any {
-  const Base = (globalThis as any).NSCWamrHostCallback;
+function makeIosHostCallback(cb: WireHostCallback): object {
+  const Base = globalThis.NSCWamrHostCallback;
   if (!Base) throw new WamrError('NSCWamrHostCallback not available');
 
   const Subclass = Base.extend({
@@ -116,7 +122,7 @@ function makeIosHostCallback(cb: WireHostCallback): any {
     // extend() as a plain JS method, so a wrong name here does not fail loudly
     // — the base implementation runs instead and returns nil, which the
     // trampoline reports as a trap on any import that returns a value.
-    invoke(nativeArgs: any): any {
+    invoke(nativeArgs: NativeList): unknown {
       return toNsArray(cb(nsArrayToJs(nativeArgs) as WireValue[]));
     },
   });
@@ -125,8 +131,8 @@ function makeIosHostCallback(cb: WireHostCallback): any {
 
 class IosModule implements NativeModuleAdapter {
   constructor(
-    private readonly module: any,
-    private readonly hostCallbacks: any[],
+    private readonly module: NSCWamrModuleRef,
+    private readonly hostCallbacks: object[],
   ) {}
   name(): string {
     return String(this.module.name);
@@ -154,16 +160,16 @@ class IosModule implements NativeModuleAdapter {
 }
 
 export class IosRuntime implements NativeRuntimeAdapter {
-  private readonly runtime: any;
+  private readonly runtime: NSCWamrRuntimeRef;
   // ObjC callback objects must be retained on the JS side for the lifetime
   // of the runtime. If the JS GC collects them, the NativeScript bridge may
   // deallocate the ObjC object even though Swift holds a strong ref, causing
   // the host trampoline to reach a zombie callback whose invoke returns nil.
-  private hostCallbacks: any[] = [];
+  private hostCallbacks: object[] = [];
   private disposed = false;
 
   constructor(options: { stackSizeInBytes: number; wasiEnabled: boolean; executionTier: number }) {
-    const RuntimeClass = (globalThis as any).NSCWamrRuntime;
+    const RuntimeClass = globalThis.NSCWamrRuntime;
     if (!RuntimeClass) {
       throw new WamrError(
         'ns-wamr native runtime not found — is the plugin installed and the app rebuilt?',
@@ -210,7 +216,8 @@ export class IosRuntime implements NativeRuntimeAdapter {
       this.runtime.readMemoryAtOffsetLengthError(offset, length, ...err),
     );
     if (!data) throw new WamrError('readMemory: returned null');
-    const buffer = iosInterop()?.bufferFromData(data);
+    const buffer = iosInterop()?.bufferFromData?.(data);
+    if (!buffer) throw new WamrError('readMemory: interop.bufferFromData unavailable');
     return new Uint8Array(buffer);
   }
 

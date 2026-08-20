@@ -3,35 +3,40 @@
 genrule(
     name = "chicory-android",
     srcs = glob([
-        "platforms/android/chicory-android/library/src/**/*.kt",
-        "platforms/android/chicory-android/library/build.gradle.kts",
-        "platforms/android/chicory-android/build.gradle.kts",
-        "platforms/android/chicory-android/settings.gradle.kts",
+        "platforms/android/chicory-android/**/*.kt",
+        "platforms/android/chicory-android/**/*.kts",
+        "platforms/android/chicory-android/**/gradle/**",
+        "platforms/android/chicory-android/gradlew",
+        "platforms/android/chicory-android/**/*.pro",
     ]),
     out = "nativescript-chicory.aar",
-    cmd = "cd $SRCDIR/platforms/android/chicory-android && ./gradlew :library:deployAar && cp $SRCDIR/platforms/android/nativescript-chicory.aar $OUT",
+    # deployAar writes one level up from chicory-android/; capture $OUT
+    # before cd'ing. install-nativescript-aar.sh copies $OUT out of the
+    # buck2 sandbox into packages/ns-wasm-chicory/platforms/android/ — see
+    # packages/ns-wamr/BUCK's wamr-android-aar comment.
+    cmd = "OUT_ABS=\"$PWD/$OUT\"; ROOT=\"`git rev-parse --show-toplevel`\"; cd $SRCDIR/platforms/android/chicory-android && bash \"$ROOT/tools/gradlew-retry.sh\" :library:deployAar && cp ../nativescript-chicory.aar \"$OUT_ABS\" && bash \"$ROOT/tools/install-nativescript-aar.sh\" ns-wasm-chicory nativescript-chicory.aar \"$OUT_ABS\"",
     visibility = ["PUBLIC"],
 )
 
 genrule(
     name = "chicory-test",
     srcs = glob([
-        "platforms/android/chicory-android/library/src/**/*.kt",
-        "platforms/android/chicory-android/library/build.gradle.kts",
-        "platforms/android/chicory-android/build.gradle.kts",
-        "platforms/android/chicory-android/settings.gradle.kts",
+        "platforms/android/chicory-android/**/*.kt",
+        "platforms/android/chicory-android/**/*.kts",
+        "platforms/android/chicory-android/**/gradle/**",
+        "platforms/android/chicory-android/gradlew",
+        "platforms/android/chicory-android/**/*.pro",
     ]),
     out = "test-results.stamp",
-    cmd = "cd $SRCDIR/platforms/android/chicory-android && ./gradlew :library:test && touch $OUT",
+    cmd = "cd $SRCDIR/platforms/android/chicory-android && bash \"`git rev-parse --show-toplevel`/tools/gradlew-retry.sh\" :library:test && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
 genrule(
     name = "all",
-    srcs = [],
     out = "all.stamp",
     cmd = "echo 'ns-wasm-chicory: all targets' && touch $OUT",
-    deps = [
+    srcs = [
         ":chicory-android",
         ":chicory-test",
     ],

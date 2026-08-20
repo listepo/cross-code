@@ -176,6 +176,19 @@ class NSCWasm3Test {
         assertFailsWith<NSCWasm3Exception> { add.call(arrayOf(Any(), 2)) }
     }
 
+    /**
+     * Regression: every other call test here passes at least one argument, so a
+     * no-arg call went uncovered. Padding the argument slot array to a minimum
+     * length of 1 made wasm3 see argc=1 against numArgs=0 and fail every no-arg
+     * call with "argument count mismatch" — see NSCWasm3.call.
+     */
+    @Test
+    fun noArgumentCall() = withSuite { runtime, _ ->
+        val getPi = runtime.findFunction("get_pi")
+        assertContentEquals(emptyArray(), getPi.paramTypes)
+        assertEquals(Math.PI, getPi.call(emptyArray())[0] as Double, 1e-15)
+    }
+
     @Test
     fun invalidModuleBytes() {
         NSCWasm3Runtime().use { runtime ->

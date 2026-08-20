@@ -3,20 +3,54 @@
   "version": "0.1.0",
   "private": true,
   "description": "Nx plugin for Buck2 — cross-compilation native builds with debug/release profiles, size optimization, and symbol preservation.",
-  "main": "./src/index.js",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "executors": "./executors.json",
   "generators": "./generators.json",
   "nx": {
-    "name": "nx-buck2"
+    "name": "nx-buck2",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:tsc",
+        "outputs": ["{options.outputPath}"],
+        "options": {
+          "outputPath": "packages/nx-buck2/dist",
+          "main": "packages/nx-buck2/src/index.ts",
+          "tsConfig": "packages/nx-buck2/tsconfig.lib.json",
+          "rootDir": "packages/nx-buck2/src",
+          "generatePackageJson": false,
+          "assets": [
+            {
+              "input": "./packages/nx-buck2/src",
+              "glob": "**/!(*.ts)",
+              "output": "."
+            },
+            {
+              "input": "./packages/nx-buck2/src",
+              "glob": "**/*.d.ts",
+              "output": "."
+            }
+          ]
+        }
+      }
+    }
   },
   "dependencies": {
-    "@nx/devkit": ">=21.0.0"
+    "@nx/devkit": ">=21.0.0",
+    "zx": "^8.8.5"
   },
+  "files": ["dist", "!**/*.tsbuildinfo", "generators.json", "executors.json"],
   "scripts": {
-    "clean": "rm -rf executors generators index.js index.d.ts",
-    "prebuild": "pnpm run clean",
-    "build": "tsc -p tsconfig.lib.json && for d in executors/build executors/test executors/run generators/init generators/project; do cp src/$d/schema.json $d/schema.json 2>/dev/null; done",
-    "typecheck": "tsc --noEmit -p tsconfig.lib.json",
     "test": "vitest run"
   }
 }

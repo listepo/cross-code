@@ -1,6 +1,6 @@
 # ns-wasm-test
 
-On-device Vitest coverage for
+On-device Rstest coverage for
 [`@cross-code/ns-wasm3`](../../packages/ns-wasm3) and
 [`@cross-code/ns-wamr`](../../packages/ns-wamr). The app
 runs the shared WebAssembly fixture against the real native runtimes on iOS
@@ -10,13 +10,13 @@ There are two app modes:
 
 - The normal demo entry (`app/app.ts`) renders the shared WASM checks when you
   tap **RUN**.
-- The test entry (`app/vitest-ns.ts`) displays the optional
-  `@cross-code/vitest-ns-ui` results page while Vitest executes the
+- The test entry (`app/_ns-rstest.ts`) displays the optional
+  `@cross-code/ns-rstest/ui` results page while Rstest executes the
   specs in a NativeScript Worker.
 
-Vitest remains in Node for discovery, scheduling, and CLI reporting. The
-`@cross-code/vitest-ns` custom pool sends each selected file over a
-WebSocket to the NativeScript app, where the Worker loads and executes it.
+`@cross-code/ns-rstest` runs the host loop in Node — discovery, scheduling and
+reporting — and sends each selected file over a WebSocket to the NativeScript
+app, where the Worker executes it with Rstest's own runtime.
 The test entry imports `@valor/nativescript-websockets` first because
 NativeScript Core does not provide the browser-compatible `WebSocket` global
 used by that host/device connection.
@@ -24,19 +24,19 @@ used by that host/device connection.
 ## Layout
 
 ```text
-app/vitest-ns.ts          test-only app entry and results UI
-app/vitest-ns.worker.ts   Worker registry for app/tests/**/*.spec.ts
-app/tests/wasm3/*.spec.ts           Vitest specs for wasm3
-app/tests/wamr/*.spec.ts            Vitest specs for WAMR
+app/_ns-rstest.ts                    test-only app entry and results UI
+app/_ns-rstest.worker.ts             Worker registry for app/tests/**/*.spec.ts
+app/tests/wasm3/*.spec.ts           Rstest specs for wasm3
+app/tests/wamr/*.spec.ts            Rstest specs for WAMR
 app/wasm/fixture-suite.ts           checks shared by specs and demo page
 app/wasm/wasm-assets.ts             device paths and platform-aware byte reader
-vitest.ios.config.mts               iOS simulator custom-pool config
-vitest.android.config.mts           Android emulator custom-pool config
-webpack.config.js                   fixture copies and test-entry/shim setup
+ns-rstest.ios.mts                   iOS simulator host runner
+ns-rstest.android.mts               Android emulator host runner
+rspack.config.ts                    fixture copies and test-entry/shim setup
 ```
 
-The webpack helper changes the bundle entry and aliases bare `vitest` imports
-only when `--env.vitestNativeScript` is present. Production/demo builds still
+The bundler helper changes the bundle entry and aliases bare `@rstest/core`
+imports only when `--env.rstestNativeScript` is present. Production/demo builds still
 start from `app/app.ts` and do not include the specs.
 
 ## Run tests
@@ -60,14 +60,14 @@ pnpm run test.ios:coverage
 pnpm run test.android:coverage
 ```
 
-Both Vitest configs launch an emulator/simulator through the project-local
+Both host runners launch an emulator/simulator through the project-local
 NativeScript CLI. They currently use one NativeScript Worker, which keeps
 native runtime state isolated from the UI thread and avoids concurrent access
 to plugin/native singletons. Increase `workers` only for tests known to be
 thread-safe.
 
 To select a physical device, replace the `launchCommand` in the relevant
-Vitest config with the normal `npx ns run <platform> --device <id>` arguments
+host runner with the normal `npx ns run <platform> --device <id>` arguments
 and set the coordinator `url` to a WebSocket address reachable from that
 device.
 
@@ -75,17 +75,17 @@ device.
 
 Coverage runs execute the same device suite and use Istanbul instrumentation,
 because NativeScript's JavaScript runtimes do not provide V8 coverage. Passing
-`--coverage` automatically adds the coverage-only webpack flag; ordinary test
+`--coverage` automatically adds the coverage-only bundler flag; ordinary test
 runs stay uninstrumented.
 
-The reports are written separately by platform:
+Raw Istanbul data is written separately by platform:
 
-- `test-output/vitest/coverage/ios/index.html`
-- `test-output/vitest/coverage/android/index.html`
+- `test-output/rstest/coverage/ios/coverage-final.json`
+- `test-output/rstest/coverage/android/coverage-final.json`
 
-Each report covers executed application sources under `app/`, excluding test
-files and the NativeScript Vitest bootstrap files. `all` is deliberately
-disabled: the device bundle supplies runtime coverage only for files it loads.
+Render them with `npx nyc report --temp-dir <dir>` or hand them to a coverage
+uploader. The device bundle supplies coverage only for files it actually
+loads.
 
 ## Behavioral coverage
 
@@ -125,11 +125,10 @@ pnpm install --force
   this app's generated `platforms/<platform>` directory and rerun the target.
 - The host and device communicate on port `17878`. Do not run the iOS and
   Android targets concurrently unless they use different ports.
-- `vitest-ns` currently supports one-shot `vitest run`; watch/HMR,
-  `vi` mocks/fake timers, snapshots, and component testing are not implemented.
+- `ns-rstest` currently supports one-shot runs; watch/HMR, snapshots, and
+  component testing are not implemented.
 
 ## See also
 
-- [`@cross-code/vitest-ns`](../../packages/vitest-ns/README.md)
-- [`@cross-code/vitest-ns-ui`](../../packages/vitest-ns-ui/README.md)
+- [`@cross-code/ns-rstest`](../../packages/ns-rstest/README.md)
 - [Workspace README](../../README.md)

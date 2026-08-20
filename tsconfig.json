@@ -13,10 +13,10 @@
             "path": "./packages/ns-wamr"
         },
         {
-            "path": "./packages/vitest-ns"
+            "path": "./packages/ns-lynx"
         },
         {
-            "path": "./packages/vitest-ns-ui"
+            "path": "./packages/ns-rstest"
         },
         {
             "path": "./packages/ns-wry"
@@ -35,6 +35,12 @@
         },
         {
             "path": "./packages/ns-endive"
+        },
+        {
+            "path": "./packages/ns-rspack"
+        },
+        {
+            "path": "./apps/rspack-test-app"
         }
     ],
     "compilerOptions": {}

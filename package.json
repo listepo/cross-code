@@ -4,7 +4,8 @@
   "license": "MIT",
   "scripts": {
     "clean.cache": "node tools/clean.mjs",
-    "clean.cache:all": "node tools/clean.mjs --all"
+    "clean.cache:all": "node tools/clean.mjs --all",
+    "verify:lockfiles": "node tools/verify-nested-lockfiles.mjs"
   },
   "private": true,
   "packageManager": "pnpm@11.20.0",
@@ -13,13 +14,17 @@
     "@cross-code/nx-ns-app": "workspace:*",
     "@nx/devkit": "^23.1.0",
     "@nx/js": "23.1.0",
+    "@nx/plugin": "23.1.0",
+    "@nx/vite": "23.1.0",
     "@nx/vitest": "23.1.0",
+    "@nx/web": "23.1.0",
     "@swc-node/register": "1.11.1",
     "@swc/core": "1.15.8",
     "@swc/helpers": "0.5.18",
     "@types/node": "^24.13.3",
     "@vitest/coverage-v8": "~4.1.0",
     "agent-device": "^0.20.6",
+    "jiti": "2.4.2",
     "nativescript": "^9.0.6",
     "nx": "23.1.0",
     "oxfmt": "^0.62.0",
@@ -48,5 +53,6 @@
         }
       }
     }
-  }
+  },
+  "dependencies": {}
 }

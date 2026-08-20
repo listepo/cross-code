@@ -70,8 +70,14 @@ jobs:
             pnpm-lock.yaml
             apps/ns-wasm-test/pnpm-lock.yaml
             apps/ns-wry-app/pnpm-lock.yaml
+            apps/ns-lynx-app/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+
+      # Nested NS apps snapshot workspace: deps into their own lockfiles. A dep
+      # change in packages/* must be followed by `pnpm install` in each app.
+      - name: Verify nested app lockfiles
+        run: pnpm run verify:lockfiles
 
       # Both apps resolve the plugins through file: dependencies and import
       # their built dist/. pnpm snapshots file: deps into the app's
@@ -124,8 +130,8 @@ jobs:
             packages/ns-wasm-edge/test-output/vitest/coverage/lcov.info
             packages/ns-endive/test-output/vitest/coverage/lcov.info
             packages/ns-wry/test-output/vitest/coverage/lcov.info
-            packages/vitest-ns/test-output/vitest/coverage/lcov.info
-            packages/vitest-ns-ui/test-output/vitest/coverage/lcov.info
+            packages/ns-lynx/test-output/vitest/coverage/lcov.info
+            packages/ns-rstest/test-output/vitest/coverage/lcov.info
             packages/ns-wasm-fixture/target/coverage/lcov.info
 
       # Rust is pre-installed on GitHub's ubuntu-latest runner. When debugging
@@ -213,7 +219,7 @@ jobs:
 
           # The app's suite runs the plugin end to end, so a plugin or fixture
           # change is as relevant to it as a change to the app itself.
-          if grep -qE '^(apps/ns-wasm-test/|packages/ns-wasm3/|packages/ns-wamr/|packages/ns-wasm-kit-runtime/|packages/ns-endive/|packages/ns-wasm-chicory/|packages/ns-wasm-edge/|packages/ns-wasm-core/|packages/ns-wasm-fixture/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+          if grep -qE '^(apps/ns-wasm-test/|packages/ns-wasm3/|packages/ns-wamr/|packages/ns-wasm-kit-runtime/|packages/ns-endive/|packages/ns-wasm-chicory/|packages/ns-wasm-edge/|packages/ns-wasm-core/|packages/ns-wasm-fixture/|packages/ns-rspack/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
             echo "app=true" >> "$GITHUB_OUTPUT"
           else
             echo "app=false" >> "$GITHUB_OUTPUT"
@@ -483,14 +489,45 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The app snapshots local file: dependencies when pnpm installs them, so
-      # every package whose entry point lives in dist/ must be built first.
+      # The app consumes local packages through `workspace:` links, so the
+      # linked dist/ entry points must exist before the app is installed or
+      # built — build every local package first.
       - name: Build the app's local packages
-        run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge vitest-ns vitest-ns-ui
+        run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge ns-rspack ns-rstest ns-lynx
+
+      - name: Install Buck2
+        run: |
+          set -o pipefail
+          curl -fsSL https://github.com/facebook/buck2/releases/download/latest/buck2-aarch64-apple-darwin.zst \
+            | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null
+          sudo chmod +x /usr/local/bin/buck2
+          buck2 --version
+
+      - name: Build native iOS artifacts
+        env:
+          HOME: /tmp/buck2-home
+        run: |
+          pnpm exec nx run-many -t build.xcframework --configuration=release \
+            -p ns-wamr ns-wasm3 ns-wry ns-wasm-kit-runtime
 
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test
         run: pnpm install --frozen-lockfile
+
+      # `ns run ios --emulator` only auto-boots a simulator when Simulator.app
+      # is already a running process (ios-sim-portable's startSimulator calls
+      # `simctl boot` solely inside its `isSimulatorAppRunning` branch) — true
+      # on a developer's Mac, never true on a fresh runner. Left to itself it
+      # just opens an empty Simulator window and gives up, so every device
+      # search after it comes back empty ("Unable to find applicable
+      # devices..."). Boot one explicitly so the CLI's own device-discovery
+      # (plain `simctl`-state polling, no GUI dependency) finds it already
+      # running and skips that codepath entirely.
+      - name: Boot an iOS Simulator
+        run: |
+          UDID=$(xcrun simctl list devices available | grep -m1 'iPhone' | grep -oE '[0-9A-Fa-f]{8}-([0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}')
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
 
       # `ns doctor` shells out to `pod --version`, which prints a locale warning
       # the CLI treats as a failed CocoaPods check unless LANG is a UTF-8 one.
@@ -504,7 +541,6 @@ jobs:
   wasm-test-android:
     needs: changes
     if: needs.changes.outputs.app == 'true'
-    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -521,10 +557,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Keep this before the app install: pnpm snapshots local file: packages,
-      # including their generated dist/ entry points, into app node_modules.
+      # Keep this before the app install: the app consumes local packages
+      # through `workspace:` links, so their dist/ entry points must exist
+      # before the app is installed or built.
       - name: Build the app's local packages
-        run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge vitest-ns vitest-ns-ui
+        run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge ns-rspack ns-rstest ns-lynx
 
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test
@@ -543,6 +580,16 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # gradle's buildNative shells out to `cargo ndk`, several process layers
+      # below (emulator-runner -> nx -> buck2 genrule -> gradle Exec). Only a
+      # real process env var survives that, so pin the toolchain paths here
+      # rather than in the emulator script, which cannot export anything (see
+      # below). Written via $GITHUB_ENV so $HOME expands.
+      - name: Pin the cargo/rustup toolchain locations
+        run: |
+          echo "RUSTUP_HOME=$HOME/.rustup" >> "$GITHUB_ENV"
+          echo "CARGO_HOME=$HOME/.cargo" >> "$GITHUB_ENV"
+
       # Both plugins ship prebuilt .aar files with their .so files.
       - name: Vitest specs on the Android emulator
         uses: reactivecircus/android-emulator-runner@v2
@@ -550,4 +597,22 @@ jobs:
           api-level: 34
           arch: x86_64
           working-directory: .
-          script: pnpm exec nx run ns-wasm-test:test.android
+          script: |
+            # android-emulator-runner splits this script on newlines and runs
+            # each line as its own `/bin/sh -c`. So: every line must stand
+            # alone (a `\` continuation is passed as a literal argument, not
+            # joined — that silently dropped the `-p` filter below and built
+            # every project with a build.android target), `export` is useless
+            # (see the step above), and `set -e`/`set -o pipefail` are too —
+            # the action already stops on the first line that exits non-zero,
+            # which is why the pipe is avoided here rather than guarded.
+            curl -fsSL https://github.com/facebook/buck2/releases/download/latest/buck2-x86_64-unknown-linux-gnu.zst -o /tmp/buck2.zst
+            zstd -d /tmp/buck2.zst -o /tmp/buck2
+            sudo install -m 0755 /tmp/buck2 /usr/local/bin/buck2
+            buck2 --version
+            rustup show
+            rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+            cargo install cargo-ndk
+            pnpm exec nx run-many -t build.android --configuration=release -p ns-wamr ns-wasm3 ns-wasm-chicory
+            ls -l packages/ns-wamr/platforms/android/nativescript-wamr.aar packages/ns-wasm3/platforms/android/nativescript-wasm3.aar packages/ns-wasm-chicory/platforms/android/nativescript-chicory.aar
+            pnpm exec nx run ns-wasm-test:test.android

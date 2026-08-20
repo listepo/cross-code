@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { ExecutorContext } from '@nx/devkit';
 import cleanExecutor from './executor';
 
 const mockRmSync = vi.fn();
 vi.mock('node:fs', () => ({ rmSync: (...a: unknown[]) => mockRmSync(...a) }));
 
-function mockContext(): any {
-  return { root: '/workspace/apps/test', projectName: 'test', target: {}, targetName: 'clean', cwd: '/workspace/apps/test', isVerbose: false };
+// The executors only read `root`; the rest of ExecutorContext is not worth
+// building out for a unit test, so the literal is narrowed on the way out.
+function mockContext(): ExecutorContext {
+  return { root: '/workspace/apps/test', projectName: 'test', target: {}, targetName: 'clean', cwd: '/workspace/apps/test', isVerbose: false } as ExecutorContext;
 }
 
 describe('cleanExecutor', () => {

@@ -8,15 +8,40 @@
 # .github/workflows/ci.yml).
 packages:
   - 'packages/*'
+  # rspack-test-app is a member so it can consume @cross-code/ns-rspack through
+  # the workspace protocol (aliased to @nativescript/rspack, the name the {N}
+  # CLI resolves the bundler under).
+  - 'apps/rspack-test-app'
 
 # pnpm 11 blocks dependency build scripts by default (ERR_PNPM_IGNORED_BUILDS).
 # These packages need theirs to run (native binaries / CLI setup). Approving
 # them is the non-interactive equivalent of `pnpm approve-builds`.
 allowBuilds:
   '@nativescript/core': true
+  '@parcel/watcher': true
   '@swc/core': true
+  core-js-pure: false
   nativescript: true
   nx: true
+  unrs-resolver: false
+
+minimumReleaseAgeExclude:
+  - '@rspack/binding-darwin-arm64@2.1.9'
+  - '@rspack/binding-darwin-x64@2.1.9'
+  - '@rspack/binding-linux-arm64-gnu@2.1.9'
+  - '@rspack/binding-linux-arm64-musl@2.1.9'
+  - '@rspack/binding-linux-ppc64-gnu@2.1.9'
+  - '@rspack/binding-linux-riscv64-gnu@2.1.9'
+  - '@rspack/binding-linux-riscv64-musl@2.1.9'
+  - '@rspack/binding-linux-s390x-gnu@2.1.9'
+  - '@rspack/binding-linux-x64-gnu@2.1.9'
+  - '@rspack/binding-linux-x64-musl@2.1.9'
+  - '@rspack/binding-wasm32-wasi@2.1.9'
+  - '@rspack/binding-win32-arm64-msvc@2.1.9'
+  - '@rspack/binding-win32-ia32-msvc@2.1.9'
+  - '@rspack/binding-win32-x64-msvc@2.1.9'
+  - '@rspack/binding@2.1.9'
+  - '@rspack/core@2.1.9'
 
 # CI and developer workflows install dependencies explicitly with the lockfile.
 # Avoid implicit pnpm installs when `pnpm run` / `pnpm exec` start a task.

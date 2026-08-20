@@ -11,6 +11,15 @@ plugins {
 val repoRoot: File = rootDir.parentFile.parentFile.parentFile.parentFile.parentFile
 
 subprojects {
+    // Keep Gradle's own build output out of platforms/android/ entirely. The
+    // NativeScript CLI recursively scans a plugin's platforms/android/ tree
+    // for .aar/.jar files; without this, :library's and :hosttest's build/
+    // directories get picked up as spurious extra plugin dependencies
+    // alongside the real deployed AAR, and app assembly fails trying to
+    // resolve one of them ("library-release.aar") as a Gradle project path
+    // ("Could not find :library-release:").
+    layout.buildDirectory.set(rootDir.parentFile.parentFile.parentFile.resolve(".gradle-build/${project.name}"))
+
     apply(plugin = "io.gitlab.arturbosch.detekt")
     apply(plugin = "org.jlleitschuh.gradle.ktlint")
 

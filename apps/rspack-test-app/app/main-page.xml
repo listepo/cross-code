@@ -1,0 +1,305 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="navigatingTo">
+    <ActionBar title="Widgets Gallery">
+        <ActionItem text="About" tap="{{ onAbout }}" ios.position="right" android.position="actionBar" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="gallery">
+
+            <!-- status -->
+            <StackLayout class="card">
+                <Label text="{{ message }}" class="status" textWrap="true" />
+            </StackLayout>
+
+            <!-- Label -->
+            <StackLayout class="card">
+                <Label text="Label" class="card-title" />
+                <Label text="A plain label." />
+                <Label text="A label with textWrap enabled, so long text flows onto as many lines as it needs instead of being clipped." textWrap="true" class="hint" />
+                <Label textWrap="true">
+                    <Label.formattedText>
+                        <FormattedString>
+                            <Span text="FormattedString " fontWeight="bold" />
+                            <Span text="mixes " fontStyle="italic" foregroundColor="#e91e63" />
+                            <Span text="spans" textDecoration="underline" foregroundColor="#1976d2" />
+                            <Span text=" in one label." />
+                        </FormattedString>
+                    </Label.formattedText>
+                </Label>
+            </StackLayout>
+
+            <!-- Button -->
+            <StackLayout class="card">
+                <Label text="Button" class="card-title" />
+                <Button text="TAP ME" tap="{{ onTap }}" class="-primary" />
+                <Button text="Outline" tap="{{ onTap }}" class="-outline" />
+                <Button text="Disabled" isEnabled="false" />
+            </StackLayout>
+
+            <!-- TextField / TextView / SearchBar -->
+            <StackLayout class="card">
+                <Label text="TextField" class="card-title" />
+                <TextField text="{{ textFieldValue }}" hint="Type here" />
+                <TextField text="{{ password }}" hint="Password" secure="true" />
+                <TextField hint="Email keyboard" keyboardType="email" returnKeyType="done" />
+                <Label text="{{ 'value: ' + textFieldValue }}" class="hint" textWrap="true" />
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="TextView" class="card-title" />
+                <TextView text="{{ textViewValue }}" height="90" />
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="SearchBar" class="card-title" />
+                <SearchBar hint="Search widgets" text="{{ searchValue }}" submit="{{ onSearchSubmit }}" />
+            </StackLayout>
+
+            <!-- Switch / Slider / Progress / ActivityIndicator -->
+            <StackLayout class="card">
+                <Label text="Switch, Slider, Progress, ActivityIndicator" class="card-title" />
+                <GridLayout rows="auto, auto, auto, auto" columns="auto, *" class="grid-gap">
+                    <Label row="0" col="0" text="Switch" class="cell-label" />
+                    <Switch row="0" col="1" checked="{{ switchOn }}" horizontalAlignment="left" />
+
+                    <Label row="1" col="0" text="Slider" class="cell-label" />
+                    <Slider row="1" col="1" value="{{ sliderValue }}" minValue="0" maxValue="100" />
+
+                    <Label row="2" col="0" text="Progress" class="cell-label" />
+                    <Progress row="2" col="1" value="{{ sliderValue }}" maxValue="100" verticalAlignment="center" />
+
+                    <Label row="3" col="0" text="Busy" class="cell-label" />
+                    <ActivityIndicator row="3" col="1" busy="{{ switchOn }}" horizontalAlignment="left" />
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Pickers -->
+            <StackLayout class="card">
+                <Label text="DatePicker" class="card-title" />
+                <DatePicker date="{{ pickedDate }}" />
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="TimePicker" class="card-title" />
+                <TimePicker time="{{ pickedTime }}" />
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="ListPicker" class="card-title" />
+                <ListPicker items="{{ pickerItems }}" selectedIndex="{{ pickerIndex }}" height="120" />
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="SegmentedBar" class="card-title" />
+                <SegmentedBar selectedIndex="{{ segmentIndex }}">
+                    <SegmentedBar.items>
+                        <SegmentedBarItem title="First" />
+                        <SegmentedBarItem title="Second" />
+                        <SegmentedBarItem title="Third" />
+                    </SegmentedBar.items>
+                </SegmentedBar>
+            </StackLayout>
+
+            <!-- Image -->
+            <StackLayout class="card">
+                <Label text="Image" class="card-title" />
+                <GridLayout columns="*, *, *" rows="auto, auto" class="image-backdrop">
+                    <Image row="0" col="0" src="~/images/logo.png" stretch="aspectFit" height="70" />
+                    <Image row="0" col="1" src="~/images/logo.png" stretch="aspectFill" height="70" />
+                    <Image row="0" col="2" src="~/images/logo.png" stretch="fill" height="70" />
+                    <Label row="1" col="0" text="aspectFit" class="hint" />
+                    <Label row="1" col="1" text="aspectFill" class="hint" />
+                    <Label row="1" col="2" text="fill" class="hint" />
+                </GridLayout>
+                <Image src="{{ remoteImage }}" stretch="aspectFit" height="60" loadMode="async" />
+                <Label text="local ~/images, remote https, res:// and base64 data URIs are all supported" class="hint" textWrap="true" />
+            </StackLayout>
+
+            <!-- HtmlView / WebView -->
+            <StackLayout class="card">
+                <Label text="HtmlView" class="card-title" />
+                <HtmlView html="{{ htmlSnippet }}" />
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="WebView" class="card-title" />
+                <WebView src="{{ webViewSource }}" height="140" />
+            </StackLayout>
+
+            <!-- ListView / Repeater -->
+            <StackLayout class="card">
+                <Label text="ListView" class="card-title" />
+                <ListView items="{{ listItems }}" itemTap="{{ onListItemTap }}" height="200" separatorColor="#e0e0e0">
+                    <ListView.itemTemplate>
+                        <GridLayout columns="*, auto" class="list-row">
+                            <Label col="0" text="{{ name }}" />
+                            <Label col="1" text="{{ detail }}" class="hint" />
+                        </GridLayout>
+                    </ListView.itemTemplate>
+                </ListView>
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="Repeater" class="card-title" />
+                <Repeater items="{{ colors }}">
+                    <Repeater.itemsLayout>
+                        <WrapLayout />
+                    </Repeater.itemsLayout>
+                    <Repeater.itemTemplate>
+                        <Label text="{{ hex }}" backgroundColor="{{ hex }}" class="chip" />
+                    </Repeater.itemTemplate>
+                </Repeater>
+            </StackLayout>
+
+            <!-- ScrollView -->
+            <StackLayout class="card">
+                <Label text="ScrollView (horizontal)" class="card-title" />
+                <ScrollView orientation="horizontal" height="60">
+                    <StackLayout orientation="horizontal">
+                        <Label text="one" class="box" />
+                        <Label text="two" class="box" />
+                        <Label text="three" class="box" />
+                        <Label text="four" class="box" />
+                        <Label text="five" class="box" />
+                        <Label text="six" class="box" />
+                    </StackLayout>
+                </ScrollView>
+            </StackLayout>
+
+            <!-- Placeholder / ContentView -->
+            <StackLayout class="card">
+                <Label text="Placeholder" class="card-title" />
+                <Placeholder creatingView="{{ onCreatingPlaceholderView }}" height="40" />
+                <Label text="Hosts a platform-native view created in code." class="hint" textWrap="true" />
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="ContentView" class="card-title" />
+                <ContentView class="content-view">
+                    <Label text="A single-child container — the base for custom components." textWrap="true" />
+                </ContentView>
+            </StackLayout>
+
+            <!-- Layouts -->
+            <StackLayout class="card">
+                <Label text="StackLayout" class="card-title" />
+                <StackLayout orientation="horizontal">
+                    <Label text="1" class="box" />
+                    <Label text="2" class="box" />
+                    <Label text="3" class="box" />
+                </StackLayout>
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="GridLayout" class="card-title" />
+                <GridLayout rows="40, 40" columns="*, 2*, auto">
+                    <Label row="0" col="0" text="0,0" class="box" />
+                    <Label row="0" col="1" text="0,1 (2*)" class="box" />
+                    <Label row="0" col="2" text="auto" class="box" />
+                    <Label row="1" col="0" colSpan="3" text="colSpan 3" class="box" />
+                </GridLayout>
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="WrapLayout" class="card-title" />
+                <WrapLayout>
+                    <Label text="wrap" class="box" />
+                    <Label text="onto" class="box" />
+                    <Label text="as many" class="box" />
+                    <Label text="lines" class="box" />
+                    <Label text="as needed" class="box" />
+                </WrapLayout>
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="AbsoluteLayout" class="card-title" />
+                <AbsoluteLayout height="100" class="content-view">
+                    <Label text="0,0" left="0" top="0" class="box" />
+                    <Label text="70,30" left="70" top="30" class="box" />
+                    <Label text="140,60" left="140" top="60" class="box" />
+                </AbsoluteLayout>
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="DockLayout" class="card-title" />
+                <DockLayout height="140" stretchLastChild="true" class="content-view">
+                    <Label text="top" dock="top" class="box" />
+                    <Label text="bottom" dock="bottom" class="box" />
+                    <Label text="left" dock="left" class="box" />
+                    <Label text="fills" class="box" />
+                </DockLayout>
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="FlexboxLayout" class="card-title" />
+                <FlexboxLayout flexDirection="row" flexWrap="wrap" justifyContent="space-between">
+                    <Label text="flex 1" class="box" />
+                    <Label text="flex 2" class="box" />
+                    <Label text="flex 3" class="box" />
+                    <Label text="flex 4" class="box" />
+                </FlexboxLayout>
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="LiquidGlass / LiquidGlassContainer" class="card-title" />
+                <LiquidGlassContainer height="90" class="glass-backdrop">
+                    <LiquidGlass iosGlassEffect="regular" left="20" top="20" width="150" height="50" borderRadius="25">
+                        <Label text="Glass" class="glass-label" />
+                    </LiquidGlass>
+                </LiquidGlassContainer>
+                <Label text="Glass effect renders on iOS 26+; a plain container elsewhere." class="hint" textWrap="true" />
+            </StackLayout>
+
+            <StackLayout class="card">
+                <Label text="RootLayout" class="card-title" />
+                <Button text="Open popup over the app root" tap="{{ onShowPopup }}" class="-outline" />
+                <Label text="The app root is a RootLayout — it hosts popups and shade covers above the Frame." class="hint" textWrap="true" />
+            </StackLayout>
+
+            <!-- Gestures -->
+            <StackLayout class="card">
+                <Label text="Gestures" class="card-title" />
+                <Label
+                    text="tap · doubleTap · longPress · swipe · pan · pinch · rotation"
+                    textWrap="true"
+                    class="gesture-box"
+                    tap="{{ onGesture }}"
+                    doubleTap="{{ onGesture }}"
+                    longPress="{{ onGesture }}"
+                    swipe="{{ onGesture }}"
+                    pan="{{ onGesture }}"
+                    pinch="{{ onGesture }}"
+                    rotation="{{ onGesture }}" />
+                <Label text="{{ 'last gesture: ' + lastGesture }}" class="hint" />
+            </StackLayout>
+
+            <!-- Animations -->
+            <StackLayout class="card">
+                <Label text="Animations" class="card-title" />
+                <Label id="animBox" text="animate" class="box" width="90" horizontalAlignment="left" />
+                <Button text="Run animation" tap="{{ onAnimate }}" class="-outline" />
+            </StackLayout>
+
+            <!-- Dialogs -->
+            <StackLayout class="card">
+                <Label text="Dialogs" class="card-title" />
+                <WrapLayout>
+                    <Button text="alert" tap="{{ onAlert }}" class="-outline" />
+                    <Button text="confirm" tap="{{ onConfirm }}" class="-outline" />
+                    <Button text="prompt" tap="{{ onPrompt }}" class="-outline" />
+                    <Button text="action" tap="{{ onAction }}" class="-outline" />
+                    <Button text="login" tap="{{ onLogin }}" class="-outline" />
+                </WrapLayout>
+            </StackLayout>
+
+            <!-- Frame / Page level widgets -->
+            <StackLayout class="card">
+                <Label text="Frame, Page, TabView" class="card-title" />
+                <Button text="TabView page" tap="{{ onOpenTabs }}" class="-outline" />
+                <Button text="Show page modally" tap="{{ onOpenModal }}" class="-outline" />
+                <Label text="SplitView is an app-root container for iPad / regular width — it can't be hosted in a pushed page." class="hint" textWrap="true" />
+            </StackLayout>
+
+        </StackLayout>
+    </ScrollView>
+</Page>

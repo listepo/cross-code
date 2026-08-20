@@ -24,6 +24,9 @@
 //!   transform_f32(f32) -> f32
 //!   transform_f64(f64) -> f64
 
+use core::cell::UnsafeCell;
+use core::sync::atomic::Ordering::Relaxed;
+use core::sync::atomic::{AtomicI32, AtomicI64, AtomicU32, AtomicU64};
 use wasm_bindgen::prelude::*;
 
 #[link(wasm_import_module = "env")]
@@ -236,77 +239,77 @@ pub fn call_transform_f64(x: f64) -> f64 {
 }
 
 // ── mutable integer counters (tests module-level state) ──────────────────────
+//
+// These are atomics rather than `static mut` because every read and write of a
+// `static mut` is unsafe and, worse, `static mut` is a data race waiting for
+// the day this fixture is loaded on a threaded runtime. The generated WASM is
+// the same on wasm32 without the atomics feature: plain loads and stores.
 
-static mut COUNTER_I32: i32 = 0;
-static mut COUNTER_I64: i64 = 0;
+static COUNTER_I32: AtomicI32 = AtomicI32::new(0);
+static COUNTER_I64: AtomicI64 = AtomicI64::new(0);
 
 #[wasm_bindgen]
 pub fn counter_i32_inc(delta: i32) -> i32 {
-    unsafe {
-        COUNTER_I32 = COUNTER_I32.wrapping_add(delta);
-        COUNTER_I32
-    }
+    COUNTER_I32.fetch_add(delta, Relaxed).wrapping_add(delta)
 }
 #[wasm_bindgen]
 pub fn counter_i32_get() -> i32 {
-    unsafe { COUNTER_I32 }
+    COUNTER_I32.load(Relaxed)
 }
 #[wasm_bindgen]
 pub fn counter_i32_reset() {
-    unsafe { COUNTER_I32 = 0 }
+    COUNTER_I32.store(0, Relaxed)
 }
 
 #[wasm_bindgen]
 pub fn counter_i64_inc(delta: i64) -> i64 {
-    unsafe {
-        COUNTER_I64 = COUNTER_I64.wrapping_add(delta);
-        COUNTER_I64
-    }
+    COUNTER_I64.fetch_add(delta, Relaxed).wrapping_add(delta)
 }
 #[wasm_bindgen]
 pub fn counter_i64_get() -> i64 {
-    unsafe { COUNTER_I64 }
+    COUNTER_I64.load(Relaxed)
 }
 #[wasm_bindgen]
 pub fn counter_i64_reset() {
-    unsafe { COUNTER_I64 = 0 }
+    COUNTER_I64.store(0, Relaxed)
 }
 
 // ── mutable float accumulators (tests f32/f64 state) ─────────────────────────
+//
+// There is no `AtomicF32`/`AtomicF64`, so the bit patterns are held in the
+// integer atomics of matching width and converted on each access.
 
-static mut ACCUM_F32: f32 = 0.0;
-static mut ACCUM_F64: f64 = 0.0;
+static ACCUM_F32: AtomicU32 = AtomicU32::new(0);
+static ACCUM_F64: AtomicU64 = AtomicU64::new(0);
 
 #[wasm_bindgen]
 pub fn accum_f32_add(x: f32) -> f32 {
-    unsafe {
-        ACCUM_F32 += x;
-        ACCUM_F32
-    }
+    let sum = f32::from_bits(ACCUM_F32.load(Relaxed)) + x;
+    ACCUM_F32.store(sum.to_bits(), Relaxed);
+    sum
 }
 #[wasm_bindgen]
 pub fn accum_f32_get() -> f32 {
-    unsafe { ACCUM_F32 }
+    f32::from_bits(ACCUM_F32.load(Relaxed))
 }
 #[wasm_bindgen]
 pub fn accum_f32_reset() {
-    unsafe { ACCUM_F32 = 0.0 }
+    ACCUM_F32.store(0f32.to_bits(), Relaxed)
 }
 
 #[wasm_bindgen]
 pub fn accum_f64_add(x: f64) -> f64 {
-    unsafe {
-        ACCUM_F64 += x;
-        ACCUM_F64
-    }
+    let sum = f64::from_bits(ACCUM_F64.load(Relaxed)) + x;
+    ACCUM_F64.store(sum.to_bits(), Relaxed);
+    sum
 }
 #[wasm_bindgen]
 pub fn accum_f64_get() -> f64 {
-    unsafe { ACCUM_F64 }
+    f64::from_bits(ACCUM_F64.load(Relaxed))
 }
 #[wasm_bindgen]
 pub fn accum_f64_reset() {
-    unsafe { ACCUM_F64 = 0.0 }
+    ACCUM_F64.store(0f64.to_bits(), Relaxed)
 }
 
 // ── linear memory helpers ─────────────────────────────────────────────────────
@@ -317,7 +320,15 @@ pub fn accum_f64_reset() {
 /// any low offset. A wasm-bindgen build links `std`, which puts its own data
 /// and heap in that memory — writing at a hardcoded offset would corrupt it.
 /// Call `mem_scratch_ptr()` for a base offset that is safe to write.
-static mut SCRATCH: [u8; MEM_SCRATCH_LEN as usize] = [0; MEM_SCRATCH_LEN as usize];
+/// `static mut` would make even taking this region's address an unsafe
+/// operation; an `UnsafeCell` in a plain `static` reserves the same bytes in
+/// linear memory and hands out its address safely.
+struct Scratch(UnsafeCell<[u8; MEM_SCRATCH_LEN as usize]>);
+// SAFETY: nothing ever produces a Rust reference into the cell — only its raw
+// address, which the tests then poke at through WASM's own bounds-checked
+// loads and stores.
+unsafe impl Sync for Scratch {}
+static SCRATCH: Scratch = Scratch(UnsafeCell::new([0; MEM_SCRATCH_LEN as usize]));
 
 /// Byte length of the region starting at `mem_scratch_ptr()`.
 pub const MEM_SCRATCH_LEN: i32 = 1024;
@@ -325,7 +336,7 @@ pub const MEM_SCRATCH_LEN: i32 = 1024;
 /// Byte offset of the scratch region within the module's linear memory.
 #[wasm_bindgen]
 pub fn mem_scratch_ptr() -> i32 {
-    core::ptr::addr_of!(SCRATCH) as i32
+    SCRATCH.0.get() as i32
 }
 /// Byte length of the scratch region.
 #[wasm_bindgen]
@@ -333,20 +344,32 @@ pub fn mem_scratch_len() -> i32 {
     MEM_SCRATCH_LEN
 }
 
+// Raw pokes at an arbitrary linear-memory offset. These stay unsafe on purpose:
+// the point of the fixture is to let a test drive an out-of-bounds access and
+// watch the host runtime trap it, which is what makes them safe to expose here
+// — WASM bounds-checks every load and store against the module's own memory,
+// so the worst a bad offset can do is trap the instance. Well-behaved callers
+// stay inside `mem_scratch_ptr() .. + mem_scratch_len()`; anything else may
+// scribble on the allocator's own bookkeeping.
+
 #[wasm_bindgen]
 pub fn mem_write_u8(offset: i32, value: i32) {
+    // SAFETY: see the note above — the WASM sandbox validates every access.
     unsafe { *(offset as *mut u8) = (value & 0xff) as u8 }
 }
 #[wasm_bindgen]
 pub fn mem_read_u8(offset: i32) -> i32 {
+    // SAFETY: see the note above — the WASM sandbox validates every access.
     unsafe { *(offset as *const u8) as i32 }
 }
 #[wasm_bindgen]
 pub fn mem_write_i32(offset: i32, value: i32) {
+    // SAFETY: see the note above — the WASM sandbox validates every access.
     unsafe { *(offset as *mut i32) = value }
 }
 #[wasm_bindgen]
 pub fn mem_read_i32(offset: i32) -> i32 {
+    // SAFETY: see the note above — the WASM sandbox validates every access.
     unsafe { *(offset as *const i32) }
 }
 

@@ -27,14 +27,18 @@ export function appWasmPath(relative: string): string {
  * can also exercise `loadModule(bytes)`, which is a separate native entry point.
  */
 export function readAppFile(relative: string): Uint8Array {
-  const data: any = File.fromPath(appWasmPath(relative)).readSync();
+  const data: unknown = File.fromPath(appWasmPath(relative)).readSync();
 
   // iOS: NSData -> ArrayBuffer, via the runtime's interop helper.
-  const buffer = (globalThis as any).interop?.bufferFromData?.(data);
+  const interop = (globalThis as { interop?: { bufferFromData?(data: unknown): ArrayBuffer } })
+    .interop;
+  const buffer = interop?.bufferFromData?.(data);
   if (buffer) return new Uint8Array(buffer);
 
-  // Android: byte[] is signed (-128..127).
-  const bytes = new Uint8Array(data.length);
-  for (let i = 0; i < data.length; i++) bytes[i] = (Number(data[i]) + 256) & 0xff;
+  // Android: byte[] is signed (-128..127). The NativeScript runtime proxies it
+  // as an indexable, sized object rather than a JS array.
+  const javaBytes = data as { readonly length: number; [index: number]: number };
+  const bytes = new Uint8Array(javaBytes.length);
+  for (let i = 0; i < javaBytes.length; i++) bytes[i] = (Number(javaBytes[i]) + 256) & 0xff;
   return bytes;
 }

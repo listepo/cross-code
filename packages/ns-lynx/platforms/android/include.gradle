@@ -1,0 +1,33 @@
+// ns-lynx: merged into the NativeScript app's build.gradle.
+//
+// Lynx ships its Android engine on Maven Central, so this plugin has no native
+// sources and no AAR of its own — NativeScript's static binding generator
+// exposes com.lynx.tasm.* to JavaScript directly.
+//
+// Keep these versions in step with platforms/ios/Podfile.
+dependencies {
+    def lynxVersion = "4.0.1"
+    def primjsVersion = "4.0.0"
+
+    implementation "org.lynxsdk.lynx:lynx:$lynxVersion"
+    implementation "org.lynxsdk.lynx:lynx-jssdk:$lynxVersion"
+    implementation "org.lynxsdk.lynx:lynx-trace:$lynxVersion"
+    implementation "org.lynxsdk.lynx:primjs:$primjsVersion"
+
+    // Log and HTTP services are pure Lynx artifacts. The image service is left
+    // out on purpose: it drags in Fresco and requires host-side initialization
+    // in Application#onCreate, which a NativeScript app does not own. Add it in
+    // the app's App_Resources/Android/app.gradle if templates load images.
+    implementation "org.lynxsdk.lynx:lynx-service-log:$lynxVersion"
+    implementation "org.lynxsdk.lynx:lynx-service-http:$lynxVersion"
+    implementation "com.squareup.okhttp3:okhttp:4.9.0"
+}
+
+android {
+    packagingOptions {
+        jniLibs {
+            // Lynx, PrimJS and the {N} runtime each ship libc++_shared.so.
+            pickFirsts.add("**/libc++_shared.so")
+        }
+    }
+}

@@ -18,17 +18,17 @@
     "build.plugin": "cd ../../ && pnpm exec nx run ns-wry:build"
   },
   "dependencies": {
-    "@cross-code/ns-wry": "file:../../packages/ns-wry",
+    "@cross-code/ns-wry": "workspace:@cross-code/ns-wry@*",
     "@nativescript/core": "~9.0.0",
     "@nativescript/theme": "^3.1.0"
   },
   "devDependencies": {
     "@nativescript/android": "9.0.5",
     "@nativescript/ios": "9.0.3",
+    "@nativescript/rspack": "workspace:@cross-code/ns-rspack@*",
     "@nativescript/types": "~9.0.0",
-    "@nativescript/webpack": "~5.0.25",
-    "postcss-loader": "8.2.1",
-    "ts-loader": "9.6.2",
+    "@nativescript/types-android": "9.0.0",
+    "@nativescript/types-ios": "9.0.0",
     "typescript": "~6.0.0"
   }
 }

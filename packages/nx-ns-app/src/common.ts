@@ -1,5 +1,6 @@
 import { type ExecutorContext, logger } from '@nx/devkit';
 import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
 
 export interface NsPlatformOptions {
   /** Target platform. */
@@ -26,8 +27,6 @@ export interface NsBuildOptions extends NsPlatformOptions {
 export interface NsTestOptions extends NsPlatformOptions {
   /** Generate coverage reports. */
   coverage?: boolean;
-  /** Use vitest-ns pool (default: true for apps that have it). */
-  vitest?: boolean;
 }
 
 export interface NsRunOptions extends NsPlatformOptions {
@@ -51,6 +50,22 @@ export interface NsPrepareOptions {
   platform: 'ios' | 'android';
   /** Pass environment variables. */
   env?: Record<string, string>;
+}
+
+/**
+ * Absolute path to the NativeScript app directory.
+ *
+ * `context.root` is the Nx *workspace* root; the `ns` CLI and `platforms/`
+ * both live in the project root, so every path here goes through this.
+ */
+export function nsAppRoot(context: ExecutorContext): string {
+  const project = context.projectName;
+  const relative =
+    (project &&
+      (context.projectGraph?.nodes?.[project]?.data?.root ??
+        context.projectsConfigurations?.projects?.[project]?.root)) ||
+    '.';
+  return join(context.root, relative);
 }
 
 /** Resolve the 'ns' CLI — prefers the project-local install, falls back to npx. */
@@ -127,14 +142,14 @@ export function runNsCli(
     const cleanArgs = ['ns', 'clean'];
     logger.info(`🧹 Cleaning platform: npx ${cleanArgs.join(' ')}`);
     spawnSync(nsBin, cleanArgs, {
-      cwd: context.root,
+      cwd: nsAppRoot(context),
       env,
       stdio: 'inherit',
     });
   }
 
   const result = spawnSync(nsBin, args, {
-    cwd: context.root,
+    cwd: nsAppRoot(context),
     env,
     stdio: 'inherit',
   });

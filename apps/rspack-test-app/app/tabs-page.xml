@@ -1,0 +1,39 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd">
+    <ActionBar title="TabView">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onClose" />
+    </ActionBar>
+
+    <!-- TabView is controller-backed on iOS: it must be the page's only content -->
+    <TabView selectedIndex="0" androidTabsPosition="top">
+            <TabView.items>
+                <TabViewItem title="First">
+                    <TabViewItem.view>
+                        <StackLayout class="gallery">
+                            <Label text="TabViewItem one" class="card-title" />
+                            <Label text="TabView swaps between full views and keeps each one alive." textWrap="true" class="hint" />
+                            <Button text="Close" tap="onClose" class="-primary" />
+                        </StackLayout>
+                    </TabViewItem.view>
+                </TabViewItem>
+                <TabViewItem title="Second">
+                    <TabViewItem.view>
+                        <StackLayout class="gallery">
+                            <Label text="TabViewItem two" class="card-title" />
+                            <Label text="Each item hosts any view tree." textWrap="true" class="hint" />
+                        </StackLayout>
+                    </TabViewItem.view>
+                </TabViewItem>
+                <TabViewItem title="Third">
+                    <TabViewItem.view>
+                        <ScrollView>
+                            <WrapLayout class="gallery">
+                                <Label text="one" class="box" />
+                                <Label text="two" class="box" />
+                                <Label text="three" class="box" />
+                            </WrapLayout>
+                        </ScrollView>
+                    </TabViewItem.view>
+                </TabViewItem>
+            </TabView.items>
+    </TabView>
+</Page>

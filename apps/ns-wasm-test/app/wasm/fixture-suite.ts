@@ -1,11 +1,11 @@
 /**
- * The WebAssembly exercise shared by the on-device demo page and the Vitest
+ * The WebAssembly exercise shared by the on-device demo page and the Rstest
  * specs in `app/tests/`.
  *
  * It runs on whichever runtime the caller hands it — `@cross-code/ns-wasm3`
  * or `@cross-code/ns-wamr`. Both plugins expose the same shape, so the suite
  * is typed against the structural interfaces below rather than either package:
- * the demo page renders the checks, the NativeScript Vitest worker asserts on
+ * the demo page renders the checks, the NativeScript Rstest worker asserts on
  * them, and neither
  * runtime is privileged here.
  *

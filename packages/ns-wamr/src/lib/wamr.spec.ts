@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import type { JavaNumberBox } from '@cross-code/ns-wasm-core';
 import { WamrError } from './wire.js';
 import { WamrExecutionTier, WamrRuntime } from './wamr.js';
 
@@ -8,23 +9,58 @@ import { WamrExecutionTier, WamrRuntime } from './wamr.js';
 // real classes into exactly these shapes). The native implementations
 // themselves are covered by the Swift (XCTest) and Kotlin (JUnit) suites.
 
-const g = globalThis as any;
+/** A value as it crosses the native wire: i32/f32/f64 numbers, i64 strings. */
+type WireVal = number | string;
+
+/** A host import as the fakes hand it back to the adapter. */
+interface FakeHostImport {
+  invoke(args: unknown): unknown;
+}
+
+/** What each fake records for the assertions to read back. */
+interface FakeState {
+  memory: Uint8Array;
+  hostFns: Map<string, FakeHostImport>;
+  lastCall?: { name: string; args: WireVal[] };
+  lastSetGlobal?: { name: string; value: unknown };
+  lastWrite?: { offset: number; data: unknown };
+  stackSize?: number;
+  wasiEnabled?: boolean;
+  executionTier?: number | string;
+  loadedBytes?: unknown;
+  loadedPath?: string;
+  closed: boolean;
+}
+
+/**
+ * The fakes stand in for classes the NativeScript bridge installs, so they
+ * match the declared shape structurally but not nominally — one cast per
+ * global, at the assignment, keeps the rest of the file typed.
+ */
+function installGlobal(name: string, value: unknown): void {
+  (globalThis as Record<string, unknown>)[name] = value;
+}
 
 afterEach(() => {
-  delete g.NSCWamrRuntime;
-  delete g.NSCWamrHostCallback;
-  delete g.NSMutableArray;
-  delete g.interop;
-  delete g.org;
+  for (const name of [
+    'NSCWamrRuntime',
+    'NSCWamrHostCallback',
+    'NSMutableArray',
+    'interop',
+    'org',
+    'java',
+  ]) {
+    delete (globalThis as Record<string, unknown>)[name];
+  }
 });
 
 // ------------------------------------------------------------------ fakes
 
 /** Fake of the Kotlin NSCWamr* classes as seen from JS on Android. */
 function installAndroidFake() {
-  const state: any = {
+  const state: FakeState = {
     memory: new Uint8Array(64 * 1024),
-    hostFns: new Map<string, any>(),
+    hostFns: new Map<string, FakeHostImport>(),
     lastCall: undefined,
     closed: false,
   };
@@ -56,14 +92,14 @@ function installAndroidFake() {
 
   class JavaInteger extends JavaNumber {}
 
-  g.java = {
+  installGlobal('java', {
     lang: {
       Number: JavaNumber,
       Double: JavaDouble,
       Long: JavaLong,
       Integer: JavaInteger,
     },
-  };
+  });
 
   // --- WAMR fakes ---
 
@@ -72,12 +108,12 @@ function installAndroidFake() {
       private name: string,
       private params: string[],
       private returns: string[],
-      private impl: (args: any[]) => any[],
+      private impl: (args: WireVal[]) => WireVal[],
     ) {}
     getName = () => this.name;
     getParamTypes = () => this.params;
     getReturnTypes = () => this.returns;
-    call = (args: any[]) => {
+    call = (args: WireVal[]) => {
       state.lastCall = { name: this.name, args: [...args] };
       return this.impl(args);
     };
@@ -91,7 +127,7 @@ function installAndroidFake() {
     call_host_add: new FakeFunction('call_host_add', ['i32', 'i32'], ['i32'], (a) => {
       const hostFn = state.hostFns.get('env.host_add');
       if (!hostFn) throw new Error('missing imported function: env.host_add');
-      return [hostFn.invoke([a[0], a[1]])];
+      return [hostFn.invoke([a[0], a[1]]) as WireVal];
     }),
     log_i64: new FakeFunction('log_i64', ['i64'], [], (a) => {
       state.hostFns.get('env.host_log_i64')?.invoke([a[0]]);
@@ -101,7 +137,7 @@ function installAndroidFake() {
 
   class FakeModule {
     getName = () => 'fake.wasm';
-    linkHostFunction = (mod: string, name: string, _sig: string, fn: any) => {
+    linkHostFunction = (mod: string, name: string, _sig: string, fn: FakeHostImport) => {
       state.hostFns.set(`${mod}.${name}`, fn);
     };
     getGlobal = (name: string) => {
@@ -109,7 +145,7 @@ function installAndroidFake() {
       if (name === 'g_pi') return Math.PI;
       throw new Error(`org.nativescript.wamr.NSCWamrException: global not found: ${name}`);
     };
-    setGlobal = (name: string, value: any) => {
+    setGlobal = (name: string, value: unknown) => {
       state.lastSetGlobal = { name, value };
     };
   }
@@ -120,7 +156,7 @@ function installAndroidFake() {
       state.wasiEnabled = wasiEnabled !== 0;
       state.executionTier = executionTier;
     }
-    loadModule = (bytes: any) => {
+    loadModule = (bytes: unknown) => {
       state.loadedBytes = bytes;
       return new FakeModule();
     };
@@ -142,7 +178,7 @@ function installAndroidFake() {
       const view: Uint8Array = state.memory.subarray(offset, offset + length);
       return Array.from(view, (v) => (v > 127 ? v - 256 : v));
     };
-    writeMemory = (offset: number, bytes: any) => {
+    writeMemory = (offset: number, bytes: ArrayLike<number>) => {
       for (let i = 0; i < bytes.length; i++) {
         state.memory[offset + i] = (Number(bytes[i]) + 256) & 0xff;
       }
@@ -154,21 +190,21 @@ function installAndroidFake() {
   }
 
   class FakeHostFunction {
-    constructor(impl: { invoke: (args: any[]) => any }) {
+    constructor(impl: FakeHostImport) {
       Object.assign(this, impl);
     }
   }
 
-  g.org = {
+  installGlobal('org', {
     nativescript: {
       wamr: { NSCWamrRuntime: FakeRuntime, NSCWamrHostFunction: FakeHostFunction },
     },
-  };
+  });
   return state;
 }
 
 /** NSArray as surfaced by the NativeScript iOS runtime. */
-function nsArray(items: any[]) {
+function nsArray(items: readonly unknown[]) {
   return { count: items.length, objectAtIndex: (i: number) => items[i] };
 }
 
@@ -177,20 +213,24 @@ function nsArray(items: any[]) {
  * returns null and fills in the NSError reference the caller appended to the
  * arguments. A caller that passes no reference sees only the null.
  */
-function iosFailure(errorRef: any, message: string): null {
+function iosFailure(errorRef: { value?: unknown } | undefined, message: string): null {
   if (errorRef) errorRef.value = { localizedDescription: message };
   return null;
 }
 
 /** Fake of the Swift NSCWamr* classes as seen from JS on iOS. */
 function installIosFake() {
-  const state: any = { hostFns: new Map<string, any>() };
+  const state: FakeState = {
+    memory: new Uint8Array(0),
+    hostFns: new Map<string, FakeHostImport>(),
+    closed: false,
+  };
 
   const addI64 = {
     name: 'add_i64',
     paramTypes: nsArray(['i64', 'i64']),
     returnTypes: nsArray(['i64']),
-    callWithArgumentsError: (args: any[]) => {
+    callWithArgumentsError: (args: WireVal[]) => {
       state.lastCall = { name: 'add_i64', args: [...args] };
       return nsArray([(BigInt(args[0]) + BigInt(args[1])).toString()]);
     },
@@ -200,10 +240,12 @@ function installIosFake() {
     name: 'call_host_add',
     paramTypes: nsArray(['i32', 'i32']),
     returnTypes: nsArray(['i32']),
-    callWithArgumentsError: (args: any[], errorRef?: any) => {
+    callWithArgumentsError: (args: WireVal[], errorRef?: { value?: unknown }) => {
       const hostFn = state.hostFns.get('env.host_add');
       if (!hostFn) return iosFailure(errorRef, "missing imported function: 'env.host_add'");
-      const results = hostFn.invoke(nsArray([args[0], args[1]]));
+      const results = hostFn.invoke(nsArray([args[0], args[1]])) as
+        | { objectAtIndex?(i: number): unknown }
+        | undefined;
       if (typeof results?.objectAtIndex !== 'function') return undefined;
       return nsArray([results.objectAtIndex(0)]);
     },
@@ -215,22 +257,22 @@ function installIosFake() {
       mod: string,
       name: string,
       _sig: string,
-      cb: any,
+      cb: FakeHostImport,
     ) => {
       state.hostFns.set(`${mod}.${name}`, cb);
     },
-    getGlobalError: (name: string, errorRef?: any) => {
+    getGlobalError: (name: string, errorRef?: { value?: unknown }) => {
       if (name === 'g_big') return '72623859790382856';
       return iosFailure(errorRef, `global not found: ${name}`);
     },
-    setGlobalValueError: (name: string, value: any) => {
+    setGlobalValueError: (name: string, value: unknown) => {
       state.lastSetGlobal = { name, value };
     },
   };
 
   const runtime = {
     memorySize: 65536,
-    loadModuleError: (bytes: any) => {
+    loadModuleError: (bytes: unknown) => {
       state.loadedBytes = bytes;
       return module;
     },
@@ -238,7 +280,7 @@ function installIosFake() {
       state.loadedPath = path;
       return module;
     },
-    findFunctionError: (name: string, errorRef?: any) => {
+    findFunctionError: (name: string, errorRef?: { value?: unknown }) => {
       if (name === 'add_i64') return addI64;
       if (name === 'call_host_add') return callHostAdd;
       return iosFailure(errorRef, `function lookup failed: '${name}'`);
@@ -248,12 +290,12 @@ function installIosFake() {
       offset,
       length,
     }),
-    writeMemoryAtOffsetDataError: (offset: number, data: any) => {
+    writeMemoryAtOffsetDataError: (offset: number, data: unknown) => {
       state.lastWrite = { offset, data };
     },
   };
 
-  g.NSCWamrRuntime = {
+  installGlobal('NSCWamrRuntime', {
     alloc: () => ({
       initWithStackSizeWasiEnabledExecutionTier: (
         stackSize: number,
@@ -262,39 +304,40 @@ function installIosFake() {
       ) => ((state.stackSize = stackSize), (state.wasiEnabled = wasi), (state.executionTier = tier), runtime),
     }),
     wamrVersion: () => '2.1.0',
-  };
+  });
   // Fake NSCWamrHostCallback mirroring NativeScript's .extend(): the ObjC
   // selector `invoke:` surfaces in JS as `invoke`, and only that key overrides
   // the native method.
-  g.NSCWamrHostCallback = {
-    extend(impl: any) {
+  installGlobal('NSCWamrHostCallback', {
+    extend(impl: Partial<FakeHostImport>) {
       return class {
-        invoke(args: any): any {
+        invoke(args: unknown): unknown {
           return typeof impl.invoke === 'function' ? impl.invoke.call(this, args) : null;
         }
       };
     },
-  };
-  g.NSMutableArray = {
+  });
+  installGlobal('NSMutableArray', {
     alloc: () => ({
       init: () => {
-        const items: any[] = [];
+        const items: unknown[] = [];
         return {
           get count() {
             return items.length;
           },
-          addObject: (value: any) => items.push(value),
+          addObject: (value: unknown) => items.push(value),
           objectAtIndex: (i: number) => items[i],
         };
       },
     }),
-  };
-  g.interop = {
+  });
+  installGlobal('interop', {
     Reference: class {
-      value: any = null;
+      value: unknown = null;
     },
-    bufferFromData: (data: any) => new Uint8Array([data.offset, data.length]).buffer,
-  };
+    bufferFromData: (data: { offset: number; length: number }) =>
+      new Uint8Array([data.offset, data.length]).buffer,
+  });
   return state;
 }
 
@@ -351,7 +394,7 @@ describe('WamrRuntime on Android', () => {
     const result = runtime.call('add_i64', 9007199254740993n, '2');
     expect(result).toBe(9007199254740995n);
     // bigint crossed the bridge as a decimal string
-    expect(state.lastCall.args).toEqual(['9007199254740993', '2']);
+    expect(state.lastCall?.args).toEqual(['9007199254740993', '2']);
   });
 
   it('returns multi-value results as arrays', () => {
@@ -424,8 +467,9 @@ describe('WamrRuntime on Android', () => {
 
     module.setGlobal('g_pi', Math.PI);
 
-    expect(state.lastSetGlobal.value).toBeInstanceOf(g.java.lang.Double);
-    expect(state.lastSetGlobal.value.doubleValue()).toBe(Math.PI);
+    const boxed = state.lastSetGlobal?.value as JavaNumberBox | undefined;
+    expect(boxed).toBeInstanceOf(globalThis.java?.lang?.Double);
+    expect(boxed?.doubleValue()).toBe(Math.PI);
   });
 
   it('unboxes java.lang.Number return values from host imports', () => {

@@ -6,7 +6,7 @@
  * cannot. The Rust unit tests in the fixture package check that encoding;
  * these check what the plugin makes of it.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from '@rstest/core';
 import {
   WamrError,
   WamrRuntime,

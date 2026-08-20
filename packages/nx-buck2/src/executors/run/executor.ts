@@ -1,5 +1,5 @@
 import { type ExecutorContext, logger } from '@nx/devkit';
-import { spawnSync } from 'node:child_process';
+import { runBuck2 } from '../../lib/buck2-cmd';
 
 export interface Buck2RunOptions {
   target: string;
@@ -11,19 +11,21 @@ export default async function runExecutor(
   options: Buck2RunOptions,
   context: ExecutorContext,
 ): Promise<{ success: boolean }> {
-  const buck2 = process.env.BUCK2_PATH ?? 'buck2';
   const config = options.configuration ?? 'debug';
 
   logger.info(`🚀 Buck2 run: ${options.target} [${config}]`);
 
-  const cmdArgs = ['run', options.target, '--mode', config];
-  if (options.args) cmdArgs.push('--', ...options.args);
+  const args = ['run', options.target, '--modifier', config];
+  if (options.args) args.push('--', ...options.args);
 
-  const result = spawnSync(buck2, cmdArgs, {
-    stdio: 'inherit',
+  const exitCode = await runBuck2(args, {
     cwd: context.root,
-    env: { ...process.env },
+    env: {
+      ...process.env,
+      HOME: process.env.BUCK2_HOME ?? '/tmp/buck2-tmphome',
+      BUCK2_MODIFIER: config,
+    },
   });
 
-  return { success: result.status === 0 };
+  return { success: exitCode === 0 };
 }

@@ -2,10 +2,10 @@
  * The Rust fixture module driven through the plugin's public API, on the
  * device's own Endive interpreter (Android-only; iOS throws unsupported).
  *
- * Vitest discovers this file in Node, then @cross-code/vitest-ns
+ * Rstest discovers this file in Node, then @cross-code/ns-rstest
  * executes it inside a NativeScript Worker on the selected device.
  */
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it } from '@rstest/core';
 import {
   EndiveError,
   EndiveRuntime,
@@ -20,10 +20,10 @@ import {
   type HostCall,
 } from '../../wasm/fixture-suite';
 import { appWasmPath, FIXTURE_WASM } from '../../wasm/wasm-assets';
-import { describeRuntime, ENDIVE } from '../runtime-support';
+import { describeRuntime, ENDIVE } from '../_runtime-support';
 
 // Endive runs on the JVM, so this suite is Android-only — and skips even there
-// until the plugin's .aar lands. See ../runtime-support.ts.
+// until the plugin's .aar lands. See ../_runtime-support.ts.
 const describeEndive = describeRuntime(ENDIVE);
 
 describeEndive('the fixture module through @cross-code/ns-endive', () => {
