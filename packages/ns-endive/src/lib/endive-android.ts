@@ -3,72 +3,85 @@
 // pattern as ns-wasm3 and ns-wamr.
 
 import { EndiveError, type WasmValueType, type WireValue } from './wire.js';
-import type {
-  WireHostCallback,
-  NativeFunctionAdapter,
-  NativeModuleAdapter,
-  NativeRuntimeAdapter,
+import {
+  javaLang,
+  nativeArrayToJs,
+  type WireHostCallback,
+  type NativeFunctionAdapter,
+  type NativeModuleAdapter,
+  type NativeRuntimeAdapter,
+  type JavaList,
+  type JavaNumberBox,
 } from '@cross-code/ns-wasm-core';
 
 // ---------------------------------------------------------------------------
 // Android helpers
 // ---------------------------------------------------------------------------
 
-function ns(): any {
-  return (globalThis as any).org?.nativescript?.endive;
-}
-
-function arrayList(): any {
-  const g = globalThis as any;
-  return new (g.java.util.ArrayList)();
-}
-
-function javaArrayToJs(list: any): any[] {
-  const result: any[] = [];
-  const size = list.size();
-  for (let i = 0; i < size; i++) result.push(list.get(i));
-  return result;
-}
-
-function toJavaBytes(source: Uint8Array): any {
-  try {
-    const n = ns();
-    return n.NSCEndiveRuntime.jsByteArrayToJava(source.buffer, source.byteOffset, source.byteLength);
-  } catch {
-    // Older Android API: thread the bytes through an NSArray.
-    const bytes = arrayList();
-    for (let i = 0; i < source.length; i++) bytes.add(source[i]);
-    return bytes;
+/** Reads the Kotlin namespace, failing loudly rather than on a missing member. */
+function endiveNamespace(): NSCEndiveAndroidNamespace {
+  const ns = globalThis.org?.nativescript?.endive;
+  if (!ns) {
+    throw new EndiveError(
+      'ns-endive native runtime not found on Android — is the plugin installed?',
+    );
   }
+  return ns;
 }
 
-function fromJavaBytes(javaBytes: any): Uint8Array {
+function arrayList(): JavaList {
+  const ArrayList = globalThis.java?.util?.ArrayList;
+  if (!ArrayList) throw new EndiveError('java.util.ArrayList not available');
+  return new ArrayList();
+}
+
+function toJavaBytes(source: Uint8Array): unknown {
   try {
-    const n = ns();
-    const buf: ArrayBuffer = n.NSCEndiveRuntime.javaByteArrayToJs(javaBytes);
-    return new Uint8Array(buf);
+    const runtimeClass = endiveNamespace().NSCEndiveRuntime;
+    if (runtimeClass.jsByteArrayToJava) {
+      return runtimeClass.jsByteArrayToJava(source.buffer, source.byteOffset, source.byteLength);
+    }
   } catch {
-    return Uint8Array.from(javaArrayToJs(javaBytes) as number[]);
+    // Fall through: older Android builds thread the bytes through an ArrayList.
   }
+  const bytes = arrayList();
+  for (let i = 0; i < source.length; i++) bytes.add(source[i]);
+  return bytes;
 }
 
-function normalizeAndroidValue(value: any): WireValue | null {
+function fromJavaBytes(javaBytes: unknown): Uint8Array {
+  try {
+    const runtimeClass = endiveNamespace().NSCEndiveRuntime;
+    if (runtimeClass.javaByteArrayToJs) {
+      return new Uint8Array(runtimeClass.javaByteArrayToJs(javaBytes));
+    }
+  } catch {
+    // Fall through: same older-build path as toJavaBytes.
+  }
+  return Uint8Array.from(nativeArrayToJs(javaBytes) as number[]);
+}
+
+// Kotlin methods declared to return Any hand boxed java.lang.Number instances
+// to JS as object proxies, not primitives — unbox them by hand.
+function normalizeAndroidValue(value: unknown): WireValue | null {
   if (value === undefined || value === null) return null;
   if (typeof value === 'number' || typeof value === 'string') return value;
-  const javaLang = (globalThis as any).java?.lang;
-  if (javaLang != null && value instanceof javaLang.Number) {
+  const lang = javaLang();
+  if (lang != null && value instanceof lang.Number) {
+    const boxed = value as JavaNumberBox;
     // i64 globals cross as java.lang.Long — stringify before unboxing
     // so values above Number.MAX_SAFE_INTEGER stay exact.
-    if (value instanceof javaLang.Long) return String(value.toString());
-    return value.doubleValue();
+    if (value instanceof lang.Long) return String(boxed.toString());
+    return boxed.doubleValue();
   }
   return String(value);
 }
 
-function toJavaWireValue(val: WireValue): any {
-  // Use the static factory so the NS bridge gets a java.lang.Double object
-  // not a primitive (NativeScript boxes primitives as Float, losing f64).
-  if (typeof val === 'number') return (globalThis as any).java.lang.Double.valueOf(val);
+// Use the static factory so the NS bridge gets a java.lang.Double object
+// not a primitive (NativeScript boxes primitives as Float, losing f64).
+function toJavaWireValue(val: WireValue): unknown {
+  const lang = javaLang();
+  if (lang != null && typeof val === 'number') return lang.Double.valueOf(val);
   // i64 crosses the wire as a decimal string — leave it as-is.
   return String(val);
 }
@@ -85,14 +98,14 @@ function rethrow(error: unknown, context: string): never {
 // ---------------------------------------------------------------------------
 
 class AndroidFunction implements NativeFunctionAdapter {
-  constructor(private readonly fn: any) {}
+  constructor(private readonly fn: NSCEndiveJavaFunction) {}
 
   name(): string { return String(this.fn.name()); }
   paramTypes(): WasmValueType[] {
-    return javaArrayToJs(this.fn.paramTypes()).map(String) as WasmValueType[];
+    return nativeArrayToJs(this.fn.paramTypes()).map(String) as WasmValueType[];
   }
   returnTypes(): WasmValueType[] {
-    return javaArrayToJs(this.fn.returnTypes()).map(String) as WasmValueType[];
+    return nativeArrayToJs(this.fn.returnTypes()).map(String) as WasmValueType[];
   }
 
   call(args: WireValue[]): WireValue[] {
@@ -102,7 +115,7 @@ class AndroidFunction implements NativeFunctionAdapter {
       for (const arg of args) list.add(toJavaWireValue(arg));
       const result = this.fn.call(list);
       if (result == null) throw new EndiveError(`${context}: returned null`);
-      return (javaArrayToJs(result) as any[]).map((v: any) => {
+      return nativeArrayToJs(result).map((v) => {
         const n = normalizeAndroidValue(v);
         if (n === null) throw new EndiveError(`${context}: unexpected null result slot`);
         return n;
@@ -113,16 +126,14 @@ class AndroidFunction implements NativeFunctionAdapter {
   }
 }
 
-function makeAndroidHostCallback(cb: WireHostCallback): any {
-  const ns = (globalThis as any).org?.nativescript?.endive;
-  if (!ns || !ns.NSCEndiveHostCallback) {
-    throw new EndiveError('NSCEndiveHostCallback not available');
-  }
-  return new ns.NSCEndiveHostCallback(cb);
+function makeAndroidHostCallback(cb: WireHostCallback): object {
+  const HostCallback = endiveNamespace().NSCEndiveHostCallback;
+  if (!HostCallback) throw new EndiveError('NSCEndiveHostCallback not available');
+  return new HostCallback(cb);
 }
 
 class AndroidModule implements NativeModuleAdapter {
-  constructor(private readonly module: any) {}
+  constructor(private readonly module: NSCEndiveJavaModule) {}
 
   name(): string { return String(this.module.name()); }
 
@@ -154,16 +165,16 @@ class AndroidModule implements NativeModuleAdapter {
 }
 
 export class AndroidRuntime implements NativeRuntimeAdapter {
-  private readonly runtime: any;
+  private readonly runtime: NSCEndiveJavaRuntime;
 
   constructor(stackSizeInBytes: number) {
-    const n = ns();
-    if (!n || !n.NSCEndiveRuntime) {
+    const RuntimeClass = endiveNamespace().NSCEndiveRuntime;
+    if (!RuntimeClass) {
       throw new EndiveError(
         'ns-endive native runtime not found on Android — is the plugin installed?',
       );
     }
-    this.runtime = new n.NSCEndiveRuntime(stackSizeInBytes);
+    this.runtime = new RuntimeClass(stackSizeInBytes);
   }
 
   loadModuleFromBytes(bytes: Uint8Array): NativeModuleAdapter {
@@ -172,7 +183,6 @@ export class AndroidRuntime implements NativeRuntimeAdapter {
       return new AndroidModule(module);
     } catch (error) {
       rethrow(error, 'loadModule');
-      throw null as never;
     }
   }
 
@@ -182,7 +192,6 @@ export class AndroidRuntime implements NativeRuntimeAdapter {
       return new AndroidModule(module);
     } catch (error) {
       rethrow(error, 'loadModule');
-      throw null as never;
     }
   }
 
@@ -192,7 +201,6 @@ export class AndroidRuntime implements NativeRuntimeAdapter {
       return new AndroidFunction(fn);
     } catch (error) {
       rethrow(error, 'findFunction');
-      throw null as never;
     }
   }
 
@@ -203,7 +211,6 @@ export class AndroidRuntime implements NativeRuntimeAdapter {
       return fromJavaBytes(this.runtime.readMemory(offset, length));
     } catch (error) {
       rethrow(error, 'readMemory');
-      throw null as never;
     }
   }
 

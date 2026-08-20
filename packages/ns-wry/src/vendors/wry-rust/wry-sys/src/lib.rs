@@ -1,5 +1,9 @@
 //! wry-sys — low-level Rust entry point for the wry engine.
 
+// Every unsafe operation inside an `unsafe fn` must still name itself, so the
+// SAFETY comments sit on the actual dereference rather than the header.
+#![deny(unsafe_op_in_unsafe_fn)]
+
 use std::os::raw::{c_char, c_int};
 
 /// Engine version, kept NUL-terminated so C callers can hand it to `strlen`.

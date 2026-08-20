@@ -53,13 +53,12 @@ export interface EndiveRuntimeOptions {
 // ---------------------------------------------------------------------------
 
 function createAdapter(stackSizeInBytes: number): NativeRuntimeAdapter {
-  const g = globalThis as any;
   // Android: Endive runs on the JVM.
-  if (g.org?.nativescript?.endive?.NSCEndiveRuntime) {
+  if (globalThis.org?.nativescript?.endive?.NSCEndiveRuntime) {
     return new AndroidRuntime(stackSizeInBytes);
   }
   // iOS: Endive is Java-based; falls through to unsupported.
-  if (typeof g.NSCEndiveRuntime !== 'undefined' && g.NSCEndiveRuntime !== null) {
+  if (globalThis.NSCEndiveRuntime) {
     return new IosRuntime(stackSizeInBytes);
   }
   throw new EndiveError(
@@ -68,13 +67,10 @@ function createAdapter(stackSizeInBytes: number): NativeRuntimeAdapter {
 }
 
 function endiveVersionNative(): string {
-  const g = globalThis as any;
-  if (g.org?.nativescript?.endive?.NSCEndiveRuntime) {
-    return String(g.org.nativescript.endive.NSCEndiveRuntime.endiveVersion());
-  }
-  if (typeof g.NSCEndiveRuntime !== 'undefined' && g.NSCEndiveRuntime !== null) {
-    return String(g.NSCEndiveRuntime.endiveVersion());
-  }
+  const android = globalThis.org?.nativescript?.endive?.NSCEndiveRuntime;
+  if (android) return String(android.endiveVersion());
+  const ios = globalThis.NSCEndiveRuntime;
+  if (ios) return String(ios.endiveVersion());
   throw new EndiveError('ns-endive native runtime not found');
 }
 

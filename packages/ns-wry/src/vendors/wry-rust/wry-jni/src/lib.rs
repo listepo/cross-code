@@ -1,6 +1,10 @@
 //! wry-jni — JNI bindings for the wry engine, loaded by Kotlin via
 //! `System.loadLibrary("wry_jni")`.  Built with `cargo-ndk`.
 
+// Every unsafe operation inside an `unsafe fn` must still name itself, so the
+// SAFETY comments sit on the actual dereference rather than the header.
+#![deny(unsafe_op_in_unsafe_fn)]
+
 use jni::objects::{JClass, JString};
 use jni::sys::jstring;
 use jni::JNIEnv;

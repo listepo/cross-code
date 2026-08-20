@@ -33,9 +33,13 @@ declare class NSCWasmEdgeFunction {
   callWithArgumentsError(args: unknown[], error: unknown): unknown[];
 }
 
+/** An instance of the callback subclass — opaque once constructed. */
+type NSCWasmEdgeHostCallbackRef = object;
+
 declare class NSCWasmEdgeHostCallback {
   static extend(config: { invoke(args: unknown[]): unknown[] }): {
-    new (): NSCWasmEdgeHostCallback;
+    new (): NSCWasmEdgeHostCallbackRef;
   };
-  static new(): NSCWasmEdgeHostCallback;
+  /** ObjC's `+new` factory — `alloc` and `init` in one selector. */
+  static new: () => NSCWasmEdgeHostCallbackRef;
 }

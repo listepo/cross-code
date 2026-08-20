@@ -1,84 +1,116 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { EndiveError } from './wire.js';
+import { EndiveError, type WireValue } from './wire.js';
 import { EndiveRuntime } from './endive.js';
 
 // These specs exercise the Android platform adapter against fakes that mimic
 // the JS-visible shape of the native Kotlin classes. The real Endive
 // implementation is covered by the JVM host tests.
 
-const g = globalThis as any;
+/**
+ * The fakes stand in for classes the NativeScript bridge installs, so they
+ * match the shape the adapter calls but are not the declared nominal types —
+ * one untyped write per global, at the assignment, keeps the rest typed.
+ */
+function installGlobal(name: string, value: unknown): void {
+  (globalThis as Record<string, unknown>)[name] = value;
+}
 
 afterEach(() => {
-  delete g.org;
-  delete g.java;
+  for (const name of ['org', 'java']) {
+    delete (globalThis as Record<string, unknown>)[name];
+  }
 });
 
 // ------------------------------------------------------------------ fakes
 
+/** What the fake records for the assertions to read back. */
+interface FakeState {
+  memory: Uint8Array;
+  version: string;
+  stackSize?: number;
+}
+
+class FakeArrayList {
+  private items: unknown[] = [];
+  constructor(...init: unknown[]) { this.items = init; }
+  add(v: unknown) { this.items.push(v); }
+  get(i: number) { return this.items[i]; }
+  size() { return this.items.length; }
+}
+
+class FakeJavaNumber {
+  constructor(protected readonly v: number) {}
+  doubleValue() { return this.v; }
+  floatValue() { return this.v; }
+}
+
+// `valueOf` is a static factory on java.lang.Double, not the Object.prototype
+// method — the adapter calls it to box an f64 without losing precision.
+class FakeDouble extends FakeJavaNumber {
+  static override valueOf(v: number) { return new FakeDouble(v); }
+}
+
+class FakeLong extends FakeJavaNumber {
+  override toString() { return String(this.v); }
+}
+
 function installAndroidFake() {
-  const state: any = {
+  const state: FakeState = {
     memory: new Uint8Array(64 * 1024),
     version: '0.1.0',
   };
 
-  g.java = {
-    util: {
-      ArrayList: class {
-        private items: any[] = [];
-        constructor(...init: any[]) { this.items = init; }
-        add(v: any) { this.items.push(v); }
-        get(i: number) { return this.items[i]; }
-        size() { return this.items.length; }
-      },
-    },
-    lang: {
-      Double: class {
-        private v: number;
-        constructor(v: number) { this.v = v; }
-        doubleValue() { return this.v; }
-        floatValue() { return this.v; }
-      },
-    },
-  };
+  installGlobal('java', {
+    util: { ArrayList: FakeArrayList },
+    lang: { Number: FakeJavaNumber, Long: FakeLong, Double: FakeDouble },
+  });
 
-  const ns = (g.org = { nativescript: { endive: {} } } as any).nativescript.endive;
   const module = { name: () => 'fake.wasm' };
 
-  ns.NSCEndiveRuntime = class {
+  class FakeRuntime {
     private _memory: Uint8Array;
     constructor(stackSize: number) {
       state.stackSize = stackSize;
       this._memory = state.memory;
     }
     static endiveVersion() { return state.version; }
-    static jsByteArrayToJava(buf: ArrayBuffer, off: number, len: number) {
-      return new (g.java.util.ArrayList)(...Array.from(new Uint8Array(buf, off, len)));
+    static jsByteArrayToJava(buf: ArrayBufferLike, off: number, len: number) {
+      return new FakeArrayList(...Array.from(new Uint8Array(buf, off, len)));
     }
-    static javaByteArrayToJs(bytes: any) {
+    static javaByteArrayToJs(bytes: FakeArrayList) {
       const arr = new Uint8Array(bytes.size());
-      for (let i = 0; i < arr.length; i++) arr[i] = bytes.get(i);
+      for (let i = 0; i < arr.length; i++) arr[i] = Number(bytes.get(i));
       return arr.buffer;
     }
-    loadModuleFromBytes(_bytes: any) { return module; }
+    loadModuleFromBytes(_bytes: unknown) { return module; }
     loadModuleFromFile(_path: string) { return module; }
     findFunction(name: string) { return { name() { return name; } }; }
     memorySize() { return this._memory.length; }
     readMemory(offset: number, length: number) {
-      return new (g.java.util.ArrayList)(...Array.from(this._memory.slice(offset, offset + length)));
+      return new FakeArrayList(...Array.from(this._memory.slice(offset, offset + length)));
     }
-    writeMemory(offset: number, bytes: any) {
+    writeMemory(offset: number, bytes: FakeArrayList) {
       const arr = new Uint8Array(bytes.size());
-      for (let i = 0; i < arr.length; i++) arr[i] = bytes.get(i);
+      for (let i = 0; i < arr.length; i++) arr[i] = Number(bytes.get(i));
       this._memory.set(arr, offset);
     }
     dispose() {}
-  };
+  }
 
-  (ns.NSCEndiveHostCallback as any) = class {
-    constructor(private cb: (args: any[]) => any[]) {}
-    invoke(args: any[]) { return this.cb(args); }
-  };
+  class FakeHostCallback {
+    constructor(private cb: (args: WireValue[]) => WireValue[]) {}
+    invoke(args: WireValue[]) { return this.cb(args); }
+  }
+
+  installGlobal('org', {
+    nativescript: {
+      endive: {
+        NSCEndiveRuntime: FakeRuntime,
+        NSCEndiveHostCallback: FakeHostCallback,
+      },
+    },
+  });
 }
 
 // ------------------------------------------------------------------ tests
@@ -117,7 +149,7 @@ describe('EndiveRuntime (Android fake)', () => {
   });
 
   it('throws when native runtime is not found', () => {
-    delete g.org;
+    delete (globalThis as Record<string, unknown>).org;
     expect(() => new EndiveRuntime()).toThrow(EndiveError);
   });
 });

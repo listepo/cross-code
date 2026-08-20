@@ -31,6 +31,8 @@
     "**/platforms/**",
     "**/src/vendors/**",
     "**/test-output/**",
-    "**/*.d.ts"
+    "**/*.d.ts",
+    "!**/src/**/*.d.ts",
+    "**/pkg/**"
   ]
 }

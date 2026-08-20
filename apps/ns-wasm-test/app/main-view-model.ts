@@ -1,4 +1,4 @@
-import { Observable } from '@nativescript/core';
+import { isAndroid, isIOS, Observable } from '@nativescript/core';
 import { WamrExecutionTier, WamrRuntime } from '@cross-code/ns-wamr';
 import { Wasm3Runtime } from '@cross-code/ns-wasm3';
 import { WasmKitRuntime } from '@cross-code/ns-wasm-kit-runtime';
@@ -64,11 +64,11 @@ export class WasmDemoModel extends Observable {
   onRun() {
     const sections = [runWasm3(), runWamr(), runWasmEdge()];
     // WasmKit is Swift-native — only include it on iOS.
-    if ((globalThis as any).isIOS) {
+    if (isIOS) {
       sections.push(runWasmKit());
     }
     // Endive is Java-native — only include it on Android.
-    if ((globalThis as any).isAndroid) {
+    if (isAndroid) {
       sections.push(runEndive());
       // Chicory is also pure-Java, Android-only.
       sections.push(runChicory());

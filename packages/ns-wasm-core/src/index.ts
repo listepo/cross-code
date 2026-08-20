@@ -39,7 +39,9 @@ export {
   fromJavaBytes,
   type JavaByteArray,
   type JavaLangApi,
+  type JavaUtilApi,
   type JavaApi,
+  type JavaList,
   type JavaNumberBox,
   type NativeScriptArrayCtor,
 } from './lib/native-bridge.js';

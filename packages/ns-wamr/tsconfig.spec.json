@@ -3,7 +3,9 @@
   "compilerOptions": {
     "types": [
       "node"
-    ]
+    ],
+    "outDir": "./out-tsc/vitest",
+    "tsBuildInfoFile": "./out-tsc/vitest/tsconfig.spec.tsbuildinfo"
   },
   "include": [
     "src/**/*.spec.ts",

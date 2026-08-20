@@ -4,6 +4,7 @@ import {
   Label,
   Observable,
   ObservableArray,
+  SearchBar,
   StackLayout,
   Utils,
   View,
@@ -66,7 +67,7 @@ export class WidgetsGalleryModel extends Observable {
   }
 
   onSearchSubmit(args: EventData) {
-    this.set('message', `SearchBar submitted: ${(args.object as any).text}`)
+    this.set('message', `SearchBar submitted: ${(args.object as SearchBar).text}`)
   }
 
   onListItemTap(args: ItemEventData) {

@@ -12,8 +12,17 @@
 export interface NativeArrayLike {
   readonly count?: number;
   readonly length?: number;
+  /** `java.util.List` exposes its length as a method, not a property. */
+  size?(): number;
   objectAtIndex?(index: number): unknown;
   get?(index: number): unknown;
+}
+
+/** The `java.util.List` surface the adapters build and read. */
+export interface JavaList extends NativeArrayLike {
+  add(value: unknown): void;
+  size(): number;
+  get(index: number): unknown;
 }
 
 /** The subset of `NSMutableArray` the adapters build. */
@@ -73,8 +82,14 @@ export interface JavaLangApi {
   Double: { valueOf(value: number): unknown };
 }
 
+/** The `java.util` members the adapters need. */
+export interface JavaUtilApi {
+  ArrayList: new () => JavaList;
+}
+
 export interface JavaApi {
   lang?: JavaLangApi;
+  util?: JavaUtilApi;
 }
 
 /** A boxed `java.lang.Number` proxy, before it is unboxed to a JS primitive. */
@@ -146,7 +161,7 @@ export function nativeArrayToJs(value: unknown): unknown[] {
   if (value == null) return [];
   if (Array.isArray(value)) return value;
   const array = value as NativeArrayLike;
-  const count = array.count ?? array.length ?? 0;
+  const count = array.count ?? array.length ?? array.size?.() ?? 0;
   const result: unknown[] = [];
   for (let i = 0; i < count; i++) {
     result.push(array.objectAtIndex ? array.objectAtIndex(i) : array.get?.(i));

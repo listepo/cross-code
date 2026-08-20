@@ -40,9 +40,12 @@ export interface NativeWasmEdgeFunctionProxy {
   call(args: JavaArrayList): JavaArrayList;
 }
 
+/** An instance of the Kotlin callback class — opaque once constructed. */
+export type NativeWasmEdgeHostCallback = object;
+
 /** Shape of the NSCWasmEdgeHostCallback Kotlin class. */
 export interface NativeWasmEdgeHostCallbackProxy {
-  new (cb: (args: unknown[]) => unknown[]): NativeWasmEdgeHostCallbackProxy;
+  new (cb: (args: unknown[]) => unknown[]): NativeWasmEdgeHostCallback;
 }
 
 /** Namespace shape for globalThis.org.nativescript.wasmedge */
@@ -97,10 +100,13 @@ export interface IosWasmEdgeFunctionProxy {
   callWithArgumentsError(args: unknown[], error: unknown): unknown;
 }
 
+/** An instance of the Swift callback class — opaque once constructed. */
+export type IosWasmEdgeHostCallback = object;
+
 /** Shape of the iOS NSCWasmEdgeHostCallback class. */
 export interface IosWasmEdgeHostCallbackProxy {
   extend(config: { invoke(args: unknown[]): unknown }): {
-    new (): IosWasmEdgeHostCallbackProxy;
+    new (): IosWasmEdgeHostCallback;
   };
-  new (): IosWasmEdgeHostCallbackProxy;
+  new (): IosWasmEdgeHostCallback;
 }

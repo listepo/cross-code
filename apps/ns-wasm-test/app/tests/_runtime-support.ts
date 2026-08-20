@@ -49,8 +49,27 @@ export interface RuntimeSupport {
   readonly isLoaded: () => boolean;
 }
 
-function g(): any {
-  return globalThis as any;
+/**
+ * The engine globals the matrix probes for. Every entry is optional: each is
+ * installed by exactly one plugin's native layer, on one platform.
+ */
+interface EngineGlobals {
+  NSWasmKitRuntime?: unknown;
+  NSCEndiveRuntime?: unknown;
+  NSCChicoryRuntime?: unknown;
+  NSCWasmEdgeRuntime?: unknown;
+  org?: {
+    nativescript?: {
+      wasmkit?: { NSWasmKitRuntime?: unknown };
+      endive?: { NSCEndiveRuntime?: unknown };
+      chicory?: { NSCChicoryRuntime?: unknown };
+      wasmedge?: { NSCWasmEdgeRuntime?: unknown };
+    };
+  };
+}
+
+function g(): EngineGlobals {
+  return globalThis as EngineGlobals;
 }
 
 // The matrix. Each `isLoaded` probes the same globals the plugin's own

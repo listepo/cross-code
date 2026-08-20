@@ -8,19 +8,19 @@ import type { WryArg, WryValue } from './wire.js';
  * Android: globalThis.org.nativescript.wry.NSCWryRuntime
  */
 export class WryRuntime {
-  private readonly native: any;
+  private readonly native: NSCWryRuntimeRef;
 
   constructor(options?: { stackSizeInBytes?: number }) {
-    const g = globalThis as any;
+    const sz = options?.stackSizeInBytes ?? 65536;
+    const ios = globalThis.NSCWryRuntime;
+    const android = globalThis.org?.nativescript?.wry?.NSCWryRuntime;
     // iOS adapter
-    if (typeof g.NSCWryRuntime !== 'undefined' && g.NSCWryRuntime !== null) {
-      const sz = options?.stackSizeInBytes ?? 65536;
-      this.native = g.NSCWryRuntime.alloc().initWithStackSize(sz);
+    if (ios) {
+      this.native = ios.alloc().initWithStackSize(sz);
     }
     // Android adapter
-    else if (g.org?.nativescript?.wry?.NSCWryRuntime) {
-      const sz = options?.stackSizeInBytes ?? 65536;
-      this.native = new g.org.nativescript.wry.NSCWryRuntime(sz);
+    else if (android) {
+      this.native = new android(sz);
     } else {
       throw new WryError(
         'Wry native runtime not found — is the plugin installed and the app rebuilt?',
@@ -30,13 +30,10 @@ export class WryRuntime {
 
   /** Engine version, e.g. "0.1.0". */
   static version(): string {
-    const g = globalThis as any;
-    if (typeof g.NSCWryRuntime !== 'undefined' && g.NSCWryRuntime !== null) {
-      return String(g.NSCWryRuntime.wryVersion());
-    }
-    if (g.org?.nativescript?.wry?.NSCWryRuntime) {
-      return String(g.org.nativescript.wry.NSCWryRuntime.wryVersion());
-    }
+    const ios = globalThis.NSCWryRuntime;
+    if (ios) return String(ios.wryVersion());
+    const android = globalThis.org?.nativescript?.wry?.NSCWryRuntime;
+    if (android) return String(android.wryVersion());
     return 'unknown';
   }
 
