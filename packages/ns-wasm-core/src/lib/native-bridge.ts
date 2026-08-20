@@ -156,7 +156,14 @@ export function nativeGlobal<T>(name: string): T | undefined {
   return (globalThis as Record<string, unknown>)[name] as T | undefined;
 }
 
-/** Copies an NSArray, a java.util.List or a plain JS array into a JS array. */
+/**
+ * Copies an NSArray, a java.util.List or a plain JS array into a JS array.
+ *
+ * A Java `Array<Any>` arriving as a host-callback's arguments crosses as
+ * none of those: NativeScript gives it as a plain-JS-like wrapper with
+ * `.length` and indexed access, but no `objectAtIndex`/`get` method — so
+ * that combination falls back to reading it by index.
+ */
 export function nativeArrayToJs(value: unknown): unknown[] {
   if (value == null) return [];
   if (Array.isArray(value)) return value;
@@ -164,7 +171,9 @@ export function nativeArrayToJs(value: unknown): unknown[] {
   const count = array.count ?? array.length ?? array.size?.() ?? 0;
   const result: unknown[] = [];
   for (let i = 0; i < count; i++) {
-    result.push(array.objectAtIndex ? array.objectAtIndex(i) : array.get?.(i));
+    if (array.objectAtIndex) result.push(array.objectAtIndex(i));
+    else if (array.get) result.push(array.get(i));
+    else result.push((array as unknown as Record<number, unknown>)[i]);
   }
   return result;
 }
