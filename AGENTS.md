@@ -62,7 +62,15 @@ layers. Only engine-specific detail lives in each package's AGENTS.md.
   `WasmError`), the native adapter interfaces (`NativeRuntimeAdapter`,
   `NativeModuleAdapter`, `NativeFunctionAdapter`), and the generic
   `WasmRuntime`/`WasmModule`/`WasmFunction` base classes that every WASM
-  runtime plugin extends.
+  runtime plugin extends. On top of those it implements the standard
+  `WebAssembly` JavaScript API (`createWebAssembly`, `Module`, `Instance`,
+  `Memory`, `Global`, `compile`/`instantiate`/`validate`) and the binary
+  reader it needs (`parseWasmModule`, `toSignature`) — export names and
+  import signatures come from the module's own bytes, because the native
+  adapters cannot report them. Every engine plugin re-exposes it as a
+  `./polyfill` entry point (`import '@cross-code/ns-wasm3/polyfill'`) that
+  defines `globalThis.WebAssembly` on that engine. See
+  [WASM.md](WASM.md#standard-webassembly-javascript-api).
 - **`ns-wasm3`** (`@cross-code/ns-wasm3`) — mature plugin binding
   the wasm3 interpreter (Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android).
   See `packages/ns-wasm3/AGENTS.md`.
