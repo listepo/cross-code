@@ -101,19 +101,19 @@ class IosModule implements NativeModuleAdapter {
   name(): string { return String(this.module.name); }
   linkHostFunction(mod: string, name: string, signature: string, cb: WireHostCallback): void {
     withErrorRef(`linkHostFunction ${mod}.${name}`, (err) =>
-      this.module.linkHostFunctionModuleNameNameSignatureCallbackError(
+      this.module.linkHostFunctionNameSignatureCallbackError(
         mod, name, signature, makeIosHostCallback(cb), ...err,
       ),
     );
   }
   getGlobal(name: string): WireValue {
     return withErrorRef(`getGlobal ${name}`, (err) =>
-      this.module.getGlobalNameError(name, ...err),
+      this.module.getGlobalError(name, ...err),
     ) as WireValue;
   }
   setGlobal(name: string, value: WireValue): void {
     withErrorRef(`setGlobal ${name}`, (err) =>
-      this.module.setGlobalNameValueError(name, value, ...err),
+      this.module.setGlobalValueError(name, value, ...err),
     );
   }
 }
@@ -134,7 +134,7 @@ export class IosRuntime implements NativeRuntimeAdapter {
     if (!NSDataClass) throw new WasmKitError('NSData not available');
     const data = NSDataClass.dataWithBytesLength(bytes, bytes.length);
     const module = withErrorRef('loadModule', (err) =>
-      this.runtime.loadModuleBytesError(data, ...err),
+      this.runtime.loadModuleFromBytesError(data, ...err),
     );
     if (!module) throw new WasmKitError('loadModule: returned null');
     return new IosModule(module);
@@ -142,7 +142,7 @@ export class IosRuntime implements NativeRuntimeAdapter {
   loadModuleFromFile(path: string): NativeModuleAdapter {
     const context = `loadModule ${path}`;
     const module = withErrorRef(context, (err) =>
-      this.runtime.loadModuleFileError(path, ...err),
+      this.runtime.loadModuleFromFileError(path, ...err),
     );
     if (!module) throw new WasmKitError(`${context}: returned null`);
     return new IosModule(module);

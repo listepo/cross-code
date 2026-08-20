@@ -125,13 +125,13 @@ function installIosFake() {
     static wasmkitVersion() {
       return state.version;
     }
-    loadModuleBytesError(data: FakeNSData, _err?: unknown) {
+    loadModuleFromBytesError(data: FakeNSData, _err?: unknown) {
       const mod = new FakeModule(data.bytes, this);
       this._modules.push(mod);
       return mod;
     }
-    loadModuleFileError(_path: string, _err?: unknown) {
-      return this.loadModuleBytesError(
+    loadModuleFromFileError(_path: string, _err?: unknown) {
+      return this.loadModuleFromBytesError(
         FakeNSData.dataWithBytesLength(new Uint8Array(0), 0),
       );
     }

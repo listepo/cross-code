@@ -37,15 +37,18 @@ interface NSWasmKitFunctionRef {
 
 interface NSWasmKitModuleRef {
   readonly name: string;
-  linkHostFunctionModuleNameNameSignatureCallbackError(
+  // Swift's first parameter (`_ moduleName: String`) carries no external
+  // label, so it contributes nothing to the selector — only the three
+  // labeled parameters that follow do.
+  linkHostFunctionNameSignatureCallbackError(
     mod: string,
     name: string,
     signature: string,
     callback: object,
     ...error: NativeErrorRef[]
   ): void;
-  getGlobalNameError(name: string, ...error: NativeErrorRef[]): NativeWireValue | null;
-  setGlobalNameValueError(
+  getGlobalError(name: string, ...error: NativeErrorRef[]): NativeWireValue | null;
+  setGlobalValueError(
     name: string,
     value: NativeWireValue,
     ...error: NativeErrorRef[]
@@ -54,8 +57,8 @@ interface NSWasmKitModuleRef {
 
 interface NSWasmKitRuntimeRef {
   memorySize(): number;
-  loadModuleBytesError(data: unknown, ...error: NativeErrorRef[]): NSWasmKitModuleRef | null;
-  loadModuleFileError(path: string, ...error: NativeErrorRef[]): NSWasmKitModuleRef | null;
+  loadModuleFromBytesError(data: unknown, ...error: NativeErrorRef[]): NSWasmKitModuleRef | null;
+  loadModuleFromFileError(path: string, ...error: NativeErrorRef[]): NSWasmKitModuleRef | null;
   findFunctionError(name: string, ...error: NativeErrorRef[]): NSWasmKitFunctionRef | null;
   readMemoryAtOffsetLengthError(
     offset: number,
