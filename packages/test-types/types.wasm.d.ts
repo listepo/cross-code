@@ -1,5 +1,5 @@
 /**
- * `@cross-code/ns-wasm-fixture/types.wasm` as `@cross-code/ns-rspack`'s
+ * `@cross-code/test-types/types.wasm` as `@cross-code/ns-rspack`'s
  * wasm-loader emits it: the binary's own exports, instantiated on first use
  * through the `WebAssembly` global a runtime plugin's polyfill installs.
  *
@@ -15,7 +15,7 @@
  * window would force a non-null assertion at every use site; the loader
  * documents the limitation instead (see ns-rspack's README).
  */
-export * from './src/test-types/pkg/test_types_bg.wasm.js';
+export * from './pkg/test_types_bg.wasm.js';
 
 /** The module's linear memory, as `@cross-code/ns-wasm-core` exposes one. */
 export const memory: {

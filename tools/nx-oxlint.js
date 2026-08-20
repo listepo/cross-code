@@ -7,6 +7,8 @@ function createNodesForFile(projectFile, opts, ctx) {
   // dirname('package.json') === '.', which is how the workspace root is skipped.
   const root = dirname(projectFile);
   if (root === '.') return; // skip workspace root
+  // wasm-pack writes a package.json into pkg/; it is not an Nx project.
+  if (projectFile.replace(/\\/g, '/').endsWith('/pkg/package.json')) return;
 
   // Only configure if the project has src/**/*.ts (a TS library or app).
   try {

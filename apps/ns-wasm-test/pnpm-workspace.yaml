@@ -15,7 +15,7 @@ packages:
   - ../../packages/ns-endive
   - ../../packages/ns-wasm-chicory
   - ../../packages/ns-wasm-edge
-  - ../../packages/ns-wasm-fixture
+  - ../../packages/test-types
   - ../../packages/ns-rstest
 
 # pnpm 11 blocks dependency build scripts by default (ERR_PNPM_IGNORED_BUILDS).

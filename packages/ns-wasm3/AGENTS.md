@@ -131,7 +131,7 @@ The Android build needs `ANDROID_HOME` set, NDK 29, and a Rust toolchain with
 ## Test app
 
 `apps/ns-wasm-test` drives this plugin's public API against the Rust
-fixture in `@cross-code/ns-wasm-fixture` on the device's own wasm3
+fixture in `@cross-code/test-types` on the device's own wasm3
 build — from a demo page, and as a mocha suite under `ns test ios` /
 `ns test android`. Both run the same list of checks
 (`app/wasm/fixture-suite.ts`). See `apps/ns-wasm-test/AGENTS.md`.

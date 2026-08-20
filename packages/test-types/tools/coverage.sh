@@ -34,16 +34,16 @@ COV_DIR="$(pwd)/target/coverage"
 # instrument-coverage needs a rebuild of the test targets.
 export RUSTFLAGS="-C instrument-coverage"
 export LLVM_PROFILE_FILE="$COV_DIR/test_types-%p-%m.profraw"
-cargo test --manifest-path src/test-types/Cargo.toml
+cargo test
 
 "$LLVM_BIN/llvm-profdata" merge -sparse "$COV_DIR"/*.profraw \
     -o "$COV_DIR/test_types.profdata"
 
 # The test harness binary is the newest non-artifact test_types-* file.
-BIN=$(ls -t src/test-types/target/debug/deps/test_types-* 2>/dev/null \
+BIN=$(ls -t target/debug/deps/test_types-* 2>/dev/null \
     | grep -vE '\.(d|rlib|rmeta|dylib|so|wasm)$' | head -1)
 if [ -z "$BIN" ]; then
-    echo "test harness binary not found under src/test-types/target/debug/deps" >&2
+    echo "test harness binary not found under target/debug/deps" >&2
     exit 1
 fi
 

@@ -608,7 +608,7 @@ and `wamr-ios` jobs.
 
 Each Rust workspace — `ns-wasm3` (`src/vendors/wasm3-rust`), `ns-wamr`
 (`src/vendors/wamr-rust`), `ns-wry` (`src/vendors/wry-rust`), and the fixture
-crate `ns-wasm-fixture` (`src/test-types`) — is linted with **Clippy** and
+crate `test-types` — is linted with **Clippy** and
 checked with **Rustfmt**. Generated code never reaches the tools: bindgen
 output is written to `OUT_DIR` and `#![allow(clippy::all)]` covers the
 `include!`s, the one committed reference copy
@@ -629,7 +629,7 @@ so the file filter lives in the script).
 pnpm exec nx run <pkg>:lint.rust    # cargo clippy --all-features --lib --tests -- -D warnings
 pnpm exec nx run <pkg>:fmt.rust     # find + rustfmt --check --edition 2021 (excludes uniffi-bindgen.rs)
 pnpm exec nx run <pkg>:format.rust  # find + rustfmt --edition 2021 (auto-fix)
-pnpm exec nx run-many -t lint.rust fmt.rust -p ns-wasm3 ns-wamr ns-wry ns-wasm-fixture
+pnpm exec nx run-many -t lint.rust fmt.rust -p ns-wasm3 ns-wamr ns-wry test-types
 ```
 
 CI runs the `run-many` form in the `unit-tests` job (Rust is preinstalled on
@@ -642,7 +642,7 @@ Code coverage, per project and per language:
 - **TypeScript** — every package's vitest config has a `coverage` block
   (provider `v8`); `pnpm exec nx run-many -t coverage` produces reports in
   `<pkg>/test-output/vitest/coverage/`.
-- **Rust** — `packages/ns-wasm-fixture/tools/coverage.sh` runs the crate's
+- **Rust** — `packages/test-types/tools/coverage.sh` runs the crate's
   tests with `-C instrument-coverage` and reports via the rustup
   `llvm-tools-preview` component (run `rustup component add llvm-tools-preview`
   once); report in `<pkg>/target/coverage/`.
@@ -657,11 +657,11 @@ Code coverage, per project and per language:
   developer machine.
 
 The shared check suite lives in the fixture package
-(`@cross-code/ns-wasm-fixture`, Rust + wasm-pack): the test app's
+(`@cross-code/test-types`, Rust + wasm-pack): the test app's
 `app/wasm/fixture-suite.ts` is the canonical correctness specification, typed
 against structural interfaces (`WasmModuleLike` / `WasmRuntimeLike`) rather
 than either plugin, and `callFixture<K>` is type-checked against the
-wasm-pack-generated `.d.ts`. See `packages/ns-wasm-fixture/README.md`.
+wasm-pack-generated `.d.ts`. See `packages/test-types/README.md`.
 
 ## Key differences: wasm3 vs WAMR
 

@@ -1,2 +1,11 @@
 test-output
 target
+**/*.rs.bk
+Cargo.lock
+/bin/
+wasm-pack.log
+
+# pkg/ is deliberately NOT ignored: the wasm-pack output is committed so the
+# workspace type-checks and tests without a Rust toolchain. Refresh it with
+# `pnpm run build.wasm` in packages/test-types — that script also deletes the
+# `.gitignore` wasm-pack drops into pkg/ on every build.

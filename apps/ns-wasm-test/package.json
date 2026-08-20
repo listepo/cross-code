@@ -26,7 +26,7 @@
     "@cross-code/ns-wamr": "workspace:@cross-code/ns-wamr@*",
     "@cross-code/ns-wasm-chicory": "workspace:@cross-code/ns-wasm-chicory@*",
     "@cross-code/ns-wasm-edge": "workspace:@cross-code/ns-wasm-edge@*",
-    "@cross-code/ns-wasm-fixture": "workspace:@cross-code/ns-wasm-fixture@*",
+    "@cross-code/test-types": "workspace:@cross-code/test-types@*",
     "@cross-code/ns-wasm-kit-runtime": "workspace:@cross-code/ns-wasm-kit-runtime@*",
     "@cross-code/ns-wasm3": "workspace:@cross-code/ns-wasm3@*",
     "@nativescript/core": "~9.0.0",

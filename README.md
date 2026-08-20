@@ -37,7 +37,7 @@ AI agents: start at [AGENTS.md](AGENTS.md), then [MEMORY.md](MEMORY.md).
 | [`@cross-code/ns-wasm-edge`](packages/ns-wasm-edge) | NativeScript plugin — Swift Package on iOS, Kotlin + Rust JNI (cargo-ndk) on Android (WasmEdge runtime)                         |
 | [`@cross-code/ns-wasm-chicory`](packages/ns-wasm-chicory) | NativeScript plugin — pure-Java Chicory interpreter on Android (no native toolchain needed)                               |
 | [`@cross-code/ns-endive`](packages/ns-endive) | NativeScript plugin — Java/JNI Endive interpreter on Android                                                                     |
-| [`@cross-code/ns-wasm-fixture`](packages/ns-wasm-fixture) | Rust/wasm-pack test fixtures (committed `.wasm` binaries)                                                                               |
+| [`@cross-code/test-types`](packages/test-types) | Rust/wasm-pack test fixtures (committed `.wasm` binaries)                                                                               |
 | [`@cross-code/ns-lynx`](packages/ns-lynx)                 | NativeScript plugin — embeds the [LynxJS](https://lynxjs.org) engine as a `<LynxView>`, rendering React on Lynx bundles inside a NativeScript page |
 | [`@cross-code/ns-rstest`](packages/ns-rstest)             | [Rstest](https://rstest.rs) device test runner for NativeScript — Node host, Worker runtime, and optional on-device results page        |
 | [`@cross-code/ns-wry`](packages/ns-wry)                                       | NativeScript plugin — Rust + UniFFI (uniffi-rs) Kotlin/Swift bindings, cargo-ndk Android pipeline                                       |
@@ -238,7 +238,7 @@ pnpm exec nx run ns-wamr:periphery.ios
 | `@cross-code/ns-wasm-edge` | [package](packages/ns-wasm-edge) — WasmEdge runtime, follows the Rust/UniFFI architecture of wasm3/wamr |
 | `@cross-code/ns-wasm-chicory` | [package](packages/ns-wasm-chicory) — Chicory pure-Java interpreter, Android-only, byte marshalling |
 | `@cross-code/ns-endive` | [package](packages/ns-endive) — Endive Java interpreter, Android-only, developing, troubleshooting |
-| `@cross-code/ns-wasm-fixture` | [README](packages/ns-wasm-fixture/README.md) — exported subpaths, rebuilding the `.wasm` fixtures              |
+| `@cross-code/test-types` | [README](packages/test-types/README.md) — exported subpaths, rebuilding the `.wasm` fixtures              |
 | `@cross-code/ns-lynx`         | [README](packages/ns-lynx/README.md) — why it needs no native layer, properties/events, producing a bundle    |
 | `@cross-code/ns-rstest`       | [README](packages/ns-rstest/README.md) — Node host, Worker registry, concurrency, transport, and results UI    |
 | `@cross-code/ns-wry`                   | [README](packages/ns-wry/README.md) — Rust + UniFFI architecture, platform stubs, developing, troubleshooting                         |

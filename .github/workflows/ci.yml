@@ -132,7 +132,7 @@ jobs:
             packages/ns-wry/test-output/vitest/coverage/lcov.info
             packages/ns-lynx/test-output/vitest/coverage/lcov.info
             packages/ns-rstest/test-output/vitest/coverage/lcov.info
-            packages/ns-wasm-fixture/target/coverage/lcov.info
+            packages/test-types/target/coverage/lcov.info
 
       # Rust is pre-installed on GitHub's ubuntu-latest runner. When debugging
       # locally with `act` the slim image may not have it — install on the fly
@@ -146,16 +146,16 @@ jobs:
 
       # The fixture crate: wasm exports plus the globals.wasm byte encoder.
       - name: Rust unit tests
-        run: pnpm exec nx run ns-wasm-fixture:test.wasm
+        run: pnpm exec nx run test-types:test.wasm
 
       # Clippy + rustfmt over the hand-written Rust in all four Rust projects
-      # (ns-wasm3, ns-wamr, ns-wry, ns-wasm-fixture). Generated bindings
+      # (ns-wasm3, ns-wamr, ns-wry, test-types). Generated bindings
       # (bindgen output, UniFFI scaffolding) are excluded: bindgen output is
       # `#![rustfmt::skip]` and `clippy::all` is allowed around the includes.
       - name: Rust lint (Clippy) + format check
         run: |
           rustup component add clippy rustfmt
-          pnpm exec nx run-many -t lint.rust fmt.rust -p ns-wasm3 ns-wamr ns-wry ns-wasm-fixture
+          pnpm exec nx run-many -t lint.rust fmt.rust -p ns-wasm3 ns-wamr ns-wry test-types
 
       # globals.wasm is committed but generated, and the generator is
       # deterministic — so a stale copy is a hard error rather than a surprise
@@ -164,11 +164,11 @@ jobs:
       - name: Verify the committed globals.wasm matches its generator
         run: |
           cargo run --quiet \
-            --manifest-path packages/ns-wasm-fixture/src/test-types/Cargo.toml \
+            --manifest-path packages/test-types/Cargo.toml \
             --bin gen_globals -- "$RUNNER_TEMP/globals"
           cmp "$RUNNER_TEMP/globals/globals.wasm" \
-            packages/ns-wasm-fixture/src/test-types/pkg/globals.wasm || {
-            echo "::error::globals.wasm is stale — run 'pnpm run build.wasm' in packages/ns-wasm-fixture and commit the result."
+            packages/test-types/pkg/globals.wasm || {
+            echo "::error::globals.wasm is stale — run 'pnpm run build.wasm' in packages/test-types and commit the result."
             exit 1
           }
 
@@ -219,7 +219,7 @@ jobs:
 
           # The app's suite runs the plugin end to end, so a plugin or fixture
           # change is as relevant to it as a change to the app itself.
-          if grep -qE '^(apps/ns-wasm-test/|packages/ns-wasm3/|packages/ns-wamr/|packages/ns-wasm-kit-runtime/|packages/ns-endive/|packages/ns-wasm-chicory/|packages/ns-wasm-edge/|packages/ns-wasm-core/|packages/ns-wasm-fixture/|packages/ns-rspack/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+          if grep -qE '^(apps/ns-wasm-test/|packages/ns-wasm3/|packages/ns-wamr/|packages/ns-wasm-kit-runtime/|packages/ns-endive/|packages/ns-wasm-chicory/|packages/ns-wasm-edge/|packages/ns-wasm-core/|packages/test-types/|packages/ns-rspack/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
             echo "app=true" >> "$GITHUB_OUTPUT"
           else
             echo "app=false" >> "$GITHUB_OUTPUT"

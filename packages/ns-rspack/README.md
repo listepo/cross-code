@@ -112,12 +112,12 @@ TypeScript never opens the binary. Three ways to supply one, best first:
     ```json
     "./types.wasm": {
         "types": "./types.wasm.d.ts",
-        "default": "./src/test-types/pkg/test_types_bg.wasm"
+        "default": "./pkg/test_types_bg.wasm"
     }
     ```
 
     Keep `default` pointing at the binary — a bundler never matches `types`.
-    `@cross-code/ns-wasm-fixture` is the worked example: it re-exports
+    `@cross-code/test-types` is the worked example: it re-exports
     wasm-pack's own generated declaration and corrects the handful of entries
     that describe a browser rather than this runtime.
 

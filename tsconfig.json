@@ -7,7 +7,7 @@
             "path": "./packages/ns-wasm3"
         },
         {
-            "path": "./packages/ns-wasm-fixture"
+            "path": "./packages/test-types"
         },
         {
             "path": "./packages/ns-wamr"

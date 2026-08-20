@@ -1,38 +1,38 @@
 {
-  "name": "@cross-code/ns-wasm-fixture",
+  "name": "@cross-code/test-types",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./index.ts",
+  "types": "./index.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./index.ts",
+      "import": "./index.ts",
+      "default": "./index.ts"
     },
     "./package.json": "./package.json",
     "./types": {
-      "types": "./src/test-types/pkg/test_types.d.ts",
-      "import": "./src/test-types/pkg/test_types.js",
-      "default": "./src/test-types/pkg/test_types.js"
+      "types": "./pkg/test_types.d.ts",
+      "import": "./pkg/test_types.js",
+      "default": "./pkg/test_types.js"
     },
     "./types.wasm": {
       "types": "./types.wasm.d.ts",
-      "default": "./src/test-types/pkg/test_types_bg.wasm"
+      "default": "./pkg/test_types_bg.wasm"
     },
-    "./globals.wasm": "./src/test-types/pkg/globals.wasm"
+    "./globals.wasm": "./pkg/globals.wasm"
   },
   "scripts": {
-    "build.wasm": "wasm-pack build src/test-types --target bundler --out-dir pkg && rm -f src/test-types/pkg/.gitignore && cargo run --quiet --manifest-path src/test-types/Cargo.toml --bin gen_globals -- src/test-types/pkg",
-    "test.wasm": "cargo test --manifest-path src/test-types/Cargo.toml",
-    "lint.rust": "cargo clippy --manifest-path src/test-types/Cargo.toml --all-targets --all-features -- -D warnings",
-    "fmt.rust": "cargo fmt --manifest-path src/test-types/Cargo.toml -- --check",
-    "format.rust": "cargo fmt --manifest-path src/test-types/Cargo.toml",
+    "build.wasm": "wasm-pack build . --target bundler --out-dir pkg && rm -f pkg/.gitignore && cargo run --quiet --bin gen_globals -- pkg",
+    "test.wasm": "cargo test",
+    "lint.rust": "cargo clippy --all-targets --all-features -- -D warnings",
+    "fmt.rust": "cargo fmt -- --check",
+    "format.rust": "cargo fmt",
     "coverage": "bash tools/coverage.sh"
   },
   "nx": {
-    "name": "ns-wasm-fixture",
+    "name": "test-types",
     "targets": {
       "coverage": {
         "executor": "nx:run-script",

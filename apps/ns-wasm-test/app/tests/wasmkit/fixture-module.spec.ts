@@ -27,7 +27,7 @@ import {
 // polyfill above. Not the package's `.` entry — its glue instantiates at
 // import time, which would break this file on Android, where WasmKit does
 // not exist.
-import * as fixture from '@cross-code/ns-wasm-fixture/types.wasm';
+import * as fixture from '@cross-code/test-types/types.wasm';
 
 import {
   callFixture,

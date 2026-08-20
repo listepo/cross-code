@@ -32,7 +32,7 @@
       "path": "../../packages/ns-rspack"
     },
     {
-      "path": "../../packages/ns-wasm-fixture"
+      "path": "../../packages/test-types"
     },
     {
       "path": "../../packages/ns-rstest"

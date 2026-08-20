@@ -1,1 +1,1 @@
-export * from './test-types/pkg/test_types.js';
+export * from './pkg/test_types.js';

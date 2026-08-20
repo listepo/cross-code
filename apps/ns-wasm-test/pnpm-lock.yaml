@@ -23,15 +23,15 @@ importers:
       '@cross-code/ns-wasm-edge':
         specifier: workspace:@cross-code/ns-wasm-edge@*
         version: link:../../packages/ns-wasm-edge
-      '@cross-code/ns-wasm-fixture':
-        specifier: workspace:@cross-code/ns-wasm-fixture@*
-        version: link:../../packages/ns-wasm-fixture
       '@cross-code/ns-wasm-kit-runtime':
         specifier: workspace:@cross-code/ns-wasm-kit-runtime@*
         version: link:../../packages/ns-wasm-kit-runtime
       '@cross-code/ns-wasm3':
         specifier: workspace:@cross-code/ns-wasm3@*
         version: link:../../packages/ns-wasm3
+      '@cross-code/test-types':
+        specifier: workspace:@cross-code/test-types@*
+        version: link:../../packages/test-types
       '@nativescript/core':
         specifier: ~9.0.0
         version: 9.0.20
@@ -188,8 +188,6 @@ importers:
         specifier: ^2.3.0
         version: 2.8.1
 
-  ../../packages/ns-wasm-fixture: {}
-
   ../../packages/ns-wasm-kit-runtime:
     dependencies:
       '@cross-code/ns-wasm-core':
@@ -207,6 +205,8 @@ importers:
       tslib:
         specifier: ^2.3.0
         version: 2.8.1
+
+  ../../packages/test-types: {}
 
 packages:
 

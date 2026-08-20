@@ -6,13 +6,13 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const configureNativeScriptRstest = require('@cross-code/ns-rstest/bundler');
 
-// The fixture .wasm binaries are build outputs of @cross-code/ns-wasm-fixture
+// The fixture .wasm binaries are build outputs of @cross-code/test-types
 // (wasm-pack + the gen_globals binary). Copy them into the bundle so wasm3 and
 // WAMR can load them from the app folder at runtime — see app/wasm/wasm-assets.ts.
 // Resolve via the package's own exports so this stays correct if the fixture's
 // internal folder layout changes.
 const fixturePkgDir = dirname(
-  require.resolve('@cross-code/ns-wasm-fixture/types.wasm'),
+  require.resolve('@cross-code/test-types/types.wasm'),
 );
 
 export default (env: INativeScriptRspackEnv) => {

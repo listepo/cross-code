@@ -43,7 +43,7 @@ jobs:
             with Nx. The codebase spans: a TypeScript NativeScript plugin
             (packages/ns-wasm3) that bridges WebAssembly (wasm3) to
             iOS (Swift) and Android (Kotlin + Rust JNI); a Rust wasm-pack
-            fixture crate (packages/ns-wasm-fixture); and a
+            fixture crate (packages/test-types); and a
             NativeScript test app (apps/ns-wasm-test) running Rstest
             through ns-rstest on a device/emulator.
 

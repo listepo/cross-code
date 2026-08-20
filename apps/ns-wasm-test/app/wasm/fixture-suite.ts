@@ -9,10 +9,10 @@
  * them, and neither
  * runtime is privileged here.
  *
- * The module under test is `@cross-code/ns-wasm-fixture` (Rust, built with
+ * The module under test is `@cross-code/test-types` (Rust, built with
  * wasm-pack); its generated `.d.ts` is what types `callFixture` below.
  */
-import type * as FixtureExports from '@cross-code/ns-wasm-fixture/types';
+import type * as FixtureExports from '@cross-code/test-types/types';
 
 // ---------------------------------------------------------------------------
 // The runtime surface the suite needs

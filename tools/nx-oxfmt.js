@@ -7,6 +7,8 @@ function createNodesForFile(projectFile, opts, ctx) {
   // dirname('package.json') === '.', which is how the workspace root is skipped.
   const root = dirname(projectFile);
   if (root === '.') return;
+  // wasm-pack writes a package.json into pkg/; it is not an Nx project.
+  if (projectFile.replace(/\\/g, '/').endsWith('/pkg/package.json')) return;
 
   try {
     const pkg = require(join(ctx.workspaceRoot, projectFile));

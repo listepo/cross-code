@@ -104,7 +104,7 @@ tiers are exercised when available in the native build.
 
 Calls into the fixture go through `callFixture()`, whose parameters and return
 values come from the wasm-pack-generated
-`@cross-code/ns-wasm-fixture/types` declarations.
+`@cross-code/test-types/types` declarations.
 
 ## Local package wiring
 
