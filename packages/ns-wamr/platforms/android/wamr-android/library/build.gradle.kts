@@ -23,8 +23,13 @@ android {
     sourceSets {
         getByName("main") {
             // Kotlin source lives under src/main/kotlin
-            // JNI libraries produced by cargo-ndk
-            jniLibs.directories.add("build/generated/native/jniLibs")
+            // JNI libraries produced by cargo-ndk. Must track the redirected
+            // layout.buildDirectory (see root build.gradle.kts's
+            // subprojects{} block) via a Provider, not a hardcoded "build/"
+            // string — a string literal resolves against projectDir and
+            // silently misses buildNative's actual (redirected) output dir,
+            // packaging a .aar with no .so files at all.
+            jniLibs.directories.add(layout.buildDirectory.dir("generated/native/jniLibs"))
         }
     }
 }

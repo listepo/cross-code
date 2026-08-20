@@ -2,18 +2,18 @@
   "$schema": "https://json.schemastore.org/nx-executors.json",
   "executors": {
     "build": {
-      "implementation": "./executors/build/executor",
-      "schema": "./executors/build/schema.json",
+      "implementation": "./dist/executors/build/executor",
+      "schema": "./dist/executors/build/schema.json",
       "description": "Build native libs with Buck2 — supports debug/release profiles, cross-compilation, size optimization, and symbol preservation."
     },
     "test": {
-      "implementation": "./executors/test/executor",
-      "schema": "./executors/test/schema.json",
+      "implementation": "./dist/executors/test/executor",
+      "schema": "./dist/executors/test/schema.json",
       "description": "Run tests with Buck2."
     },
     "run": {
-      "implementation": "./executors/run/executor",
-      "schema": "./executors/run/schema.json",
+      "implementation": "./dist/executors/run/executor",
+      "schema": "./dist/executors/run/schema.json",
       "description": "Run a Buck2 binary target."
     }
   }

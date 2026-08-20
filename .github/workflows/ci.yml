@@ -580,6 +580,16 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # gradle's buildNative shells out to `cargo ndk`, several process layers
+      # below (emulator-runner -> nx -> buck2 genrule -> gradle Exec). Only a
+      # real process env var survives that, so pin the toolchain paths here
+      # rather than in the emulator script, which cannot export anything (see
+      # below). Written via $GITHUB_ENV so $HOME expands.
+      - name: Pin the cargo/rustup toolchain locations
+        run: |
+          echo "RUSTUP_HOME=$HOME/.rustup" >> "$GITHUB_ENV"
+          echo "CARGO_HOME=$HOME/.cargo" >> "$GITHUB_ENV"
+
       # Both plugins ship prebuilt .aar files with their .so files.
       - name: Vitest specs on the Android emulator
         uses: reactivecircus/android-emulator-runner@v2
@@ -588,24 +598,20 @@ jobs:
           arch: x86_64
           working-directory: .
           script: |
-            # android-emulator-runner executes this script with /bin/sh, not
-            # bash — no `pipefail` builtin, so this avoids the pipe entirely
-            # rather than relying on it (a failed curl before wouldn't fail
-            # the tee it fed, silently installing a 0-byte buck2 that then
-            # "succeeds" on every invocation).
-            set -e
+            # android-emulator-runner splits this script on newlines and runs
+            # each line as its own `/bin/sh -c`. So: every line must stand
+            # alone (a `\` continuation is passed as a literal argument, not
+            # joined — that silently dropped the `-p` filter below and built
+            # every project with a build.android target), `export` is useless
+            # (see the step above), and `set -e`/`set -o pipefail` are too —
+            # the action already stops on the first line that exits non-zero,
+            # which is why the pipe is avoided here rather than guarded.
             curl -fsSL https://github.com/facebook/buck2/releases/download/latest/buck2-x86_64-unknown-linux-gnu.zst -o /tmp/buck2.zst
             zstd -d /tmp/buck2.zst -o /tmp/buck2
             sudo install -m 0755 /tmp/buck2 /usr/local/bin/buck2
             buck2 --version
-            # Give buck2 a clean, writable HOME, but pin cargo/rustup to their
-            # real locations first — otherwise cargo can't find the installed
-            # toolchain once HOME points at an empty directory.
-            export RUSTUP_HOME="$HOME/.rustup"
-            export CARGO_HOME="$HOME/.cargo"
-            export HOME=/tmp/buck2-home
+            rustup show
             rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
             cargo install cargo-ndk
-            pnpm exec nx run-many -t build.android --configuration=release \
-              -p ns-wamr ns-wasm3 ns-wasm-chicory
+            pnpm exec nx run-many -t build.android --configuration=release -p ns-wamr ns-wasm3 ns-wasm-chicory
             pnpm exec nx run ns-wasm-test:test.android

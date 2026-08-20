@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import os from 'node:os';
+import * as os from 'node:os';
 import {
   appendNumThreads,
   resolveBuck2,
@@ -17,6 +17,13 @@ vi.mock('zx', () => ({
     { stdio: undefined },
   ),
 }));
+
+// A namespace import (`import * as os`) is required in buck2-cmd.ts itself
+// (Nx's swc-node executor loading doesn't apply tsc's default-import CJS
+// interop — see the nx-local-plugin-executor-loading memory note), which
+// makes `os.cpus` a non-configurable ESM binding `vi.spyOn` can't redefine.
+// Mock the whole module instead.
+vi.mock('node:os', () => ({ cpus: vi.fn() }));
 
 describe('resolveBuck2', () => {
   it('uses BUCK2_PATH when set', () => {
@@ -49,17 +56,19 @@ describe('resolveBuck2', () => {
 });
 
 describe('resolveNumThreads', () => {
+  beforeEach(() => {
+    vi.mocked(os.cpus).mockReturnValue(
+      Array.from({ length: 8 }, () => ({}) as os.CpuInfo),
+    );
+  });
+
   it('uses os.cpus().length', () => {
-    expect(resolveNumThreads()).toBe(os.cpus().length);
+    expect(resolveNumThreads()).toBe(8);
   });
 
   it('falls back to 1 when os.cpus() is empty', () => {
-    const cpusSpy = vi.spyOn(os, 'cpus').mockReturnValue([]);
-    try {
-      expect(resolveNumThreads()).toBe(1);
-    } finally {
-      cpusSpy.mockRestore();
-    }
+    vi.mocked(os.cpus).mockReturnValue([]);
+    expect(resolveNumThreads()).toBe(1);
   });
 });
 
@@ -141,5 +150,55 @@ describe('runBuck2', () => {
       cwd: '/workspace',
     });
     expect(exitCode).toBe(3);
+  });
+
+  it('pins RUSTUP_HOME/CARGO_HOME from the real HOME when the caller overrides HOME', async () => {
+    const originalHome = process.env.HOME;
+    process.env.HOME = '/Users/real';
+    try {
+      await runBuck2(['build', '//pkg:target'], {
+        cwd: '/workspace',
+        env: { HOME: '/tmp/buck2-tmphome' },
+      });
+      const [opts] = mockExec.mock.calls[0] as [Record<string, unknown>];
+      expect(opts.env).toMatchObject({
+        HOME: '/tmp/buck2-tmphome',
+        RUSTUP_HOME: '/Users/real/.rustup',
+        CARGO_HOME: '/Users/real/.cargo',
+      });
+    } finally {
+      process.env.HOME = originalHome;
+    }
+  });
+
+  it('leaves an explicitly-set RUSTUP_HOME/CARGO_HOME untouched', async () => {
+    const originalHome = process.env.HOME;
+    process.env.HOME = '/Users/real';
+    try {
+      await runBuck2(['build', '//pkg:target'], {
+        cwd: '/workspace',
+        env: {
+          HOME: '/tmp/buck2-tmphome',
+          RUSTUP_HOME: '/ci/.rustup',
+          CARGO_HOME: '/ci/.cargo',
+        },
+      });
+      const [opts] = mockExec.mock.calls[0] as [Record<string, unknown>];
+      expect(opts.env).toMatchObject({
+        RUSTUP_HOME: '/ci/.rustup',
+        CARGO_HOME: '/ci/.cargo',
+      });
+    } finally {
+      process.env.HOME = originalHome;
+    }
+  });
+
+  it('does not touch env when HOME is not overridden', async () => {
+    await runBuck2(['build', '//pkg:target'], {
+      cwd: '/workspace',
+      env: { BUCK2_MODIFIER: 'release' },
+    });
+    const [opts] = mockExec.mock.calls[0] as [Record<string, unknown>];
+    expect(opts.env).toEqual({ BUCK2_MODIFIER: 'release' });
   });
 });

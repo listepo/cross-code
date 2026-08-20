@@ -3,35 +3,49 @@
 genrule(
     name = "chicory-android",
     srcs = glob([
-        "platforms/android/chicory-android/library/src/**/*.kt",
-        "platforms/android/chicory-android/library/build.gradle.kts",
-        "platforms/android/chicory-android/build.gradle.kts",
-        "platforms/android/chicory-android/settings.gradle.kts",
+        "platforms/android/chicory-android/**/*.kt",
+        "platforms/android/chicory-android/**/*.kts",
+        "platforms/android/chicory-android/**/gradle/**",
+        "platforms/android/chicory-android/gradlew",
+        "platforms/android/chicory-android/**/*.pro",
     ]),
     out = "nativescript-chicory.aar",
-    cmd = "cd $SRCDIR/platforms/android/chicory-android && ./gradlew :library:deployAar && cp $SRCDIR/platforms/android/nativescript-chicory.aar $OUT",
+    # deployAar copies to rootProject.projectDir.parentFile (see
+    # library/build.gradle.kts), i.e. one level up from chicory-android/ — not
+    # $SRCDIR, which by this point would re-descend from the already-cd'd dir.
+    # $OUT is relative to the srcs root too, so it must be captured before
+    # the cd above — same reasoning as wamr-android-aar's ../nativescript-wamr.aar fix.
+    # (Gradle's own build/ output for :library and :hosttest is redirected
+    # outside platforms/android/ entirely in build.gradle.kts's subprojects{}
+    # block, so it can't collide with the NativeScript CLI's plugin scanner —
+    # see the comment there for why.)
+    # gradlew-retry.sh: see packages/ns-wamr/BUCK's wamr-android-aar comment
+    # and tools/gradlew-retry.sh's header — chicory has no cargo step but hit
+    # its own transient buck2-genrule-only Gradle failure ("could not
+    # determine the dependencies of task"), same mitigation applies.
+    cmd = "OUT_ABS=\"$PWD/$OUT\"; cd $SRCDIR/platforms/android/chicory-android && bash \"`git rev-parse --show-toplevel`/tools/gradlew-retry.sh\" :library:deployAar && cp ../nativescript-chicory.aar \"$OUT_ABS\"",
     visibility = ["PUBLIC"],
 )
 
 genrule(
     name = "chicory-test",
     srcs = glob([
-        "platforms/android/chicory-android/library/src/**/*.kt",
-        "platforms/android/chicory-android/library/build.gradle.kts",
-        "platforms/android/chicory-android/build.gradle.kts",
-        "platforms/android/chicory-android/settings.gradle.kts",
+        "platforms/android/chicory-android/**/*.kt",
+        "platforms/android/chicory-android/**/*.kts",
+        "platforms/android/chicory-android/**/gradle/**",
+        "platforms/android/chicory-android/gradlew",
+        "platforms/android/chicory-android/**/*.pro",
     ]),
     out = "test-results.stamp",
-    cmd = "cd $SRCDIR/platforms/android/chicory-android && ./gradlew :library:test && touch $OUT",
+    cmd = "cd $SRCDIR/platforms/android/chicory-android && bash \"`git rev-parse --show-toplevel`/tools/gradlew-retry.sh\" :library:test && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
 genrule(
     name = "all",
-    srcs = [],
     out = "all.stamp",
     cmd = "echo 'ns-wasm-chicory: all targets' && touch $OUT",
-    deps = [
+    srcs = [
         ":chicory-android",
         ":chicory-test",
     ],

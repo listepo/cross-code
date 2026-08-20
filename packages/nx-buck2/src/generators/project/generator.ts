@@ -1,5 +1,6 @@
 import { Tree, type GeneratorCallback, formatFiles, logger } from '@nx/devkit';
 import * as path from 'node:path';
+import initGenerator from '../init/generator';
 
 export interface ProjectGeneratorOptions {
   name: string;
@@ -26,8 +27,7 @@ export default async function projectGenerator(
   }, null, 2));
 
   // Call the init generator to add the BUCK file
-  const { default: initGen } = await import('../init/generator');
-  await initGen(tree, { language: options.language, project: options.name });
+  await initGenerator(tree, { language: options.language, project: options.name });
 
   await formatFiles(tree);
 

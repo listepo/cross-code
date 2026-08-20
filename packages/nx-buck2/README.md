@@ -42,7 +42,8 @@ project), `project` (scaffold a Buck2-aware project).
 
 ## Layout
 
-- `executors/` + `generators/` — compiled JS + schemas (built from `src/`)
+- `dist/` — compiled JS + schemas, built from `src/` via `@nx/js:tsc`
+  (gitignored; `executors.json`/`generators.json` point into it)
 - `src/executors/` — TypeScript sources (`build`, `test`, `run`)
 - `src/generators/` — TypeScript sources (`init`, `project`)
 - root `BUCK` / per-package `BUCK` files — Buck2 target definitions
@@ -53,8 +54,8 @@ project), `project` (scaffold a Buck2-aware project).
 ## Development
 
 ```bash
-nx run nx-buck2:build   # tsc + schema copy (prebuild cleans stale JS)
-nx run nx-buck2:test    # vitest unit tests (24 specs)
+nx run nx-buck2:build   # @nx/js:tsc — cleans and rebuilds dist/ (cached)
+nx run nx-buck2:test    # vitest unit tests
 ```
 
 Clean compiled output: `node tools/clean.mjs` (covers `.buck-out/` too).

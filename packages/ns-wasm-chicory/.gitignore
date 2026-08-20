@@ -1,8 +1,7 @@
 /platforms/android/chicory-android/.gradle/
 /platforms/android/chicory-android/.kotlin/
 /platforms/android/chicory-android/build/
+.gradle-build/
 /platforms/android/chicory-android/gradle/
-/platforms/android/chicory-android/library/build/
-/platforms/android/chicory-android/hosttest/build/
 /platforms/android/chicory-android/hosttest/bin/
 test-output
