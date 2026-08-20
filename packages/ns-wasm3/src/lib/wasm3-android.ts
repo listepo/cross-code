@@ -103,11 +103,15 @@ class AndroidModule implements NativeModuleAdapter {
   linkHostFunction(module: string, name: string, signature: string, cb: WireHostCallback): void {
     const HostFunction = wasm3Namespace().NSCWasm3HostFunction;
     const hostFn = new HostFunction({
+      // Return plain JS values, not java.lang.Double etc. — toJavaWireValue
+      // boxes for values passed *into* a Java method call; a value crossing
+      // back out through this callback's return needs the NS bridge to see
+      // a plain JS type to convert it itself (see ns-wasm-chicory's adapter).
       invoke: (nativeArgs: NativeList): unknown => {
         const results = cb(javaArrayToJs(nativeArgs).map(normalizeAndroidValue));
         if (results.length === 0) return null;
-        if (results.length === 1) return toJavaWireValue(results[0]);
-        return results.map(toJavaWireValue);
+        if (results.length === 1) return results[0];
+        return results;
       },
     });
     try {
