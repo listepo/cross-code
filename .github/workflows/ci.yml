@@ -497,9 +497,11 @@ jobs:
 
       - name: Install Buck2
         run: |
-          curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-aarch64-apple-darwin.zst \
+          set -o pipefail
+          curl -fsSL https://github.com/facebook/buck2/releases/download/latest/buck2-aarch64-apple-darwin.zst \
             | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null
           sudo chmod +x /usr/local/bin/buck2
+          buck2 --version
 
       - name: Build native iOS artifacts
         env:
@@ -571,10 +573,19 @@ jobs:
           arch: x86_64
           working-directory: .
           script: |
-            curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-x86_64-unknown-linux-gnu.zst \
+            set -o pipefail
+            curl -fsSL https://github.com/facebook/buck2/releases/download/latest/buck2-x86_64-unknown-linux-gnu.zst \
               | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null
             sudo chmod +x /usr/local/bin/buck2
+            buck2 --version
+            # Give buck2 a clean, writable HOME, but pin cargo/rustup to their
+            # real locations first — otherwise cargo can't find the installed
+            # toolchain once HOME points at an empty directory.
+            export RUSTUP_HOME="$HOME/.rustup"
+            export CARGO_HOME="$HOME/.cargo"
             export HOME=/tmp/buck2-home
+            rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+            cargo install cargo-ndk
             pnpm exec nx run-many -t build.android --configuration=release \
               -p ns-wamr ns-wasm3 ns-wasm-chicory
             pnpm exec nx run ns-wasm-test:test.android

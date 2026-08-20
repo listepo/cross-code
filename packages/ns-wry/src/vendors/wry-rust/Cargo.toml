@@ -12,12 +12,3 @@ lto = "fat"
 codegen-units = 1
 opt-level = "z"
 debug = true
-
-# Fast iteration profile for nx-buck2 --configuration=debug (BUCK2_MODIFIER=debug).
-[profile.debug]
-inherits = "dev"
-opt-level = 0
-debug = true
-incremental = true
-codegen-units = 256
-lto = false

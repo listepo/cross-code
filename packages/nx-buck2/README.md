@@ -11,7 +11,7 @@ Buck2 is **not** available via `cargo install` (the crates.io `buck2` crate
 is a placeholder). Use the prebuilt binary:
 
 ```bash
-curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-aarch64-apple-darwin.zst \
+curl -fsSL https://github.com/facebook/buck2/releases/download/latest/buck2-aarch64-apple-darwin.zst \
   | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null && sudo chmod +x /usr/local/bin/buck2
 ```
 

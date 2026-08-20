@@ -15,12 +15,16 @@ genrule(
     srcs = glob([
         "src/vendors/wamr/core/**/*.c",
         "src/vendors/wamr/core/**/*.h",
-        "src/vendors/wamr-rust/wamr-sys/**/*.rs",
-        "src/vendors/wamr-rust/wamr-sys/Cargo.toml",
+        # cargo needs every workspace member's manifest to resolve the
+        # workspace, even to build just wamr-sys (see wamr-ffi/wamr-jni).
+        "src/vendors/wamr-rust/**/*.rs",
+        "src/vendors/wamr-rust/**/*.toml",
+        "src/vendors/wamr-rust/**/*.h",
+        "src/vendors/wamr-rust/**/*.udl",
         "src/vendors/wamr-rust/Cargo.lock",
     ]),
     out = "libwamr_sys.a",
-    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cd $SRCDIR/src/vendors/wamr-rust && cargo build -p wamr-sys --profile $PROFILE 2>&1 && cp target/$PROFILE/libwamr_sys.a $OUT",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; DIR=\"release\"; if [ \"$MODE\" = debug ]; then PROFILE=\"dev\"; DIR=\"debug\"; fi; cd $SRCDIR/src/vendors/wamr-rust && cargo build -p wamr-sys --profile $PROFILE 2>&1 && cp target/$DIR/libwamr_sys.a $OUT",
     visibility = ["PUBLIC"],
 )
 
@@ -33,13 +37,25 @@ genrule(
         "platforms/android/wamr-android/**/*.kts",
         "platforms/android/wamr-android/**/gradle/**",
         "platforms/android/wamr-android/gradlew",
+        "platforms/android/wamr-android/**/*.pro",
         "src/vendors/wamr-rust/**/*.rs",
         "src/vendors/wamr-rust/**/*.toml",
+        "src/vendors/wamr-rust/**/*.h",
+        "src/vendors/wamr-rust/**/*.udl",
+        "src/vendors/wamr-rust/Cargo.lock",
         "src/vendors/wamr/**/*.c",
         "src/vendors/wamr/**/*.h",
+        # gradle's buildNative task declares this as an input dir (shimSources)
+        "src/native/shim/**/*.c",
+        "src/native/shim/**/*.h",
     ]),
     out = "nativescript-wamr.aar",
-    cmd = "cd $SRCDIR/platforms/android/wamr-android && ./gradlew :library:deployAar && cp $SRCDIR/platforms/android/nativescript-wamr.aar $OUT",
+    # deployAar copies to rootProject.projectDir.parentFile (see
+    # library/build.gradle.kts), i.e. one level up from wamr-android/ — not
+    # $SRCDIR, which by this point would re-descend from the already-cd'd dir.
+    # $OUT is relative to the srcs root too, so it must be captured before
+    # the cd above — same reasoning as the ../nativescript-wamr.aar fix.
+    cmd = "OUT_ABS=\"$PWD/$OUT\"; cd $SRCDIR/platforms/android/wamr-android && ./gradlew :library:deployAar && cp ../nativescript-wamr.aar \"$OUT_ABS\"",
     visibility = ["PUBLIC"],
 )
 
@@ -53,7 +69,7 @@ genrule(
         "src/vendors/wamr/core/**/*.h",
     ]),
     out = "libwamr_jni.so",
-    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cd $SRCDIR/src/vendors/wamr-rust && cargo ndk -t arm64-v8a build -p wamr-jni --profile $PROFILE 2>&1 && find target -name 'libwamr_jni.so' | head -1 | xargs -I{} cp {} $OUT && echo 'JNI .so built'",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; DIR=\"release\"; if [ \"$MODE\" = debug ]; then PROFILE=\"dev\"; DIR=\"debug\"; fi; cd $SRCDIR/src/vendors/wamr-rust && cargo ndk -t arm64-v8a build -p wamr-jni --profile $PROFILE 2>&1 && find target -name 'libwamr_jni.so' | head -1 | xargs -I{} cp {} $OUT && echo 'JNI .so built'",
     visibility = ["PUBLIC"],
 )
 
@@ -79,10 +95,14 @@ genrule(
         "platforms/ios/**/*.swift",
         "platforms/ios/**/*.h",
         "platforms/ios/**/Package.swift",
-        "tools/build-xcframework.sh",
     ]),
     out = "NSCWamr.xcframework.stamp",
-    cmd = "bash $SRCDIR/tools/build-xcframework.sh 2>&1 && touch $OUT",
+    # $SRCDIR only mirrors this package's own globbed srcs, so the shared
+    # tools/build-xcframework.sh (one level up, at the repo root) can't be
+    # referenced through it. Resolve the real repo root via git instead —
+    # $SRCDIR/buck-out is itself inside the checkout, so this works both
+    # under buck2's sandboxed srcs dir and for a human running it directly.
+    cmd = "bash \"`git rev-parse --show-toplevel`/tools/build-xcframework.sh\" NSCWamr 2>&1 && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
@@ -103,10 +123,9 @@ genrule(
 
 genrule(
     name = "all",
-    srcs = [],
     out = "all.stamp",
     cmd = "echo 'ns-wamr: all targets built' && touch $OUT",
-    deps = [
+    srcs = [
         ":wamr-c",
         ":wamr-android-aar",
         ":ns-wamr-xcframework",

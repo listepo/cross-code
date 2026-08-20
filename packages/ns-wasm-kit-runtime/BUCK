@@ -30,10 +30,12 @@ genrule(
         "platforms/ios/**/*.h",
         "platforms/ios/**/module.modulemap",
         "platforms/ios/**/Package.swift",
-        "tools/build-xcframework.sh",
     ]),
     out = "ns-wasmkit-xcframework-release.stamp",
-    cmd = "bash $SRCDIR/tools/build-xcframework.sh 2>&1 && echo 'xcframework (release) built' && touch $OUT",
+    # $SRCDIR only mirrors this package's own globbed srcs; the script's
+    # own dirname-"$0" root-finding needs to see its real on-disk path, so
+    # invoke it via git rev-parse rather than through $SRCDIR/buck-out.
+    cmd = "bash \"`git rev-parse --show-toplevel`/packages/ns-wasm-kit-runtime/tools/build-xcframework.sh\" 2>&1 && echo 'xcframework (release) built' && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
@@ -44,10 +46,9 @@ genrule(
         "platforms/ios/**/*.h",
         "platforms/ios/**/module.modulemap",
         "platforms/ios/**/Package.swift",
-        "tools/build-xcframework.sh",
     ]),
     out = "ns-wasmkit-xcframework-debug.stamp",
-    cmd = "BUCK2_MODIFIER=debug bash $SRCDIR/tools/build-xcframework.sh 2>&1 && echo 'xcframework (debug) built' && touch $OUT",
+    cmd = "BUCK2_MODIFIER=debug bash \"`git rev-parse --show-toplevel`/packages/ns-wasm-kit-runtime/tools/build-xcframework.sh\" 2>&1 && echo 'xcframework (debug) built' && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
@@ -55,10 +56,9 @@ genrule(
 
 genrule(
     name = "all",
-    srcs = [],
     out = "all.stamp",
     cmd = "echo 'ns-wasm-kit-runtime: all targets built' && touch $OUT",
-    deps = [
+    srcs = [
         ":nsc-wasmkit-swift-host",
         ":ns-wasmkit-xcframework-release",
     ],

@@ -12,7 +12,7 @@ genrule(
         "src/vendors/wry-rust/**/*.udl",
     ]),
     out = "wry-rust-host.stamp",
-    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cargo build --manifest-path src/vendors/wry-rust/Cargo.toml -p wry-sys --profile $PROFILE --target-dir src/vendors/wry-rust/target 2>&1 && echo 'wry-rust built ($MODE)' && touch $OUT",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; DIR=\"release\"; if [ \"$MODE\" = debug ]; then PROFILE=\"dev\"; DIR=\"debug\"; fi; cargo build --manifest-path src/vendors/wry-rust/Cargo.toml -p wry-sys --profile $PROFILE --target-dir src/vendors/wry-rust/target 2>&1 && echo 'wry-rust built ($MODE)' && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
@@ -23,7 +23,7 @@ genrule(
         "src/vendors/wry-rust/**/*.toml",
     ]),
     out = "libwry_jni.so",
-    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cargo ndk -t arm64-v8a build --manifest-path src/vendors/wry-rust/Cargo.toml -p wry-jni --profile $PROFILE --target-dir src/vendors/wry-rust/target 2>&1 && find src/vendors/wry-rust/target -name 'libwry_jni.so' | head -1 | xargs -I{} cp {} $OUT && echo 'JNI .so built'",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; DIR=\"release\"; if [ \"$MODE\" = debug ]; then PROFILE=\"dev\"; DIR=\"debug\"; fi; cargo ndk -t arm64-v8a build --manifest-path src/vendors/wry-rust/Cargo.toml -p wry-jni --profile $PROFILE --target-dir src/vendors/wry-rust/target 2>&1 && find src/vendors/wry-rust/target -name 'libwry_jni.so' | head -1 | xargs -I{} cp {} $OUT && echo 'JNI .so built'",
     visibility = ["PUBLIC"],
 )
 
@@ -45,19 +45,20 @@ genrule(
         "platforms/ios/**/*.swift",
         "platforms/ios/**/*.h",
         "platforms/ios/**/Package.swift",
-        "tools/build-xcframework.sh",
     ]),
     out = "NSCWry.xcframework.stamp",
-    cmd = "bash tools/build-xcframework.sh 2>&1 && touch $OUT",
+    # See packages/ns-wamr/BUCK for why this goes through git rev-parse
+    # rather than a package-relative path: the shared script lives one
+    # level up at the repo root, outside this package's own srcs mirror.
+    cmd = "bash \"`git rev-parse --show-toplevel`/tools/build-xcframework.sh\" NSCWry 2>&1 && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
 genrule(
     name = "all",
-    srcs = [],
     out = "all.stamp",
     cmd = "echo 'ns-wry: all targets built' && touch $OUT",
-    deps = [
+    srcs = [
         ":wry-rust-host",
         ":wry-jni-android",
         ":ns-wry-xcframework",

@@ -103,3 +103,4 @@ reasonix.toml
 *.code-workspace
 
 vite.config.*.timestamp*
+/.serena
