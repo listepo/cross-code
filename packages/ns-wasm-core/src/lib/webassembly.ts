@@ -15,7 +15,9 @@
 //
 // What the native adapters cannot back, and this layer therefore does not
 // pretend to support:
-//   - `Table`, and importing a memory/table/global (LinkError at link time)
+//   - importing a memory/table/global (LinkError at link time)
+//   - a table export: it is a JS-side stub, disconnected from the module's
+//     own table (see `WebAssemblyTable`)
 //   - `Memory.grow()`, `new Memory(...)` / `new Global(...)` standalone
 //   - mutations through `memory.buffer` (it is a copy — use `memory.write`)
 //   - `compileStreaming` / `instantiateStreaming` (no `fetch` on device)
@@ -77,7 +79,7 @@ export type WasmExportFunction = (
 ) => WasmValue | WasmValue[] | undefined;
 
 export type WasmExportValue =
-  WasmExportFunction | WebAssemblyMemory | WebAssemblyGlobal;
+  WasmExportFunction | WebAssemblyMemory | WebAssemblyGlobal | WebAssemblyTable;
 
 /** The `importObject` of `instantiate` / `new Instance`. */
 export type WebAssemblyImports = Record<string, Record<string, unknown>>;
@@ -119,7 +121,7 @@ export class WebAssemblyModule {
 }
 
 // ---------------------------------------------------------------------------
-// Memory / Global
+// Memory / Global / Table
 // ---------------------------------------------------------------------------
 
 /**
@@ -195,6 +197,55 @@ export class WebAssemblyGlobal {
 
   valueOf(): WasmValue {
     return this.value;
+  }
+}
+
+/**
+ * `WebAssembly.Table` — a stand-in for one. No adapter exposes a module's
+ * tables, so this holds JS references only: what the module does with its own
+ * table is invisible here, and what is stored here is invisible to it.
+ *
+ * It exists so that glue code which only *initializes* a table can load at
+ * all. wasm-bindgen emits exactly that — `table.grow(4)` and four `set` calls
+ * for its `undefined`/`null`/`true`/`false` sentinels — at import time, and a
+ * missing export would stop the module before its numeric exports could be
+ * called. Nothing that actually passes an `externref` can be fooled by the
+ * stub: the wire layer rejects that value type either way.
+ */
+export class WebAssemblyTable {
+  private readonly values: unknown[] = [];
+
+  /** @internal Instances come from `instance.exports`, not from `new`. */
+  constructor(length = 0) {
+    this.values.length = length;
+  }
+
+  get length(): number {
+    return this.values.length;
+  }
+
+  grow(delta: number): number {
+    const previous = this.values.length;
+    this.values.length = previous + delta;
+    return previous;
+  }
+
+  get(index: number): unknown {
+    this.check(index);
+    return this.values[index];
+  }
+
+  set(index: number, value: unknown = undefined): void {
+    this.check(index);
+    this.values[index] = value;
+  }
+
+  private check(index: number): void {
+    if (index < 0 || index >= this.values.length) {
+      throw new RangeError(
+        `WebAssembly.Table index ${index} is out of range (length ${this.values.length})`,
+      );
+    }
   }
 }
 
@@ -283,7 +334,7 @@ function buildExports(
         exports[name] = new WebAssemblyGlobal(loaded, name);
         break;
       case 'table':
-        // No adapter exposes tables. Module.exports() still lists them.
+        exports[name] = new WebAssemblyTable();
         break;
     }
   }

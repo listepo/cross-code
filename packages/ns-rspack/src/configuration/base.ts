@@ -352,6 +352,16 @@ export default function base(
         .exclude.add(/node_modules/)
 
     config.module
+        .rule('wasm')
+        .test(/\.wasm$/)
+        // `javascript/auto` keeps rspack's own WebAssembly support out of the
+        // way: the loader emits a module that instantiates through the
+        // `WebAssembly` global a {N} runtime plugin's polyfill installs.
+        .type('javascript/auto')
+        .use('wasm-loader')
+        .loader(ownLoader('wasm-loader'))
+
+    config.module
         .rule('xml')
         .test(/\.xml$/)
         .use('xml-namespace-loader')

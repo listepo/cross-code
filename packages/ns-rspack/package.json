@@ -23,6 +23,7 @@
         }
     },
     "dependencies": {
+        "@cross-code/ns-wasm-core": "workspace:*",
         "@rspack/core": "^2.1.9",
         "css": "^3.0.0",
         "jiti": "^2.4.2",

@@ -7,6 +7,7 @@ import {
   WasmLinkError,
   WasmRuntimeError,
   WebAssemblyGlobal,
+  WebAssemblyTable,
   WebAssemblyMemory,
   WebAssemblyModule,
   type WasmExportFunction,
@@ -322,13 +323,13 @@ describe('WebAssembly.instantiate', () => {
 });
 
 describe('instance exports', () => {
-  it('materialises memory and globals, but not tables', async () => {
+  it('materialises memory, globals and a table stub', async () => {
     const { adapter, WebAssembly } = setup();
     const { instance } = await WebAssembly.instantiate(MODULE, noopImports);
 
     expect(instance.exports.mem).toBeInstanceOf(WebAssemblyMemory);
     expect(instance.exports.g).toBeInstanceOf(WebAssemblyGlobal);
-    expect(instance.exports.tbl).toBeUndefined();
+    expect(instance.exports.tbl).toBeInstanceOf(WebAssemblyTable);
     expect(Object.isFrozen(instance.exports)).toBe(true);
 
     const memory = instance.exports.mem as WebAssemblyMemory;
@@ -345,6 +346,24 @@ describe('instance exports', () => {
     expect(global.value).toBe(7);
     global.value = 9;
     expect(global.valueOf()).toBe(9);
+  });
+
+  // wasm-bindgen's glue does exactly this at import time, so a module that
+  // uses it must survive the sequence.
+  it('grows and fills the table stub the way wasm-bindgen does', async () => {
+    const { WebAssembly } = setup();
+    const { instance } = await WebAssembly.instantiate(MODULE, noopImports);
+    const table = instance.exports.tbl as WebAssemblyTable;
+
+    expect(table.length).toBe(0);
+    const offset = table.grow(4);
+    expect(offset).toBe(0);
+    expect(table.length).toBe(4);
+
+    table.set(offset + 1, null);
+    expect(table.get(offset + 1)).toBeNull();
+    expect(table.get(offset)).toBeUndefined();
+    expect(() => table.set(4, true)).toThrow(RangeError);
   });
 
   it('releases the engine runtime on dispose()', async () => {

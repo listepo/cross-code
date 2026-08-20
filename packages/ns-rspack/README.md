@@ -75,6 +75,31 @@ instance, so its options carry rspack's types.
 `nativescript.webpack.js` is picked up alongside `nativescript.rspack.js`, so
 {N} plugins that ship a bundler config keep working unchanged.
 
+### `.wasm` imports
+
+A `.wasm` import becomes an ES module whose exports are the binary's own —
+`import { add } from './math.wasm'` — instantiated on the first call through
+the `WebAssembly` global. On device that global comes from a runtime plugin's
+polyfill (`@cross-code/ns-wasm3/polyfill` and friends): iOS has no
+`WebAssembly` of its own, and Android's is a second, unrelated engine, so
+rspack's `experiments.asyncWebAssembly` is not used.
+
+Import namespaces the binary names are resolved as requests. A relative one —
+wasm-bindgen emits `./glue_bg.js` — resolves next to the file; anything else
+has to be pointed at a module:
+
+```ts
+rspack.chainRspack((config) => {
+    config.module
+        .rule('wasm')
+        .use('wasm-loader')
+        .options({ imports: { env: '~/wasm/host-functions' } })
+})
+```
+
+The bytes are inlined into the bundle, so a `.wasm` needs no copy rule and no
+runtime file access.
+
 ## What differs from @nativescript/webpack
 
 | @nativescript/webpack                                    | here                                                | why                                                                                                                                                    |

@@ -43,9 +43,11 @@ app/
   tests/runtime-support.ts        per-engine platform matrix + suite gating
   wasm/fixture-suite.ts           shared correctness checks
   wasm/wasm-assets.ts             bundled fixture paths/byte reader
+  wasm/fixture-env.ts             the fixture's "env" host functions, for .wasm imports
+  wasm/wasm-modules.d.ts          types for the .wasm imports the wasm-loader emits
 ns-rstest.ios.mts                 iOS simulator host runner
 ns-rstest.android.mts             Android emulator host runner
-rspack.config.ts                  WASM copies + Rstest test entry
+rspack.config.ts                  WASM copies + wasm-loader imports + Rstest test entry
 tsconfig.json                     production/demo TypeScript files
 tsconfig.spec.json                specs and test-only entries
 ```
@@ -76,6 +78,13 @@ tsconfig.spec.json                specs and test-only entries
   runtime package.
 - i64 values cross native bridges as decimal strings and surface in JS as
   `bigint`. Preserve tests beyond `Number.MAX_SAFE_INTEGER`.
+- A `.wasm` import is lazy — the wasm-loader's module instantiates on the first
+  call — so it is safe to import from a spec that also loads on a platform the
+  engine does not support. `@cross-code/ns-wasm-fixture`'s package entry is
+  not: wasm-pack's glue calls `__wbindgen_start()` while the module is being
+  imported, which would instantiate the polyfilled runtime at import time and
+  fail the whole file on the other platform. Import
+  `@cross-code/ns-wasm-fixture/types.wasm` from such a spec.
 - The test entry wired by the bundler helper must not affect a normal app build.
 
 ## WAMR-specific behavior

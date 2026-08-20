@@ -78,6 +78,9 @@ importers:
 
   ../../packages/ns-rspack:
     dependencies:
+      '@cross-code/ns-wasm-core':
+        specifier: workspace:*
+        version: link:../ns-wasm-core
       '@rspack/core':
         specifier: ^2.1.9
         version: 2.1.9(@swc/helpers@0.5.23)

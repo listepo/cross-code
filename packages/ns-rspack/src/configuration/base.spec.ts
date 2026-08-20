@@ -187,6 +187,13 @@ describe('base configuration', () => {
         ])
     })
 
+    it('hands .wasm files to its own loader, not to rspack', async () => {
+        const rule = ruleFor(await resolve({ ios: true }), '/\\.wasm$/')
+
+        expect(loaderNames(rule)).toEqual(['wasm-loader'])
+        expect((rule as { type?: string }).type).toBe('javascript/auto')
+    })
+
     it('defines the platform flags the {N} core and app code branch on', async () => {
         const config = await resolve({ ios: true })
         const define = pluginArgs<Record<string, unknown>>(config, 'DefinePlugin')

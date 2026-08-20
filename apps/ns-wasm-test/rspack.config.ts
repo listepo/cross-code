@@ -29,6 +29,15 @@ export default (env: INativeScriptRspackEnv) => {
     context: fixturePkgDir,
   });
 
+  // The fixture's `.wasm` imports its host functions from an "env" namespace;
+  // point the wasm-loader at the module that implements them.
+  rspack.chainRspack((config) => {
+    config.module
+      .rule('wasm')
+      .use('wasm-loader')
+      .options({ imports: { env: '~/wasm/fixture-env' } });
+  });
+
   configureNativeScriptRstest(rspack, {
     entry: '_ns-rstest.ts',
   });

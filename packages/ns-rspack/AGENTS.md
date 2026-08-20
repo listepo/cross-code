@@ -30,7 +30,7 @@ src/configuration/{typescript,javascript}.ts  base + the flavor's require.contex
 src/configuration/finalize.ts  fixups applied after all chain/merge functions have run
 src/configuration/paths.ts  resolving this package's own loaders and assets by absolute path
 src/helpers/*               platform/project/dependency/copy-rule/flavor/log helpers, exposed as Utils
-src/loaders/*               the NativeScript loaders (xml, css, native-class, worker, hot)
+src/loaders/*               the NativeScript loaders (xml, css, native-class, worker, hot, wasm)
 src/plugins/watch-state-plugin.ts  rspack WatchStatePlugin (IPC to the {N} CLI)
 src/platforms/*             per-platform dist paths
 src/stubs/entry-*.cts       the require.context entry stubs, emitted as .cjs

@@ -101,6 +101,9 @@ layers. Only engine-specific detail lives in each package's AGENTS.md.
   resolution, XML/CSS loaders, copy rules, defines, HMR — with no
   `@nativescript/webpack` and no webpack in its dependency tree. Installed
   under the alias the {N} CLI resolves the bundler by (`@nativescript/rspack`).
+  Its `wasm-loader` turns a `.wasm` import into an ES module whose exports are
+  the binary's own, instantiated through whichever engine polyfill installed
+  `globalThis.WebAssembly` (see `WASM.md`).
   See `packages/ns-rspack/README.md` and `packages/ns-rspack/AGENTS.md`.
 - **`ns-wry`** (`@cross-code/ns-wry`) — general-purpose NativeScript plugin
   scaffold built on Rust + UniFFI (uniffi-rs) with cargo-ndk Android pipeline.

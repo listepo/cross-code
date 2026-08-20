@@ -266,13 +266,45 @@ collide on export names — and nothing disposes it for you, hence
 | ---------------------------------------- | -------------------------------------------------------------------------- |
 | `compile`, `instantiate`, `validate`     | `compileStreaming` / `instantiateStreaming` (no `fetch` on device)         |
 | `Module.exports()` / `Module.imports()`  | `Module.customSections()`                                                  |
-| function, memory and global exports      | table exports — listed by `Module.exports()`, absent from `instance.exports` |
+| function, memory and global exports      | table exports — a JS-side stub, disconnected from the module's own table   |
 | function imports                         | memory / table / global imports (`LinkError`)                              |
 | `CompileError`, `LinkError`, `RuntimeError` | `new Memory(...)` / `new Global(...)`, `memory.grow()`                  |
 | `memory.read()` / `memory.write()`       | writing through `memory.buffer` — it is a snapshot copy                    |
 
 `validate()` is structural: header, section framing and the
 type/import/export sections. The engine has the last word at instantiation.
+
+### Importing a `.wasm` file
+
+`@cross-code/ns-rspack` turns a `.wasm` import into an ES module whose exports
+are the binary's own, instantiated on the first call through whichever
+polyfill installed the global — the way a browser bundle works, wasm-pack's
+`--target bundler` output included:
+
+```ts
+import '@cross-code/ns-wasm3/polyfill';
+import { add, memory } from './math.wasm';
+
+add(2, 40); // 42 — instantiates on this call
+memory.byteLength;
+```
+
+Import namespaces the binary names are resolved as requests: `./glue_bg.js`
+next to the file needs nothing, while a bare `env` has to be pointed at a
+module in `rspack.config.ts`:
+
+```ts
+rspack.chainRspack((config) => {
+  config.module
+    .rule('wasm')
+    .use('wasm-loader')
+    .options({ imports: { env: '~/wasm/host-functions' } });
+});
+```
+
+That module's exports are the host functions, by name, with no signatures —
+they come from the binary. The bytes are inlined into the bundle, so nothing
+has to be copied into the app folder or read back at runtime.
 
 ## Troubleshooting
 

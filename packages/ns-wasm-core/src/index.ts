@@ -81,6 +81,7 @@ export {
   WebAssemblyInstance,
   WebAssemblyMemory,
   WebAssemblyGlobal,
+  WebAssemblyTable,
   WasmCompileError,
   WasmLinkError,
   WasmRuntimeError,
