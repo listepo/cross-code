@@ -58,3 +58,36 @@ export {
   type WasmModuleCtor,
   type WasmFunctionCtor,
 } from './lib/runtime.js';
+
+// WebAssembly binary metadata
+export {
+  parseWasmModule,
+  toSignature,
+  type ExternKind,
+  type ValueType,
+  type FuncType,
+  type ModuleImportDescriptor,
+  type ModuleExportDescriptor,
+  type WasmModuleInfo,
+} from './lib/wasm-binary.js';
+
+// The standard WebAssembly JavaScript API, bound to an engine
+export {
+  createWebAssembly,
+  installWebAssembly,
+  compile,
+  validate,
+  WebAssemblyModule,
+  WebAssemblyInstance,
+  WebAssemblyMemory,
+  WebAssemblyGlobal,
+  WasmCompileError,
+  WasmLinkError,
+  WasmRuntimeError,
+  type WebAssemblyNamespace,
+  type WebAssemblyImports,
+  type WebAssemblyInstantiatedSource,
+  type WasmBufferSource,
+  type WasmExportFunction,
+  type WasmExportValue,
+} from './lib/webassembly.js';

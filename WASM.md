@@ -202,6 +202,78 @@ messages:
 | `returnTypes`     | `WasmValueType[]`                       | e.g. `['i32']`; multi-value supported |
 | `call(...args)`   | `WasmValue \| WasmValue[] \| undefined` | Invoke the function                   |
 
+## Standard `WebAssembly` JavaScript API
+
+`@cross-code/ns-wasm-core` also exposes the standard JS API on top of any of
+these engines, for code that was written against browsers or Node. Every
+engine plugin ships it as a polyfill entry point that defines the global on
+import:
+
+```ts
+import '@cross-code/ns-wasm3/polyfill';
+
+const { instance } = await WebAssembly.instantiate(wasmBytes, {
+  env: { host_add: (a, b) => Number(a) + Number(b) }, // no signature needed
+});
+
+instance.exports.add(2, 40); //  42
+instance.exports.mem.read(0, 4); // Uint8Array — see the table below
+instance.exports.g_counter.value = 100; // exported global
+instance.dispose(); // releases the native runtime
+```
+
+| Polyfill entry point                          | Engine   | Platforms    |
+| --------------------------------------------- | -------- | ------------ |
+| `@cross-code/ns-wasm3/polyfill`               | wasm3    | iOS, Android |
+| `@cross-code/ns-wamr/polyfill`                | WAMR     | iOS, Android |
+| `@cross-code/ns-wasm-edge/polyfill`           | WasmEdge | iOS, Android |
+| `@cross-code/ns-wasm-kit-runtime/polyfill`    | WasmKit  | iOS          |
+| `@cross-code/ns-wasm-chicory/polyfill`        | Chicory  | Android      |
+| `@cross-code/ns-endive/polyfill`              | Endive   | Android      |
+
+Importing one replaces any `WebAssembly` global the host already provides, so
+the same engine serves every platform. Import exactly one of them; the last
+import wins. The engine runtime is created lazily, at the first
+instantiation — the import itself never touches the native layer, so it is
+safe at app startup even before the plugin's native side is reachable.
+
+Each polyfill uses its plugin's default runtime options. To pass options, to
+pick the engine at runtime, or to fill in only where the host has no
+`WebAssembly` of its own, build the namespace yourself:
+
+```ts
+import { createWebAssembly, installWebAssembly } from '@cross-code/ns-wasm-core';
+import { Wasm3Runtime } from '@cross-code/ns-wasm3';
+
+const WebAssembly = createWebAssembly(() => new Wasm3Runtime()); // local only
+if (!('WebAssembly' in globalThis)) {
+  installWebAssembly(() => new Wasm3Runtime({ stackSizeInBytes: 1 << 18 }));
+}
+```
+
+Host imports need no signature here: it is read from the module's own binary,
+so the import object is the plain `{ module: { name: fn } }` of the standard
+API. TypeScript types `exports` the way the JS API does, so a call needs a
+cast: `(instance.exports.add as WasmExportFunction)(2, 40)`. The polyfill
+modules also export the namespace (`import { WebAssembly } from
+'@cross-code/ns-wasm3/polyfill'`) when you want it typed.
+
+Each `Instance` owns one runtime from the factory, so two instances never
+collide on export names — and nothing disposes it for you, hence
+`instance.dispose()`.
+
+| Supported                                | Not supported                                                              |
+| ---------------------------------------- | -------------------------------------------------------------------------- |
+| `compile`, `instantiate`, `validate`     | `compileStreaming` / `instantiateStreaming` (no `fetch` on device)         |
+| `Module.exports()` / `Module.imports()`  | `Module.customSections()`                                                  |
+| function, memory and global exports      | table exports — listed by `Module.exports()`, absent from `instance.exports` |
+| function imports                         | memory / table / global imports (`LinkError`)                              |
+| `CompileError`, `LinkError`, `RuntimeError` | `new Memory(...)` / `new Global(...)`, `memory.grow()`                  |
+| `memory.read()` / `memory.write()`       | writing through `memory.buffer` — it is a snapshot copy                    |
+
+`validate()` is structural: header, section framing and the
+type/import/export sections. The engine has the last word at instantiation.
+
 ## Troubleshooting
 
 **`ns-wasm3 native runtime not found` / `ns-wamr native runtime not found`** — the app wasn't rebuilt after adding the plugin. Run `ns build ios` or `ns build android`.
