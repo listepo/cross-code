@@ -100,6 +100,47 @@ rspack.chainRspack((config) => {
 The bytes are inlined into the bundle, so a `.wasm` needs no copy rule and no
 runtime file access.
 
+#### Typing the import
+
+The loader emits the module; the types come from a declaration, because
+TypeScript never opens the binary. Three ways to supply one, best first:
+
+1. **The package that ships the `.wasm` declares it** — a `types` condition on
+   its exports entry, which needs no compiler flag and works under both
+   `bundler` and `nodenext` resolution:
+
+    ```json
+    "./types.wasm": {
+        "types": "./types.wasm.d.ts",
+        "default": "./src/test-types/pkg/test_types_bg.wasm"
+    }
+    ```
+
+    Keep `default` pointing at the binary — a bundler never matches `types`.
+    `@cross-code/ns-wasm-fixture` is the worked example: it re-exports
+    wasm-pack's own generated declaration and corrects the handful of entries
+    that describe a browser rather than this runtime.
+
+2. **A relative `./math.wasm`** — a sibling `math.d.wasm.ts` plus
+   `allowArbitraryExtensions: true`. Note the flag is project-global: it
+   suppresses the unknown-extension error for every extension in the project.
+
+3. **A vendored binary you cannot change** — `declare module` in the app, as an
+   escape hatch. It takes precedence over everything above *silently*, so a
+   package that later ships real types is ignored with no diagnostic, and any
+   export the hand-written block forgets is a missing property rather than an
+   error pointing at the cause.
+
+wasm-pack's `_bg.wasm.d.ts` is a good starting point but not exhaustive — it
+omits exported globals (the fixture binary exports 67 entries; wasm-pack
+declares 65) and types `memory`/tables as the DOM's `WebAssembly.Memory` and
+`WebAssembly.Table`, which is not what the polyfill instantiates.
+
+One thing every such declaration overstates: non-function exports are bound
+when the module instantiates, which is the *first call* to an exported
+function. `memory`, tables and globals read back `undefined` until then, while
+a declaration says `export const`. Reach for a function first.
+
 ## What differs from @nativescript/webpack
 
 | @nativescript/webpack                                    | here                                                | why                                                                                                                                                    |

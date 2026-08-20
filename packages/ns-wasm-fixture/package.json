@@ -17,7 +17,10 @@
       "import": "./src/test-types/pkg/test_types.js",
       "default": "./src/test-types/pkg/test_types.js"
     },
-    "./types.wasm": "./src/test-types/pkg/test_types_bg.wasm",
+    "./types.wasm": {
+      "types": "./types.wasm.d.ts",
+      "default": "./src/test-types/pkg/test_types_bg.wasm"
+    },
     "./globals.wasm": "./src/test-types/pkg/globals.wasm"
   },
   "scripts": {

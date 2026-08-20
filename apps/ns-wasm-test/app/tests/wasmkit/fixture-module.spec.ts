@@ -141,6 +141,15 @@ describeWasmKit('the polyfill from @cross-code/ns-wasm-kit-runtime', () => {
     expect(fixture.mem_read_i32(scratch + 4)).toBe(-272716322);
   });
 
+  it('binds the table and globals too, not only the functions', () => {
+    // Non-function exports are bound at instantiation, so drive a call first.
+    fixture.noop();
+
+    expect(fixture.__wbindgen_externrefs.length).toBeGreaterThanOrEqual(0);
+    expect(fixture.__abort_handler).toBeDefined();
+    expect(fixture.__instance_terminated).toBeDefined();
+  });
+
   it('keeps one instance, so module state survives across calls', () => {
     fixture.counter_i32_reset();
     fixture.counter_i32_inc(2);

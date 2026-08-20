@@ -11,6 +11,7 @@ the rest of the workspace reach its build outputs. See the
 src/test-types/src/lib.rs                the fixture exports + the globals.wasm generator
 src/test-types/src/bin/gen_globals.rs    writes globals.wasm
 src/test-types/pkg/                      wasm-pack output — committed, see below
+types.wasm.d.ts                          types for `import … from '…/types.wasm'`
 ```
 
 ## What it exports
@@ -19,7 +20,7 @@ src/test-types/pkg/                      wasm-pack output — committed, see bel
 | --- | --- |
 | `@cross-code/ns-wasm-fixture` | the wasm-bindgen JS bindings |
 | `@cross-code/ns-wasm-fixture/types` | the generated `.d.ts` (and its JS) — types the calls in the test app |
-| `@cross-code/ns-wasm-fixture/types.wasm` | `test_types_bg.wasm`, the fixture module |
+| `@cross-code/ns-wasm-fixture/types.wasm` | `test_types_bg.wasm`, the fixture module — typed by `types.wasm.d.ts` for a `.wasm` ES-module import |
 | `@cross-code/ns-wasm-fixture/globals.wasm` | the module with one mutable exported global per value type |
 
 `test_types_bg.wasm` covers every value type (i32, i64, f32, f64) as exports and
