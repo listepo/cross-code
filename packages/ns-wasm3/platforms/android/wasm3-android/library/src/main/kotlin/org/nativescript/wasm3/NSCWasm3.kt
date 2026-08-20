@@ -300,7 +300,17 @@ class NSCWasm3Function internal constructor(private val funcHandle: Long, privat
             throw NSCWasm3Exception("expected $nArgs arguments, got ${args.size}")
         }
 
-        val slots = LongArray(maxOf(1, nArgs))
+        // Exactly nArgs long. The JNI layer derives m3_Call's argc from this
+        // array's own length — it deliberately ignores the nArgs parameter so a
+        // caller can't make wasm3 read past the array — and m3_Call rejects
+        // argc != numArgs outright. Padding this to a minimum of 1 therefore
+        // made *every* no-arg call fail with "argument count mismatch", while
+        // calls that take arguments were unaffected. A zero-length array is
+        // safe: m3_Call's copy loop is bounded by numArgs, so it never
+        // dereferences the pointer array. (ns-wamr pads to 1 on purpose — its
+        // shim treats this as an argv *buffer* that must also hold the results,
+        // not a strict argument count. Don't "unify" the two.)
+        val slots = LongArray(nArgs)
         for (i in 0 until nArgs) {
             val type = NativeWasm3.argType(funcHandle, i)
             val bits = Wire.encode(type, args[i])
