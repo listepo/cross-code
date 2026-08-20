@@ -22,6 +22,12 @@ import {
   WasmKitRuntime,
   type WasmKitModule,
 } from '@cross-code/ns-wasm-kit-runtime';
+// The binary itself, as an ES module from @cross-code/ns-rspack's wasm-loader:
+// the module's own exports, instantiated on the first call through the
+// polyfill above. Not the package's `.` entry — its glue instantiates at
+// import time, which would break this file on Android, where WasmKit does
+// not exist.
+import * as fixture from '@cross-code/ns-wasm-fixture/types.wasm';
 
 import {
   callFixture,
@@ -30,15 +36,9 @@ import {
   summarize,
   type HostCall,
 } from '../../wasm/fixture-suite';
+import { hostCalls } from '../../wasm/fixture-env';
 import { appWasmPath, FIXTURE_WASM } from '../../wasm/wasm-assets';
 import { describeRuntime, WASMKIT } from '../_runtime-support';
-// The binary, imported as an ES module by @cross-code/ns-rspack's
-// wasm-loader, which instantiates it through the polyfilled global above
-// on the first call. The package's `.` entry is wasm-pack's glue, which
-// instantiates while it is being imported — too early for a suite that
-// has to load on Android too, where WasmKit does not exist.
-import * as fixture from '@cross-code/ns-wasm-fixture/types.wasm';
-import { hostCalls } from '../../wasm/fixture-env';
 
 // WasmKit is Swift-native, so this suite is iOS-only — and skips even there
 // until the plugin's xcframework lands. See ../_runtime-support.ts.
