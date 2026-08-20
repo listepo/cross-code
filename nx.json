@@ -74,6 +74,10 @@
             "outputs": ["{projectRoot}/.buck-out"],
             "cache": true
         },
+        "build.android": {
+            "outputs": ["{projectRoot}/platforms/android/*.aar"],
+            "cache": true
+        },
         "buck2-test": {
             "executor": "@cross-code/nx-buck2:test",
             "inputs": ["production", "^production"],

@@ -335,8 +335,12 @@ Both plugins use the identical Android architecture (no JavaCPP):
   `NSCWasm3.kt` + `NativeWasm3.kt`) loads `libwasm3_jni.so` / `libwamr_jni.so`
   via JNI and `System.loadLibrary`.
 - `deployAar` copies the release `.aar` to `platforms/android/nativescript-<engine>.aar`.
-  AARs are **gitignored** — build with `nx run <pkg>:build.android` (nx-buck2)
-  before running an Android app or CI device jobs.
+  AARs are **gitignored**. `nx run <pkg>:build.android` (nx-buck2) must also
+  copy that AAR out of the Buck2 srcs sandbox into the plugin tree —
+  NativeScript scans `platforms/android/**/*.aar`, not `.buck-out/`
+  (`tools/install-nativescript-aar.sh`). Without that copy the app still
+  builds, linking only `gradle-wrapper.jar` from the nested Gradle project,
+  and device tests fail with "native runtime not found".
 - `hosttest/` is a pure-JVM module that compiles the Kotlin wrapper sources
   and runs JUnit tests against a host (`cargo build --release -p <engine>-jni`)
   build of the library, with `java.library.path` pointed at `target/release`.

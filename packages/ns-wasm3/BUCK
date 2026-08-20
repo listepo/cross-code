@@ -37,19 +37,11 @@ genrule(
         "src/native/shim/**/*.h",
     ]),
     out = "nativescript-wasm3.aar",
-    # deployAar copies to rootProject.projectDir.parentFile (see
-    # library/build.gradle.kts), i.e. one level up from wasm3-android/ — not
-    # $SRCDIR, which by this point would re-descend from the already-cd'd dir.
-    # $OUT is relative to the srcs root too, so it must be captured before
-    # the cd above — same reasoning as the ../nativescript-wasm3.aar fix.
-    # (Gradle's own build/ output for :library and :hosttest is redirected
-    # outside platforms/android/ entirely in build.gradle.kts's subprojects{}
-    # block, so it can't collide with the NativeScript CLI's plugin scanner —
-    # see the comment there for why.)
-    # gradlew-retry.sh: see packages/ns-wamr/BUCK's wamr-android-aar comment
-    # and tools/gradlew-retry.sh's header — works around an intermittent
-    # rustup toolchain error from the cargo-ndk Exec task, buck2-genrule-only.
-    cmd = "OUT_ABS=\"$PWD/$OUT\"; cd $SRCDIR/platforms/android/wasm3-android && bash \"`git rev-parse --show-toplevel`/tools/gradlew-retry.sh\" :library:deployAar && cp ../nativescript-wasm3.aar \"$OUT_ABS\"",
+    # deployAar writes one level up from wasm3-android/; capture $OUT
+    # before cd'ing. install-nativescript-aar.sh copies $OUT out of the
+    # buck2 sandbox into packages/ns-wasm3/platforms/android/ — see
+    # packages/ns-wamr/BUCK's wamr-android-aar comment.
+    cmd = "OUT_ABS=\"$PWD/$OUT\"; ROOT=\"`git rev-parse --show-toplevel`\"; cd $SRCDIR/platforms/android/wasm3-android && bash \"$ROOT/tools/gradlew-retry.sh\" :library:deployAar && cp ../nativescript-wasm3.aar \"$OUT_ABS\" && bash \"$ROOT/tools/install-nativescript-aar.sh\" ns-wasm3 nativescript-wasm3.aar \"$OUT_ABS\"",
     visibility = ["PUBLIC"],
 )
 

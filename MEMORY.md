@@ -35,6 +35,11 @@ here via `AGENTS.md`.
   `packages/ns-lynx/AGENTS.md`.
 - Device rstest suites on iOS and Android share port **17878**. Run them
   serially.
+- Buck2 Android genrules write AARs into the srcs sandbox (`.buck-out/.../srcs`).
+  NativeScript only picks up `packages/<pkg>/platforms/android/**/*.aar`. The
+  genrule must run `tools/install-nativescript-aar.sh` after `deployAar` or
+  device tests fail with "native runtime not found" while the app still
+  builds (it will have linked `gradle-wrapper.jar` instead).
 - `apps/ns-lynx-app`, `apps/ns-wasm-test`, and `apps/ns-wry-app` each have their
   own pnpm lockfile. A dependency change in a linked workspace package (for
   example `packages/ns-rspack/package.json`) needs `pnpm install` at the repo

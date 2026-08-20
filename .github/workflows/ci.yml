@@ -614,4 +614,5 @@ jobs:
             rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
             cargo install cargo-ndk
             pnpm exec nx run-many -t build.android --configuration=release -p ns-wamr ns-wasm3 ns-wasm-chicory
+            ls -l packages/ns-wamr/platforms/android/nativescript-wamr.aar packages/ns-wasm3/platforms/android/nativescript-wasm3.aar packages/ns-wasm-chicory/platforms/android/nativescript-chicory.aar
             pnpm exec nx run ns-wasm-test:test.android
