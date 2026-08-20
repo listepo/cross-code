@@ -300,7 +300,11 @@ pub unsafe fn destroy_runtime(ptr: *mut NscWamrRuntime) {
     if let Some(map) = lock(&GLOBAL_FUNC_MAP).as_mut() {
         map.retain(|_, entry| entry.runtime != runtime_key);
     }
-    if let Some((func, _)) = lock(&GLOBAL_LAST_RESULTS).as_ref().cloned() {
+    // Read the handle out and drop the guard before deciding: on edition 2021 a
+    // temporary in an `if let` scrutinee lives to the end of the whole `if let`,
+    // so re-locking inside the body deadlocks against this same mutex.
+    let last_func = lock(&GLOBAL_LAST_RESULTS).as_ref().map(|&(func, _)| func);
+    if let Some(func) = last_func {
         let stale = lock(&GLOBAL_FUNC_MAP)
             .as_ref()
             .is_none_or(|m| !m.contains_key(&func));
