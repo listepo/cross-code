@@ -47,7 +47,9 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> String {
         return String::new();
     }
     // SAFETY: checked non-null; the caller guarantees NUL termination.
-    unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
+    unsafe { CStr::from_ptr(ptr) }
+        .to_string_lossy()
+        .into_owned()
 }
 
 fn java_str_to_cstring(env: &mut JNIEnv, s: &JString) -> Result<CString, String> {
@@ -817,9 +819,7 @@ pub extern "system" fn Java_org_nativescript_wasm3_NativeWasm3_linkRawFunctionEx
     // `.unwrap()` on a poisoned mutex would panic across the `extern "system"`
     // boundary — recover the guard instead; the map is plain bookkeeping.
     let id = NEXT_HOST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let mut map = HOST_CTX_REGISTRY
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let mut map = HOST_CTX_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
     map.get_or_insert_with(HashMap::new)
         .insert(id, ctx_ptr as usize);
 

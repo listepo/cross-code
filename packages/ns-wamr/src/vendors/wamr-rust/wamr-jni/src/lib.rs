@@ -54,7 +54,9 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> String {
         return String::new();
     }
     // SAFETY: checked non-null; the caller guarantees NUL termination.
-    unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
+    unsafe { CStr::from_ptr(ptr) }
+        .to_string_lossy()
+        .into_owned()
 }
 
 /// Reads a shim error buffer. The shim may leave it untouched, so the scan is
@@ -172,7 +174,11 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_createRuntime(
         let msg = error_text(&error_buf);
         throw(
             &mut env,
-            if msg.is_empty() { "failed to create WAMR runtime" } else { &msg },
+            if msg.is_empty() {
+                "failed to create WAMR runtime"
+            } else {
+                &msg
+            },
         );
         return 0;
     }
@@ -253,7 +259,11 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_loadModule(
         let msg = error_text(&error_buf);
         throw(
             &mut env,
-            if msg.is_empty() { "failed to load module" } else { &msg },
+            if msg.is_empty() {
+                "failed to load module"
+            } else {
+                &msg
+            },
         );
         return 0;
     }
@@ -285,7 +295,11 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_instantiate(
         let msg = error_text(&error_buf);
         throw(
             &mut env,
-            if msg.is_empty() { "failed to instantiate module" } else { &msg },
+            if msg.is_empty() {
+                "failed to instantiate module"
+            } else {
+                &msg
+            },
         );
         return 0;
     }
@@ -342,7 +356,11 @@ pub extern "system" fn Java_org_nativescript_wamr_NativeWamr_findFunction(
         let msg = error_text(&error_buf);
         throw(
             &mut env,
-            if msg.is_empty() { "function not found" } else { &msg },
+            if msg.is_empty() {
+                "function not found"
+            } else {
+                &msg
+            },
         );
         return 0;
     }
@@ -709,7 +727,11 @@ const TRAP_MISSING_IMPORT: &[u8] = b"NSCWamr: missing imported function\0";
 /// `exec_env` must be the live environment WAMR passed to the trampoline, and
 /// `message` must be NUL-terminated.
 unsafe fn trap(exec_env: wasm_exec_env_t, message: &[u8]) {
-    debug_assert_eq!(message.last(), Some(&0), "trap message must be NUL-terminated");
+    debug_assert_eq!(
+        message.last(),
+        Some(&0),
+        "trap message must be NUL-terminated"
+    );
     // SAFETY: the caller guarantees a live exec_env; WAMR copies the message.
     unsafe {
         let inst = wasm_runtime_get_module_inst(exec_env);

@@ -394,9 +394,10 @@ impl WamrModuleInstance {
         let params = map_value_types(&param_types).ok_or_else(|| WamrError::FunctionNotFound {
             message: format!("Function '{name}' takes an unsupported parameter type"),
         })?;
-        let results = map_value_types(&result_types).ok_or_else(|| WamrError::FunctionNotFound {
-            message: format!("Function '{name}' returns an unsupported type"),
-        })?;
+        let results =
+            map_value_types(&result_types).ok_or_else(|| WamrError::FunctionNotFound {
+                message: format!("Function '{name}' returns an unsupported type"),
+            })?;
 
         let sig = build_signature_string(&params, &results);
 
@@ -648,7 +649,9 @@ impl WamrFunction {
                 "wasm_runtime_call_wasm returned false".to_string()
             } else {
                 // SAFETY: non-null, and NUL-terminated per WAMR's contract.
-                unsafe { CStr::from_ptr(exc) }.to_string_lossy().into_owned()
+                unsafe { CStr::from_ptr(exc) }
+                    .to_string_lossy()
+                    .into_owned()
             };
             return Err(WamrError::CallFailed { message });
         }
@@ -663,7 +666,10 @@ impl WamrFunction {
 /// Maps WAMR's value-type codes, refusing the whole list if any entry is a
 /// kind this wrapper cannot encode as 32-bit slots.
 fn map_value_types(codes: &[u8]) -> Option<Vec<WasmValueType>> {
-    codes.iter().map(|&c| WasmValueType::from_valkind(c)).collect()
+    codes
+        .iter()
+        .map(|&c| WasmValueType::from_valkind(c))
+        .collect()
 }
 
 fn build_signature_string(params: &[WasmValueType], results: &[WasmValueType]) -> String {

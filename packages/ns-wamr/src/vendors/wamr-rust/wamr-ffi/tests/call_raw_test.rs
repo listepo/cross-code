@@ -27,7 +27,9 @@ fn config() -> RuntimeConfig {
 
 fn add_function() -> Arc<wamr_ffi::WamrFunction> {
     let runtime = Arc::new(WamrRuntime::new(config()).expect("runtime"));
-    let module = runtime.load_module(fixture_bytes("add.wasm")).expect("load");
+    let module = runtime
+        .load_module(fixture_bytes("add.wasm"))
+        .expect("load");
     let instance = module.instantiate().expect("instantiate");
     instance.find_function("add".into()).expect("find add")
 }
@@ -52,7 +54,10 @@ fn call_rejects_a_wrong_slot_count() {
 fn a_second_runtime_survives_the_first_being_dropped() {
     let keeper = add_function();
     drop(WamrRuntime::new(config()).expect("second runtime"));
-    assert_eq!(keeper.call_raw(vec![10, 5]).expect("call add(10, 5)"), vec![15]);
+    assert_eq!(
+        keeper.call_raw(vec![10, 5]).expect("call add(10, 5)"),
+        vec![15]
+    );
 }
 
 /// The function keeps its instance, module and runtime alive through Arcs, so
@@ -61,8 +66,14 @@ fn a_second_runtime_survives_the_first_being_dropped() {
 fn a_function_outliving_its_owner_handles_still_works() {
     let func = {
         let runtime = Arc::new(WamrRuntime::new(config()).expect("runtime"));
-        let module = runtime.load_module(fixture_bytes("add.wasm")).expect("load");
-        module.instantiate().expect("instantiate").find_function("add".into()).expect("find")
+        let module = runtime
+            .load_module(fixture_bytes("add.wasm"))
+            .expect("load");
+        module
+            .instantiate()
+            .expect("instantiate")
+            .find_function("add".into())
+            .expect("find")
     };
     assert_eq!(func.call_raw(vec![1, 2]).expect("call add(1, 2)"), vec![3]);
 }

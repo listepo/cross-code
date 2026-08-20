@@ -169,10 +169,7 @@ pub unsafe extern "C" fn nsc_wamr_function_arg_count(func: wasm_function_inst_t)
 /// # Safety
 /// See [`nsc_wamr_function_arg_count`].
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_function_arg_type(
-    func: wasm_function_inst_t,
-    index: i32,
-) -> i32 {
+pub unsafe extern "C" fn nsc_wamr_function_arg_type(func: wasm_function_inst_t, index: i32) -> i32 {
     unsafe { shim::function_arg_type(func, index) }
 }
 
@@ -186,10 +183,7 @@ pub unsafe extern "C" fn nsc_wamr_function_ret_count(func: wasm_function_inst_t)
 /// # Safety
 /// See [`nsc_wamr_function_arg_count`].
 #[no_mangle]
-pub unsafe extern "C" fn nsc_wamr_function_ret_type(
-    func: wasm_function_inst_t,
-    index: i32,
-) -> i32 {
+pub unsafe extern "C" fn nsc_wamr_function_ret_type(func: wasm_function_inst_t, index: i32) -> i32 {
     unsafe { shim::function_ret_type(func, index) }
 }
 
@@ -374,7 +368,11 @@ mod ffi_tests {
         // Stable across calls: OnceLock hands back the same allocation.
         assert_eq!(ptr, nsc_wamr_version());
         let s = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
-        assert_eq!(s.split('.').count(), 3, "expected major.minor.patch, got {s}");
+        assert_eq!(
+            s.split('.').count(),
+            3,
+            "expected major.minor.patch, got {s}"
+        );
     }
 
     #[test]
@@ -395,7 +393,10 @@ mod ffi_tests {
         // func is null first, so this exercises the null-func guard; the
         // arg_ptrs guard is checked with a non-null dummy handle below.
         let err = unsafe { nsc_wamr_call(std::ptr::null_mut(), 0, std::ptr::null_mut()) };
-        assert_eq!(unsafe { CStr::from_ptr(err) }.to_str().unwrap(), "null function");
+        assert_eq!(
+            unsafe { CStr::from_ptr(err) }.to_str().unwrap(),
+            "null function"
+        );
 
         let dangling = std::ptr::dangling_mut::<u8>() as wasm_function_inst_t;
         let err = unsafe { nsc_wamr_call(dangling, 2, std::ptr::null_mut()) };

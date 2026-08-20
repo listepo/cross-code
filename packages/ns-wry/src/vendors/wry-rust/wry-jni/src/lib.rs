@@ -23,7 +23,9 @@ unsafe fn cstr_to_string(ptr: *const std::os::raw::c_char) -> String {
     if ptr.is_null() {
         return String::new();
     }
-    unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
+    unsafe { CStr::from_ptr(ptr) }
+        .to_string_lossy()
+        .into_owned()
 }
 
 #[no_mangle]

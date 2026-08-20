@@ -272,10 +272,7 @@ pub unsafe fn destroy_runtime(ptr: *mut NscWamrRuntime) {
         // SAFETY: the pair was registered by link_host_function and has not
         // been unregistered yet.
         unsafe {
-            wasm_runtime_unregister_natives(
-                entry.module_name.as_ptr(),
-                entry.symbols.as_mut_ptr(),
-            )
+            wasm_runtime_unregister_natives(entry.module_name.as_ptr(), entry.symbols.as_mut_ptr())
         };
     }
 
@@ -535,11 +532,7 @@ fn kind_at(kinds: &[wasm_valkind_t], index: i32) -> i32 {
 /// Build WAMR uint32 arg array from i64-encoded arguments.
 ///
 /// Pure index arithmetic over slices — no raw pointers, so no `unsafe`.
-fn build_u32_args(
-    ptypes: &[wasm_valkind_t],
-    args: &[u64],
-    out: &mut [u32],
-) -> Result<i32, String> {
+fn build_u32_args(ptypes: &[wasm_valkind_t], args: &[u64], out: &mut [u32]) -> Result<i32, String> {
     let mut slot_idx = 0usize;
     for (i, &ptype) in ptypes.iter().enumerate() {
         let sw = slot_width(ptype);
@@ -572,10 +565,7 @@ pub unsafe fn call(func: wasm_function_inst_t, args: &[u64]) -> Result<(), Strin
     let (inst, env) = {
         let map = lock(&GLOBAL_FUNC_MAP);
         match map.as_ref().and_then(|m| m.get(&(func as usize))) {
-            Some(e) => (
-                e.inst as wasm_module_inst_t,
-                e.exec_env as wasm_exec_env_t,
-            ),
+            Some(e) => (e.inst as wasm_module_inst_t, e.exec_env as wasm_exec_env_t),
             None => return Err("function not found in any module instance".into()),
         }
     };
@@ -666,7 +656,9 @@ pub unsafe fn call(func: wasm_function_inst_t, args: &[u64]) -> Result<(), Strin
         let msg = if exc.is_null() {
             "function call trapped".to_string()
         } else {
-            unsafe { CStr::from_ptr(exc) }.to_string_lossy().into_owned()
+            unsafe { CStr::from_ptr(exc) }
+                .to_string_lossy()
+                .into_owned()
         };
         return Err(msg);
     }
@@ -683,10 +675,7 @@ fn zeroed_val() -> wasm_val_t {
 
 /// # Safety
 /// See [`call`].
-pub unsafe fn get_results(
-    func: wasm_function_inst_t,
-    ret_buf: &mut [u64],
-) -> Result<(), String> {
+pub unsafe fn get_results(func: wasm_function_inst_t, ret_buf: &mut [u64]) -> Result<(), String> {
     if func.is_null() {
         return Err("null argument".into());
     }
@@ -829,11 +818,7 @@ pub unsafe fn link_host_function(
     // into the runtime below and only dropped after destroy_runtime has called
     // wasm_runtime_unregister_natives on the same pair.
     let ok = unsafe {
-        wasm_runtime_register_natives_raw(
-            entry.module_name.as_ptr(),
-            entry.symbols.as_mut_ptr(),
-            1,
-        )
+        wasm_runtime_register_natives_raw(entry.module_name.as_ptr(), entry.symbols.as_mut_ptr(), 1)
     };
 
     if !ok {
@@ -846,11 +831,7 @@ pub unsafe fn link_host_function(
 
 /// # Safety
 /// `runtime` must be null or a live handle.
-pub unsafe fn import_declared(
-    runtime: *mut NscWamrRuntime,
-    module_name: &str,
-    name: &str,
-) -> bool {
+pub unsafe fn import_declared(runtime: *mut NscWamrRuntime, module_name: &str, name: &str) -> bool {
     if runtime.is_null() || module_name.is_empty() || name.is_empty() {
         return false;
     }

@@ -154,7 +154,9 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> String {
         String::new()
     } else {
         // SAFETY: checked non-null; the caller guarantees NUL termination.
-        unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
+        unsafe { CStr::from_ptr(ptr) }
+            .to_string_lossy()
+            .into_owned()
     }
 }
 
@@ -518,8 +520,7 @@ impl Wasm3ModuleInstance {
             });
         }
         // SAFETY: offset + len was just checked against the reported size.
-        let dst =
-            unsafe { std::slice::from_raw_parts_mut(ptr.add(offset as usize), data.len()) };
+        let dst = unsafe { std::slice::from_raw_parts_mut(ptr.add(offset as usize), data.len()) };
         dst.copy_from_slice(&data);
         Ok(())
     }
@@ -588,8 +589,7 @@ impl Wasm3Function {
 
         // SAFETY: ptr is a live function handle (the instance Arc keeps its
         // runtime alive), and arg_ptrs holds exactly args.len() valid pointers.
-        let result =
-            unsafe { m3_Call(self.ptr, arg_ptrs.len() as u32, arg_ptrs.as_mut_ptr()) };
+        let result = unsafe { m3_Call(self.ptr, arg_ptrs.len() as u32, arg_ptrs.as_mut_ptr()) };
 
         // SAFETY: result is an M3Result straight out of wasm3.
         if let Some(err) = unsafe { m3_result_to_option(result) } {
@@ -661,7 +661,11 @@ mod tests {
     fn a_function_outliving_its_runtime_handle_still_works() {
         let func = {
             let rt = runtime();
-            let instance = rt.load_module(add_wasm()).expect("load").instantiate().expect("inst");
+            let instance = rt
+                .load_module(add_wasm())
+                .expect("load")
+                .instantiate()
+                .expect("inst");
             // rt goes out of scope here; only the Arc chain keeps it alive.
             instance.find_function("add".into()).expect("find")
         };
@@ -671,7 +675,11 @@ mod tests {
     #[test]
     fn call_rejects_a_wrong_argument_count() {
         let rt = runtime();
-        let instance = rt.load_module(add_wasm()).expect("load").instantiate().expect("inst");
+        let instance = rt
+            .load_module(add_wasm())
+            .expect("load")
+            .instantiate()
+            .expect("inst");
         let func = instance.find_function("add".into()).expect("find");
         let err = func.call(vec![1]).unwrap_err();
         assert!(
@@ -683,7 +691,11 @@ mod tests {
     #[test]
     fn link_host_function_reports_that_it_is_unsupported() {
         let rt = runtime();
-        let instance = rt.load_module(add_wasm()).expect("load").instantiate().expect("inst");
+        let instance = rt
+            .load_module(add_wasm())
+            .expect("load")
+            .instantiate()
+            .expect("inst");
         let err = instance
             .link_host_function("env".into(), "log".into(), "v(i)".into())
             .unwrap_err();
@@ -696,7 +708,11 @@ mod tests {
     #[test]
     fn memory_access_is_bounds_checked() {
         let rt = runtime();
-        let instance = rt.load_module(add_wasm()).expect("load").instantiate().expect("inst");
+        let instance = rt
+            .load_module(add_wasm())
+            .expect("load")
+            .instantiate()
+            .expect("inst");
         let size = instance.memory_size();
         let err = instance.read_memory(size, 1).unwrap_err();
         assert!(
