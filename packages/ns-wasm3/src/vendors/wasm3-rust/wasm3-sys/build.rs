@@ -79,7 +79,12 @@ fn main() {
 
     let mut build = cc::Build::new();
 
-    build.flag("-std=gnu11").warnings(false).opt_level(2);
+    let profile = env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
+    let opt = if profile == "release" { 2 } else { 0 };
+    build.flag("-std=gnu11").warnings(false).opt_level(opt);
+    if profile != "release" {
+        build.flag("-g");
+    }
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if target_os == "macos" {

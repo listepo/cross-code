@@ -495,6 +495,19 @@ jobs:
       - name: Build the app's local packages
         run: pnpm exec nx run-many -t build -p ns-wasm-core ns-wasm3 ns-wamr ns-wasm-kit-runtime ns-endive ns-wasm-chicory ns-wasm-edge ns-rspack ns-rstest ns-lynx
 
+      - name: Install Buck2
+        run: |
+          curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-aarch64-apple-darwin.zst \
+            | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null
+          sudo chmod +x /usr/local/bin/buck2
+
+      - name: Build native iOS artifacts
+        env:
+          HOME: /tmp/buck2-home
+        run: |
+          pnpm exec nx run-many -t build.xcframework --configuration=release \
+            -p ns-wamr ns-wasm3 ns-wry ns-wasm-kit-runtime
+
       - name: Install the test app's dependencies
         working-directory: apps/ns-wasm-test
         run: pnpm install --frozen-lockfile
@@ -557,4 +570,11 @@ jobs:
           api-level: 34
           arch: x86_64
           working-directory: .
-          script: pnpm exec nx run ns-wasm-test:test.android
+          script: |
+            curl -fsSL https://github.com/facebook/buck2/releases/latest/download/buck2-x86_64-unknown-linux-gnu.zst \
+              | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null
+            sudo chmod +x /usr/local/bin/buck2
+            export HOME=/tmp/buck2-home
+            pnpm exec nx run-many -t build.android --configuration=release \
+              -p ns-wamr ns-wasm3 ns-wasm-chicory
+            pnpm exec nx run ns-wasm-test:test.android

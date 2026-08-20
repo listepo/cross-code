@@ -21,9 +21,13 @@ The plugin also honors `BUCK2_PATH` if the binary lives elsewhere.
 ## Usage
 
 ```bash
-# Build (default: release — -Oz, LTO, stripped)
+# Build (default: release — -Osize, LTO, stripped; debug — fast iteration)
 nx run ns-wamr:buck2-build --configuration=release
-nx run ns-wamr:buck2-build --configuration=debug     # -O0 -g3, DWARF
+nx run ns-wamr:buck2-build --configuration=debug
+
+# Native artifacts (prefer these over raw gradle/swift scripts)
+nx run ns-wamr:build.android --configuration=debug
+nx run ns-wamr:build.xcframework --configuration=release
 
 # Cross-compilation (platform/arch flags)
 nx run ns-wamr:buck2-build --platform=ios --arch=arm64

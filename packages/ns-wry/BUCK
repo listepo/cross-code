@@ -22,8 +22,8 @@ genrule(
         "src/vendors/wry-rust/**/*.rs",
         "src/vendors/wry-rust/**/*.toml",
     ]),
-    out = "wry-jni-android.stamp",
-    cmd = "echo 'wry JNI Android build via cargo-ndk' && touch $OUT",
+    out = "libwry_jni.so",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cargo ndk -t arm64-v8a build --manifest-path src/vendors/wry-rust/Cargo.toml -p wry-jni --profile $PROFILE --target-dir src/vendors/wry-rust/target 2>&1 && find src/vendors/wry-rust/target -name 'libwry_jni.so' | head -1 | xargs -I{} cp {} $OUT && echo 'JNI .so built'",
     visibility = ["PUBLIC"],
 )
 
@@ -40,9 +40,27 @@ genrule(
 )
 
 genrule(
+    name = "ns-wry-xcframework",
+    srcs = glob([
+        "platforms/ios/**/*.swift",
+        "platforms/ios/**/*.h",
+        "platforms/ios/**/Package.swift",
+        "tools/build-xcframework.sh",
+    ]),
+    out = "NSCWry.xcframework.stamp",
+    cmd = "bash tools/build-xcframework.sh 2>&1 && touch $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
     name = "all",
     srcs = [],
     out = "all.stamp",
-    cmd = "echo 'ns-wry: all targets' && touch $OUT",
+    cmd = "echo 'ns-wry: all targets built' && touch $OUT",
+    deps = [
+        ":wry-rust-host",
+        ":wry-jni-android",
+        ":ns-wry-xcframework",
+    ],
     visibility = ["PUBLIC"],
 )

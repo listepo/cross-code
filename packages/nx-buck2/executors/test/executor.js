@@ -2,25 +2,21 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = testExecutor;
 const devkit_1 = require("@nx/devkit");
-const node_child_process_1 = require("node:child_process");
-function resolveBuck2() {
-    if (process.env.BUCK2_PATH)
-        return process.env.BUCK2_PATH;
-    return 'buck2';
-}
+const buck2_cmd_1 = require("../../lib/buck2-cmd");
 async function testExecutor(options, context) {
     const target = options.target ?? `//packages/${context.projectName}:test`;
     const configuration = options.configuration ?? 'debug';
     devkit_1.logger.info(`🧪 Buck2 test: ${target} [${configuration}]`);
-    const buck2 = resolveBuck2();
-    const args = ['test', target, '--modifier', configuration];
-    const result = (0, node_child_process_1.spawnSync)(buck2, args, {
-        stdio: 'inherit',
+    const exitCode = await (0, buck2_cmd_1.runBuck2)(['test', target, '--modifier', configuration], {
         cwd: context.root,
-        env: { ...process.env },
+        env: {
+            ...process.env,
+            HOME: process.env.BUCK2_HOME ?? '/tmp/buck2-tmphome',
+            BUCK2_MODIFIER: configuration,
+        },
     });
-    if (result.status !== 0) {
-        devkit_1.logger.error(`Buck2 test failed with exit code ${result.status}`);
+    if (exitCode !== 0) {
+        devkit_1.logger.error(`Buck2 test failed with exit code ${exitCode}`);
         return { success: false };
     }
     devkit_1.logger.info(`✅ Buck2 test passed: ${target}`);

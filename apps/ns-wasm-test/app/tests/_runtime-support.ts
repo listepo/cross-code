@@ -79,7 +79,7 @@ function g(): EngineGlobals {
 /** WasmKit is Swift-native, served through SwiftPM. */
 export const WASMKIT: RuntimeSupport = {
   platforms: ['ios'],
-  nativeLayer: 'pending',
+  nativeLayer: 'shipped',
   isLoaded: () =>
     g().NSWasmKitRuntime != null ||
     g().org?.nativescript?.wasmkit?.NSWasmKitRuntime != null,

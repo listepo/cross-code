@@ -33,7 +33,8 @@
   ignore = .git,node_modules,dist,.nx,.buck-out,target
 
 [build_mode.debug]
-  compiler_flags = -O0 -g3 -DDEBUG
+  # Maximally fast iteration: no LTO, minimal debug info, no strip.
+  compiler_flags = -O0 -g0 -DDEBUG
 
 [build_mode.release]
   compiler_flags = -Oz -flto=thin -DNDEBUG -fvisibility=hidden

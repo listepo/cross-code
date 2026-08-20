@@ -2,18 +2,20 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = runExecutor;
 const devkit_1 = require("@nx/devkit");
-const node_child_process_1 = require("node:child_process");
+const buck2_cmd_1 = require("../../lib/buck2-cmd");
 async function runExecutor(options, context) {
-    const buck2 = process.env.BUCK2_PATH ?? 'buck2';
     const config = options.configuration ?? 'debug';
     devkit_1.logger.info(`🚀 Buck2 run: ${options.target} [${config}]`);
-    const cmdArgs = ['run', options.target, '--mode', config];
+    const args = ['run', options.target, '--modifier', config];
     if (options.args)
-        cmdArgs.push('--', ...options.args);
-    const result = (0, node_child_process_1.spawnSync)(buck2, cmdArgs, {
-        stdio: 'inherit',
+        args.push('--', ...options.args);
+    const exitCode = await (0, buck2_cmd_1.runBuck2)(args, {
         cwd: context.root,
-        env: { ...process.env },
+        env: {
+            ...process.env,
+            HOME: process.env.BUCK2_HOME ?? '/tmp/buck2-tmphome',
+            BUCK2_MODIFIER: config,
+        },
     });
-    return { success: result.status === 0 };
+    return { success: exitCode === 0 };
 }

@@ -122,6 +122,16 @@ function installIosFake() {
       state.stackSize = stackSize;
       this._memory = state.memory;
     }
+    // The ObjC shape: NativeScript calls alloc().initWithStackSize(n), not a
+    // JS constructor. Modelling it faithfully is what makes this fake a real
+    // guard against the selector regression.
+    static alloc() {
+      return {
+        initWithStackSize(stackSize: number) {
+          return new FakeRuntime(stackSize);
+        },
+      };
+    }
     static wasmkitVersion() {
       return state.version;
     }
@@ -138,7 +148,8 @@ function installIosFake() {
     findFunctionError(name: string, _err?: unknown) {
       return { name, runtime: this };
     }
-    memorySize() {
+    // An ObjC @property crosses as a JS property, not a method.
+    get memorySize() {
       return this._memory.length;
     }
     readMemoryAtOffsetLengthError(offset: number, length: number, _err?: unknown) {
@@ -152,7 +163,10 @@ function installIosFake() {
       this._memory.set(bytes, offset);
     }
   }
-  installGlobal('NSWasmKitRuntime', FakeRuntime);
+  installGlobal('NSWasmKitRuntime', {
+    alloc: FakeRuntime.alloc,
+    wasmkitVersion: FakeRuntime.wasmkitVersion,
+  });
 }
 
 // ------------------------------------------------------------------ tests

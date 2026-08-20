@@ -56,7 +56,7 @@ interface NSWasmKitModuleRef {
 }
 
 interface NSWasmKitRuntimeRef {
-  memorySize(): number;
+  readonly memorySize: number;
   loadModuleFromBytesError(data: unknown, ...error: NativeErrorRef[]): NSWasmKitModuleRef | null;
   loadModuleFromFileError(path: string, ...error: NativeErrorRef[]): NSWasmKitModuleRef | null;
   findFunctionError(name: string, ...error: NativeErrorRef[]): NSWasmKitFunctionRef | null;
@@ -73,7 +73,7 @@ interface NSWasmKitRuntimeRef {
 }
 
 interface NSWasmKitRuntimeClass {
-  new (stackSizeInBytes: number): NSWasmKitRuntimeRef;
+  alloc(): { initWithStackSize(stackSizeInBytes: number): NSWasmKitRuntimeRef };
   wasmkitVersion(): string;
 }
 

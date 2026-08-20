@@ -97,14 +97,19 @@ function makeIosHostCallback(cb: WireHostCallback): object {
 }
 
 class IosModule implements NativeModuleAdapter {
-  constructor(private readonly module: NSWasmKitModuleRef) {}
+  constructor(
+    private readonly module: NSWasmKitModuleRef,
+    private readonly hostCallbacks: object[],
+  ) {}
   name(): string { return String(this.module.name); }
   linkHostFunction(mod: string, name: string, signature: string, cb: WireHostCallback): void {
+    const callback = makeIosHostCallback(cb);
     withErrorRef(`linkHostFunction ${mod}.${name}`, (err) =>
       this.module.linkHostFunctionNameSignatureCallbackError(
-        mod, name, signature, makeIosHostCallback(cb), ...err,
+        mod, name, signature, callback, ...err,
       ),
     );
+    this.hostCallbacks.push(callback);
   }
   getGlobal(name: string): WireValue {
     return withErrorRef(`getGlobal ${name}`, (err) =>
@@ -120,6 +125,11 @@ class IosModule implements NativeModuleAdapter {
 
 export class IosRuntime implements NativeRuntimeAdapter {
   private readonly runtime: NSWasmKitRuntimeRef;
+  // ObjC callback objects must be retained on the JS side for the lifetime
+  // of the runtime. If the JS GC collects them, the NativeScript bridge may
+  // deallocate the ObjC object even though Swift holds a strong ref, causing
+  // the host trampoline to reach a zombie callback.
+  private hostCallbacks: object[] = [];
   constructor(stackSizeInBytes: number) {
     const RuntimeClass = globalThis.NSWasmKitRuntime;
     if (!RuntimeClass) {
@@ -127,7 +137,7 @@ export class IosRuntime implements NativeRuntimeAdapter {
         'ns-wasm-kit-runtime native runtime not found — is the plugin installed and the app rebuilt?',
       );
     }
-    this.runtime = new RuntimeClass(stackSizeInBytes);
+    this.runtime = RuntimeClass.alloc().initWithStackSize(stackSizeInBytes);
   }
   loadModuleFromBytes(bytes: Uint8Array): NativeModuleAdapter {
     const NSDataClass = globalThis.NSData;
@@ -137,7 +147,7 @@ export class IosRuntime implements NativeRuntimeAdapter {
       this.runtime.loadModuleFromBytesError(data, ...err),
     );
     if (!module) throw new WasmKitError('loadModule: returned null');
-    return new IosModule(module);
+    return new IosModule(module, this.hostCallbacks);
   }
   loadModuleFromFile(path: string): NativeModuleAdapter {
     const context = `loadModule ${path}`;
@@ -145,7 +155,7 @@ export class IosRuntime implements NativeRuntimeAdapter {
       this.runtime.loadModuleFromFileError(path, ...err),
     );
     if (!module) throw new WasmKitError(`${context}: returned null`);
-    return new IosModule(module);
+    return new IosModule(module, this.hostCallbacks);
   }
   findFunction(name: string): NativeFunctionAdapter {
     const context = `findFunction ${name}`;
@@ -155,7 +165,7 @@ export class IosRuntime implements NativeRuntimeAdapter {
     if (!fn) throw new WasmKitError(`${context}: function not found`);
     return new IosFunction(fn);
   }
-  memorySize(): number { return Number(this.runtime.memorySize()); }
+  memorySize(): number { return Number(this.runtime.memorySize); }
   readMemory(offset: number, length: number): Uint8Array {
     const data = withErrorRef('readMemory', (err) =>
       this.runtime.readMemoryAtOffsetLengthError(offset, length, ...err),

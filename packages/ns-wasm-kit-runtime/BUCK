@@ -57,6 +57,10 @@ genrule(
     name = "all",
     srcs = [],
     out = "all.stamp",
-    cmd = "echo 'ns-wasm-kit-runtime: all targets requested' && touch $OUT",
+    cmd = "echo 'ns-wasm-kit-runtime: all targets built' && touch $OUT",
+    deps = [
+        ":nsc-wasmkit-swift-host",
+        ":ns-wasmkit-xcframework-release",
+    ],
     visibility = ["PUBLIC"],
 )

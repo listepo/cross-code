@@ -266,16 +266,19 @@ in `CWamr/include/` pointing at the four public headers (`wasm_export.h`,
 
 ### iOS: prebuilt XCFrameworks (SwiftPM replaced)
 
-Each plugin ships a **prebuilt dynamic `.xcframework`** in
-`platforms/ios/<NSCWamr|NSCWasm3|NSCWry>.xcframework` (plus
-`<name>.xcframework.dSYMs/` with the debug symbols). The NativeScript CLI
+Each plugin ships a **dynamic `.xcframework`** under
+`platforms/ios/<NSCWamr|NSCWasm3|NSCWry|NSWasmKit>.xcframework` (plus
+`<name>.xcframework.dSYMs/`). These are **gitignored** — build them with
+`nx run <pkg>:build.xcframework` (nx-buck2, release by default) before
+running a NativeScript app or CI device jobs. The NativeScript CLI
 9.x discovers any `platforms/ios/*.xcframework` in a plugin automatically
 (`FRAMEWORK_EXTENSIONS` in `ios-project-service.js`) — it links the matching
 slice, adds it to **Embed Frameworks** with `CodeSignOnCopy`, and re-signs.
 No `SPMPackages` entry is used anymore (that mechanism predates this change;
 see git history for the old SwiftPM declaration).
 
-Rebuild with `npm run build.xcframework` (per plugin). All three plugins
+Rebuild with `nx run <pkg>:build.xcframework --configuration=release`
+(or `--configuration=debug` for fast iteration). The Rust/Swift/C plugins
 share ONE builder: `tools/build-xcframework.sh <ENGINE>` (each package's
 `tools/build-xcframework.sh` is a 3-line wrapper). It builds each slice with
 `swift build --disable-sandbox --triple <arm64-apple-ios|arm64-apple-ios-simulator|x86_64-apple-ios-simulator>`
@@ -332,8 +335,8 @@ Both plugins use the identical Android architecture (no JavaCPP):
   `NSCWasm3.kt` + `NativeWasm3.kt`) loads `libwasm3_jni.so` / `libwamr_jni.so`
   via JNI and `System.loadLibrary`.
 - `deployAar` copies the release `.aar` to `platforms/android/nativescript-<engine>.aar`.
-  The `.aar` is **committed** because it contains precompiled `.so` files —
-  consumers don't need the NDK or a Rust toolchain.
+  AARs are **gitignored** — build with `nx run <pkg>:build.android` (nx-buck2)
+  before running an Android app or CI device jobs.
 - `hosttest/` is a pure-JVM module that compiles the Kotlin wrapper sources
   and runs JUnit tests against a host (`cargo build --release -p <engine>-jni`)
   build of the library, with `java.library.path` pointed at `target/release`.
@@ -445,11 +448,13 @@ No globally installed gradle, cocoapods, or wasm toolchain is required.
 
 ### Buck2 builds (nx-buck2)
 
-Native builds can optionally run through **Buck2** via the `@cross-code/nx-buck2`
+Native builds run through **Buck2** via the `@cross-code/nx-buck2`
 Nx plugin (`packages/nx-buck2`): executors `build`/`test`/`run` dispatch
-`buck2 build/test/run` against per-project `BUCK` files (currently genrule
-wrappers around the Cargo/SwiftPM toolchains — the standard Buck2 migration
-path). Debug/release is selected per invocation:
+`buck2 build/test/run` against per-project `BUCK` files (genrule wrappers
+around Cargo/SwiftPM/Gradle). Use `build.android`, `build.xcframework`, or
+`buck2-build` on each engine plugin — all route through nx-buck2 with
+`--configuration=debug` (fast: `-Onone`/`-O0`, no LTO/strip) or `release`
+(size-optimized). Debug/release is selected per invocation:
 
 ```bash
 nx run ns-wamr:buck2-build --configuration=release          # -Oz, LTO, stripped

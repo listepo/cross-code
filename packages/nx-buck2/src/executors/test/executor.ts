@@ -1,14 +1,9 @@
 import { type ExecutorContext, logger } from '@nx/devkit';
-import { spawnSync } from 'node:child_process';
+import { runBuck2 } from '../../lib/buck2-cmd';
 
 export interface Buck2TestOptions {
   target?: string;
   configuration?: 'debug' | 'release';
-}
-
-function resolveBuck2(): string {
-  if (process.env.BUCK2_PATH) return process.env.BUCK2_PATH;
-  return 'buck2';
 }
 
 export default async function testExecutor(
@@ -21,17 +16,20 @@ export default async function testExecutor(
 
   logger.info(`🧪 Buck2 test: ${target} [${configuration}]`);
 
-  const buck2 = resolveBuck2();
-  const args = ['test', target, '--modifier', configuration];
+  const exitCode = await runBuck2(
+    ['test', target, '--modifier', configuration],
+    {
+      cwd: context.root,
+      env: {
+        ...process.env,
+        HOME: process.env.BUCK2_HOME ?? '/tmp/buck2-tmphome',
+        BUCK2_MODIFIER: configuration,
+      },
+    },
+  );
 
-  const result = spawnSync(buck2, args, {
-    stdio: 'inherit',
-    cwd: context.root,
-    env: { ...process.env },
-  });
-
-  if (result.status !== 0) {
-    logger.error(`Buck2 test failed with exit code ${result.status}`);
+  if (exitCode !== 0) {
+    logger.error(`Buck2 test failed with exit code ${exitCode}`);
     return { success: false };
   }
 

@@ -1,6 +1,0 @@
-framework module NSCWry {
-  umbrella header "NSCWry.h"
-
-  export *
-  module * { export * }
-}

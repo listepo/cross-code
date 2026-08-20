@@ -1,8 +1,8 @@
 import { type ExecutorContext, logger } from '@nx/devkit';
-import { spawnSync } from 'node:child_process';
+import { runBuck2 } from '../../lib/buck2-cmd';
 
 export interface Buck2BuildOptions {
-  /** Build profile: debug (-O0 -g3) or release (-Oz -flto, stripped). */
+  /** Build profile: debug (-Onone/-O0, no LTO/strip) or release (-Osize/-Oz, LTO, stripped). */
   configuration?: 'debug' | 'release';
   /** Buck2 target label, e.g. //packages/ns-wamr:wamr-c. Defaults to //packages/<project>:all. */
   target?: string;
@@ -17,11 +17,6 @@ export interface Buck2BuildOptions {
   platform?: 'ios' | 'ios-sim' | 'android' | 'macos';
   /** Extra CLI args forwarded to buck2 build. */
   extraArgs?: string[];
-}
-
-function resolveBuck2(): string {
-  if (process.env.BUCK2_PATH) return process.env.BUCK2_PATH;
-  return 'buck2';
 }
 
 function resolveTarget(
@@ -44,7 +39,6 @@ export default async function buildExecutor(
     `🔨 Buck2 build: ${target} [${configuration}] platform=${options.platform ?? 'auto'} arch=${options.arch ?? 'auto'}`,
   );
 
-  const buck2 = resolveBuck2();
   const args: string[] = [
     'build',
     target,
@@ -63,10 +57,9 @@ export default async function buildExecutor(
     args.push(...options.extraArgs);
   }
 
-  logger.debug(`Running: ${buck2} ${args.join(' ')}`);
+  logger.debug(`Running: buck2 ${args.join(' ')}`);
 
-  const result = spawnSync(buck2, args, {
-    stdio: 'inherit',
+  const exitCode = await runBuck2(args, {
     cwd: context.root,
     env: {
       ...process.env,
@@ -77,8 +70,8 @@ export default async function buildExecutor(
     },
   });
 
-  if (result.status !== 0) {
-    logger.error(`Buck2 build failed with exit code ${result.status}`);
+  if (exitCode !== 0) {
+    logger.error(`Buck2 build failed with exit code ${exitCode}`);
     return { success: false };
   }
 

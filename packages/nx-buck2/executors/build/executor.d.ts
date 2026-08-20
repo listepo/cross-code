@@ -1,6 +1,6 @@
 import { type ExecutorContext } from '@nx/devkit';
 export interface Buck2BuildOptions {
-    /** Build profile: debug (-O0 -g3) or release (-Oz -flto, stripped). */
+    /** Build profile: debug (-Onone/-O0, no LTO/strip) or release (-Osize/-Oz, LTO, stripped). */
     configuration?: 'debug' | 'release';
     /** Buck2 target label, e.g. //packages/ns-wamr:wamr-c. Defaults to //packages/<project>:all. */
     target?: string;

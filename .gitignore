@@ -78,6 +78,21 @@ reasonix.toml
 
 /packages/ns-wasm3/src/vendors/wasm3-rust/target/
 
+# Native prebuilt / platform build artifacts (build.xcframework, build.android, cargo-ndk)
+*.xcframework/
+*.xcframework.dSYMs/
+*.framework.dSYM/
+**/platforms/android/*.aar
+**/platforms/android/symbols/
+**/Sources/*FFI/*.a
+**/target/
+**/jniLibs/**/*.so
+!**/jniLibs/**/.gitkeep
+
+# SwiftPM / Xcode build caches
+**/.build/
+**/DerivedData/
+
 # pnpm local package store (created during resolution)
 .pnpm-store
 .buck-out/

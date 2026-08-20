@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { type ExecutorContext } from '@nx/devkit';
 import testExecutor from './executor';
 
-const mockSpawnSync = vi.fn();
-vi.mock('node:child_process', () => ({
-  spawnSync: (...args: unknown[]) => mockSpawnSync(...args),
+const mockRunBuck2 = vi.fn();
+vi.mock('../../lib/buck2-cmd', () => ({
+  runBuck2: (...args: unknown[]) => mockRunBuck2(...args),
 }));
 
 function mockContext(projectName = 'ns-wamr'): ExecutorContext {
@@ -20,76 +20,53 @@ function mockContext(projectName = 'ns-wamr'): ExecutorContext {
 
 describe('testExecutor', () => {
   beforeEach(() => {
-    mockSpawnSync.mockReset();
+    mockRunBuck2.mockReset();
+    mockRunBuck2.mockResolvedValue(0);
   });
 
   it('runs buck2 test with the default target', async () => {
-    mockSpawnSync.mockReturnValue({ status: 0 });
     await testExecutor({}, mockContext('ns-wamr'));
-    expect(mockSpawnSync).toHaveBeenCalledWith(
-      'buck2',
-      expect.arrayContaining(['//packages/ns-wamr:test']),
-      expect.anything(),
+    expect(mockRunBuck2).toHaveBeenCalledWith(
+      expect.arrayContaining(['test', '//packages/ns-wamr:test']),
+      expect.objectContaining({ cwd: '/workspace' }),
     );
   });
 
   it('runs buck2 test with an explicit target', async () => {
-    mockSpawnSync.mockReturnValue({ status: 0 });
     await testExecutor(
       { target: '//packages/ns-wamr:hosttest' },
       mockContext(),
     );
-    expect(mockSpawnSync).toHaveBeenCalledWith(
-      'buck2',
-      expect.arrayContaining(['//packages/ns-wamr:hosttest']),
+    expect(mockRunBuck2).toHaveBeenCalledWith(
+      expect.arrayContaining(['test', '//packages/ns-wamr:hosttest']),
       expect.anything(),
     );
   });
 
   it('defaults to debug configuration', async () => {
-    mockSpawnSync.mockReturnValue({ status: 0 });
     await testExecutor({}, mockContext());
-    expect(mockSpawnSync).toHaveBeenCalledWith(
-      'buck2',
+    expect(mockRunBuck2).toHaveBeenCalledWith(
       expect.arrayContaining(['--modifier', 'debug']),
       expect.anything(),
     );
   });
 
   it('passes --modifier release when configuration=release', async () => {
-    mockSpawnSync.mockReturnValue({ status: 0 });
     await testExecutor({ configuration: 'release' }, mockContext());
-    expect(mockSpawnSync).toHaveBeenCalledWith(
-      'buck2',
+    expect(mockRunBuck2).toHaveBeenCalledWith(
       expect.arrayContaining(['--modifier', 'release']),
       expect.anything(),
     );
   });
 
-  it('uses BUCK2_PATH env var when set', async () => {
-    mockSpawnSync.mockReturnValue({ status: 0 });
-    const original = process.env.BUCK2_PATH;
-    process.env.BUCK2_PATH = '/custom/buck2';
-    try {
-      await testExecutor({}, mockContext());
-      expect(mockSpawnSync).toHaveBeenCalledWith(
-        '/custom/buck2',
-        expect.anything(),
-        expect.anything(),
-      );
-    } finally {
-      process.env.BUCK2_PATH = original;
-    }
-  });
-
   it('returns { success: true } on exit code 0', async () => {
-    mockSpawnSync.mockReturnValue({ status: 0 });
+    mockRunBuck2.mockResolvedValue(0);
     const result = await testExecutor({}, mockContext());
     expect(result).toEqual({ success: true });
   });
 
   it('returns { success: false } on non-zero exit code', async () => {
-    mockSpawnSync.mockReturnValue({ status: 1 });
+    mockRunBuck2.mockResolvedValue(1);
     const result = await testExecutor({}, mockContext());
     expect(result).toEqual({ success: false });
   });

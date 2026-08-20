@@ -27,6 +27,23 @@ genrule(
 # ── Rust JNI library (Android, via cargo-ndk) ─────────────────────
 
 genrule(
+    name = "wamr-android-aar",
+    srcs = glob([
+        "platforms/android/wamr-android/**/*.kt",
+        "platforms/android/wamr-android/**/*.kts",
+        "platforms/android/wamr-android/**/gradle/**",
+        "platforms/android/wamr-android/gradlew",
+        "src/vendors/wamr-rust/**/*.rs",
+        "src/vendors/wamr-rust/**/*.toml",
+        "src/vendors/wamr/**/*.c",
+        "src/vendors/wamr/**/*.h",
+    ]),
+    out = "nativescript-wamr.aar",
+    cmd = "cd $SRCDIR/platforms/android/wamr-android && ./gradlew :library:deployAar && cp $SRCDIR/platforms/android/nativescript-wamr.aar $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
     name = "wamr-jni-android",
     srcs = glob([
         "src/vendors/wamr-rust/**/*.rs",
@@ -64,8 +81,8 @@ genrule(
         "platforms/ios/**/Package.swift",
         "tools/build-xcframework.sh",
     ]),
-    out = "NSCWamr.xcframework.zip",
-    cmd = "bash $SRCDIR/tools/build-xcframework.sh 2>&1 && cd $SRCDIR/platforms/ios && zip -qr $OUT NSCWamr.xcframework && echo 'xcframework built'",
+    out = "NSCWamr.xcframework.stamp",
+    cmd = "bash $SRCDIR/tools/build-xcframework.sh 2>&1 && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
@@ -88,6 +105,11 @@ genrule(
     name = "all",
     srcs = [],
     out = "all.stamp",
-    cmd = "echo 'ns-wamr: all targets requested' && touch $OUT",
+    cmd = "echo 'ns-wamr: all targets built' && touch $OUT",
+    deps = [
+        ":wamr-c",
+        ":wamr-android-aar",
+        ":ns-wamr-xcframework",
+    ],
     visibility = ["PUBLIC"],
 )

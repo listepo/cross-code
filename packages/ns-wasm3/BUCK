@@ -14,13 +14,32 @@ genrule(
 )
 
 genrule(
+    name = "wasm3-android-aar",
+    srcs = glob([
+        "platforms/android/wasm3-android/**/*.kt",
+        "platforms/android/wasm3-android/**/*.kts",
+        "platforms/android/wasm3-android/**/gradle/**",
+        "platforms/android/wasm3-android/gradlew",
+        "src/vendors/wasm3-rust/**/*.rs",
+        "src/vendors/wasm3-rust/**/*.toml",
+        "src/vendors/wasm3/source/**/*.c",
+        "src/vendors/wasm3/source/**/*.h",
+    ]),
+    out = "nativescript-wasm3.aar",
+    cmd = "cd $SRCDIR/platforms/android/wasm3-android && ./gradlew :library:deployAar && cp $SRCDIR/platforms/android/nativescript-wasm3.aar $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
     name = "wasm3-jni-android",
     srcs = glob([
         "src/vendors/wasm3-rust/**/*.rs",
         "src/vendors/wasm3-rust/**/*.toml",
+        "src/vendors/wasm3/source/**/*.c",
+        "src/vendors/wasm3/source/**/*.h",
     ]),
     out = "libwasm3_jni.so",
-    cmd = "echo 'wasm3 JNI Android build via cargo-ndk' && touch $OUT",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; PROFILE=\"release\"; [ \"$MODE\" = debug ] && PROFILE=\"debug\"; cd $SRCDIR/src/vendors/wasm3-rust && cargo ndk -t arm64-v8a build -p wasm3-jni --profile $PROFILE 2>&1 && find target -name 'libwasm3_jni.so' | head -1 | xargs -I{} cp {} $OUT && echo 'JNI .so built'",
     visibility = ["PUBLIC"],
 )
 
@@ -31,7 +50,20 @@ genrule(
         "platforms/ios/NSCWasm3/Package.swift",
     ]),
     out = "NSCWasm3.dylib",
-    cmd = "echo 'NSCWasm3 Swift build' && touch $OUT",
+    cmd = "MODE=${BUCK2_MODIFIER:-release}; CONF=\"release\"; [ \"$MODE\" = debug ] && CONF=\"debug\"; cd $SRCDIR/platforms/ios/NSCWasm3 && swift build --disable-sandbox --configuration $CONF 2>&1 && cp .build/$CONF/libNSCWasm3.dylib $OUT",
+    visibility = ["PUBLIC"],
+)
+
+genrule(
+    name = "ns-wasm3-xcframework",
+    srcs = glob([
+        "platforms/ios/**/*.swift",
+        "platforms/ios/**/*.h",
+        "platforms/ios/**/Package.swift",
+        "tools/build-xcframework.sh",
+    ]),
+    out = "NSCWasm3.xcframework.stamp",
+    cmd = "bash $SRCDIR/tools/build-xcframework.sh 2>&1 && touch $OUT",
     visibility = ["PUBLIC"],
 )
 
@@ -39,6 +71,11 @@ genrule(
     name = "all",
     srcs = [],
     out = "all.stamp",
-    cmd = "echo 'ns-wasm3: all targets' && touch $OUT",
+    cmd = "echo 'ns-wasm3: all targets built' && touch $OUT",
+    deps = [
+        ":wasm3-c",
+        ":wasm3-android-aar",
+        ":ns-wasm3-xcframework",
+    ],
     visibility = ["PUBLIC"],
 )

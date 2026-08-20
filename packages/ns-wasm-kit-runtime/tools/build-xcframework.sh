@@ -17,9 +17,9 @@ cd "$PKG_DIR"
 # Support debug/release via BUCK2_MODIFIER env var
 MODE="${BUCK2_MODIFIER:-release}"
 SWIFT_CONF="$MODE"
-# Release uses -Osize + thin LTO; debug uses -O0 -g
+# Release: -Osize + thin LTO + strip. Debug: -Onone only (fastest Swift builds).
 if [ "$MODE" = "debug" ]; then
-  OPT_FLAGS="-Xswiftc -g -Xcc -g"
+  OPT_FLAGS="-Xswiftc -Onone"
 else
   OPT_FLAGS="-Xswiftc -g -Xswiftc -Osize -Xcc -g -Xcc -flto=thin -Xlinker -dead_strip"
 fi
@@ -71,14 +71,16 @@ lipo -create "$BUILD/sim-arm64/$ENGINE.framework/$ENGINE" \
              "$BUILD/sim-x86_64/$ENGINE.framework/$ENGINE" \
      -output "$BUILD/$SIM/$ENGINE.framework/$ENGINE"
 
-# ── 4. dSYMs from the UNSTRIPPED binaries ───────────────────────────────
-for slice in ios-arm64 "$SIM"; do
-  dsymutil "$BUILD/$slice/$ENGINE.framework/$ENGINE" \
-    -o "$BUILD/$slice/$ENGINE.framework.dSYM" >/dev/null 2>&1 || true
-done
+# ── 4. dSYMs (release only — skip in debug for faster builds) ───────────
+if [ "$MODE" != "debug" ]; then
+  for slice in ios-arm64 "$SIM"; do
+    dsymutil "$BUILD/$slice/$ENGINE.framework/$ENGINE" \
+      -o "$BUILD/$slice/$ENGINE.framework.dSYM" >/dev/null 2>&1 || true
+  done
+fi
 
-# ── 5. Strip the shipped binaries (release only) ────────────────────────
-if [ "$MODE" = "release" ]; then
+# ── 5. Strip the shipped binaries (release only) ─────────────────────────
+if [ "$MODE" != "debug" ]; then
   strip -S -x "$BUILD/ios-arm64/$ENGINE.framework/$ENGINE"
   strip -S -x "$BUILD/$SIM/$ENGINE.framework/$ENGINE"
 fi
@@ -125,10 +127,12 @@ PLIST
 ditto "$BUILD/ios-arm64/$ENGINE.framework" "$OUT/ios-arm64/$ENGINE.framework"
 ditto "$BUILD/$SIM/$ENGINE.framework" "$OUT/$SIM/$ENGINE.framework"
 
-# ── 7. Keep the dSYMs ───────────────────────────────────────────────────
-for slice in ios-arm64 "$SIM"; do
-  ditto "$BUILD/$slice/$ENGINE.framework.dSYM" "$DSYM_OUT/$slice/$ENGINE.framework.dSYM"
-done
+# ── 7. Keep the dSYMs (release only) ────────────────────────────────────
+if [ "$MODE" != "debug" ]; then
+  for slice in ios-arm64 "$SIM"; do
+    ditto "$BUILD/$slice/$ENGINE.framework.dSYM" "$DSYM_OUT/$slice/$ENGINE.framework.dSYM"
+  done
+fi
 
 echo "OK: $OUT ($(du -sh "$OUT" | cut -f1))"
 echo "    dSYMs: $DSYM_OUT ($(du -sh "$DSYM_OUT" | cut -f1))"

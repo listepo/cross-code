@@ -10,7 +10,8 @@
     "name": "nx-buck2"
   },
   "dependencies": {
-    "@nx/devkit": ">=21.0.0"
+    "@nx/devkit": ">=21.0.0",
+    "zx": "^8.8.5"
   },
   "scripts": {
     "clean": "rm -rf executors generators index.js index.d.ts",
