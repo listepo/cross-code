@@ -514,6 +514,21 @@ jobs:
         working-directory: apps/ns-wasm-test
         run: pnpm install --frozen-lockfile
 
+      # `ns run ios --emulator` only auto-boots a simulator when Simulator.app
+      # is already a running process (ios-sim-portable's startSimulator calls
+      # `simctl boot` solely inside its `isSimulatorAppRunning` branch) — true
+      # on a developer's Mac, never true on a fresh runner. Left to itself it
+      # just opens an empty Simulator window and gives up, so every device
+      # search after it comes back empty ("Unable to find applicable
+      # devices..."). Boot one explicitly so the CLI's own device-discovery
+      # (plain `simctl`-state polling, no GUI dependency) finds it already
+      # running and skips that codepath entirely.
+      - name: Boot an iOS Simulator
+        run: |
+          UDID=$(xcrun simctl list devices available | grep -m1 'iPhone' | grep -oE '[0-9A-Fa-f]{8}-([0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}')
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+
       # `ns doctor` shells out to `pod --version`, which prints a locale warning
       # the CLI treats as a failed CocoaPods check unless LANG is a UTF-8 one.
       # The plugin itself needs no pods — it ships a Swift package.
@@ -573,10 +588,15 @@ jobs:
           arch: x86_64
           working-directory: .
           script: |
-            set -o pipefail
-            curl -fsSL https://github.com/facebook/buck2/releases/download/latest/buck2-x86_64-unknown-linux-gnu.zst \
-              | zstd -d | sudo tee /usr/local/bin/buck2 > /dev/null
-            sudo chmod +x /usr/local/bin/buck2
+            # android-emulator-runner executes this script with /bin/sh, not
+            # bash — no `pipefail` builtin, so this avoids the pipe entirely
+            # rather than relying on it (a failed curl before wouldn't fail
+            # the tee it fed, silently installing a 0-byte buck2 that then
+            # "succeeds" on every invocation).
+            set -e
+            curl -fsSL https://github.com/facebook/buck2/releases/download/latest/buck2-x86_64-unknown-linux-gnu.zst -o /tmp/buck2.zst
+            zstd -d /tmp/buck2.zst -o /tmp/buck2
+            sudo install -m 0755 /tmp/buck2 /usr/local/bin/buck2
             buck2 --version
             # Give buck2 a clean, writable HOME, but pin cargo/rustup to their
             # real locations first — otherwise cargo can't find the installed
