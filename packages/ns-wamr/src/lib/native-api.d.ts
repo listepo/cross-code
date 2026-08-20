@@ -138,7 +138,9 @@ interface NSCWamrJavaRuntimeClass {
 }
 
 interface NSCWamrHostFunctionClass {
-  extend(members: { invoke(args: NativeList): unknown }): new () => object;
+  // A Kotlin `fun interface` (SAM), not a class: implemented by constructing
+  // it directly with an object exposing `invoke`, not via `.extend()`.
+  new (members: { invoke(args: NativeList): unknown }): object;
 }
 
 interface NSCWamrAndroidNamespace {

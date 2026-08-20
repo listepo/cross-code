@@ -203,14 +203,6 @@ function installAndroidFake() {
     constructor(impl: FakeHostImport) {
       Object.assign(this, impl);
     }
-    // The Kotlin class is subclassed through NativeScript's extend() hook.
-    static extend(impl: FakeHostImport) {
-      return class extends FakeHostFunction {
-        constructor() {
-          super(impl);
-        }
-      };
-    }
   }
 
   installGlobal('org', {

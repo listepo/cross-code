@@ -101,14 +101,15 @@ class AndroidModule implements NativeModuleAdapter {
     return String(this.module.getName());
   }
   linkHostFunction(module: string, name: string, signature: string, cb: WireHostCallback): void {
-    const hostFn = new (wasm3Namespace().NSCWasm3HostFunction.extend({
+    const HostFunction = wasm3Namespace().NSCWasm3HostFunction;
+    const hostFn = new HostFunction({
       invoke: (nativeArgs: NativeList): unknown => {
         const results = cb(javaArrayToJs(nativeArgs).map(normalizeAndroidValue));
         if (results.length === 0) return null;
         if (results.length === 1) return toJavaWireValue(results[0]);
         return results.map(toJavaWireValue);
       },
-    }))();
+    });
     try {
       this.module.linkHostFunction(module, name, signature, hostFn);
     } catch (error) {
