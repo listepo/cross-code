@@ -185,6 +185,10 @@ The `rspack-test-app` exercises it end-to-end (`bundler: 'rspack'` in
 bundler via the CLI bin and read build state over IPC. `ns-lynx-app`'s device
 suite checks the bundle the app actually runs.
 
+It also turns `.wasm` imports into ES modules, instantiated through whichever
+runtime plugin's `WebAssembly` polyfill is installed — see
+[Importing a `.wasm` file](WASM.md#importing-a-wasm-file) in WASM.md.
+
 ## WebAssembly plugins (wasm3, WAMR, WasmKit, WasmEdge, Chicory & Endive)
 
 Usage and API documentation for the WebAssembly plugins — install,
