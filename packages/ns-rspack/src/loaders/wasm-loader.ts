@@ -1,4 +1,5 @@
 import { parseWasmModule } from '@cross-code/ns-wasm-core'
+import { IDENTIFIER, isValueExport, valueExports } from './wasm-exports.js'
 import type { LoaderContext } from '@rspack/core'
 import { basename } from 'node:path'
 
@@ -13,8 +14,6 @@ export interface WasmLoaderOptions {
      */
     imports?: Record<string, string>
 }
-
-const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 
 /**
  * Turns a `.wasm` file into an ES module whose exports are the module's own,
@@ -77,7 +76,7 @@ export default function wasmLoader(
     // Functions are wrapped so the first call instantiates; everything else is
     // a live binding filled in at that moment. Reading `instance.memory`
     // before any call is the one thing that does not work, and no glue does.
-    const values = info.exports.filter((entry) => entry.kind !== 'function')
+    const values = valueExports(info)
 
     values.forEach((_, index) => lines.push(`let __wasm_value_${index}`))
 
@@ -111,12 +110,12 @@ export default function wasmLoader(
     const bindings: string[] = []
 
     info.exports.forEach((entry, index) => {
-        const local =
-            entry.kind === 'function'
-                ? `__wasm_function_${index}`
-                : `__wasm_value_${values.indexOf(entry)}`
+        let local: string
 
-        if (entry.kind === 'function') {
+        if (isValueExport(entry)) {
+            local = `__wasm_value_${values.indexOf(entry)}`
+        } else {
+            local = `__wasm_function_${index}`
             lines.push(
                 `const ${local} = (...args) => __wasm_instance()[${JSON.stringify(entry.name)}](...args)`,
             )

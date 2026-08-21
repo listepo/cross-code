@@ -168,7 +168,7 @@ jobs:
             --bin gen_globals -- "$RUNNER_TEMP/globals"
           cmp "$RUNNER_TEMP/globals/globals.wasm" \
             packages/test-types/pkg/globals.wasm || {
-            echo "::error::globals.wasm is stale — run 'pnpm run build.wasm' in packages/test-types and commit the result."
+            echo "::error::globals.wasm is stale — run 'nx run test-types:build.wasm' and commit the result."
             exit 1
           }
 

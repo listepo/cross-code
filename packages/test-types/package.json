@@ -24,7 +24,8 @@
     "./globals.wasm": "./pkg/globals.wasm"
   },
   "scripts": {
-    "build.wasm": "wasm-pack build . --target bundler --out-dir pkg && rm -f pkg/.gitignore && cargo run --quiet --bin gen_globals -- pkg",
+    "build.wasm": "wasm-pack build . --target bundler --out-dir pkg && rm -f pkg/.gitignore && cargo run --quiet --bin gen_globals -- pkg && pnpm run gen.types",
+    "gen.types": "ns-rspack types pkg/test_types_bg.wasm --out types.wasm.d.ts --functions-from ./pkg/test_types_bg.wasm.js",
     "test.wasm": "cargo test",
     "lint.rust": "cargo clippy --all-targets --all-features -- -D warnings",
     "fmt.rust": "cargo fmt -- --check",
@@ -39,6 +40,20 @@
         "options": {
           "script": "coverage"
         }
+      },
+      "gen.types": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "gen.types"
+        },
+        "dependsOn": ["@cross-code/ns-rspack:build"]
+      },
+      "build.wasm": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "build.wasm"
+        },
+        "dependsOn": ["@cross-code/ns-rspack:build"]
       },
       "lint.rust": {
         "executor": "nx:run-script",
@@ -60,5 +75,10 @@
       }
     }
   },
-  "dependencies": {}
+  "devDependencies": {
+    "@cross-code/ns-rspack": "workspace:*"
+  },
+  "dependencies": {
+    "@cross-code/ns-wasm-core": "workspace:*"
+  }
 }

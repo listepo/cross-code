@@ -303,7 +303,15 @@ importers:
         specifier: '>=21.0.0'
         version: 23.1.0(nx@23.1.0(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.28)(supports-color@8.1.1)(typescript@6.0.3))(@swc/core@1.15.8(@swc/helpers@0.5.18)))
 
-  packages/test-types: {}
+  packages/test-types:
+    dependencies:
+      '@cross-code/ns-wasm-core':
+        specifier: workspace:*
+        version: link:../ns-wasm-core
+    devDependencies:
+      '@cross-code/ns-rspack':
+        specifier: workspace:*
+        version: link:../ns-rspack
 
 packages:
 

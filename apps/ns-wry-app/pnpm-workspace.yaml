@@ -7,6 +7,10 @@
 # standalone install — only packages/* is reachable, never the root workspace.
 packages:
   - ../../packages/ns-rspack
+  # ns-rspack depends on it through the `workspace:` protocol (its wasm-loader
+  # emits an ESM wrapper over the WebAssembly polyfill), so it must be
+  # reachable from here even though the app never imports it.
+  - ../../packages/ns-wasm-core
   - ../../packages/ns-wry
 
 # pnpm 11 blocks dependency build scripts by default (ERR_PNPM_IGNORED_BUILDS).

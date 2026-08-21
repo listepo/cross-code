@@ -42,6 +42,9 @@ importers:
 
   ../../packages/ns-rspack:
     dependencies:
+      '@cross-code/ns-wasm-core':
+        specifier: workspace:*
+        version: link:../ns-wasm-core
       '@rspack/core':
         specifier: ^2.1.9
         version: 2.1.9(@swc/helpers@0.5.23)
@@ -94,6 +97,8 @@ importers:
       typescript:
         specifier: ~6.0.0
         version: 6.0.3
+
+  ../../packages/ns-wasm-core: {}
 
   ../../packages/ns-wry:
     dependencies:

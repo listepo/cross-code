@@ -1,13 +1,22 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo",
-    "emitDeclarationOnly": true,
-    "forceConsistentCasingInFileNames": true,
-    "types": ["node"]
-  },
-  "include": ["index.ts", "types.wasm.d.ts"],
-  "references": []
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "rootDir": ".",
+        "outDir": "dist",
+        "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo",
+        "emitDeclarationOnly": true,
+        "forceConsistentCasingInFileNames": true,
+        "types": ["node"],
+        "skipLibCheck": false,
+        "lib": ["es2022", "dom"]
+    },
+    "include": ["index.ts", "types.wasm.d.ts"],
+    "references": [
+        {
+            "path": "../ns-wasm-core/tsconfig.lib.json"
+        },
+        {
+            "path": "../ns-rspack/tsconfig.lib.json"
+        }
+    ]
 }

@@ -16,7 +16,8 @@ src/lib.rs                 the fixture exports, and `pub mod globals`
 src/bin/gen_globals.rs     writes globals.wasm; the bytes come from `globals`
 pkg/                       wasm-pack output — committed, see below
 tests/web.rs               wasm-bindgen-test placeholder (wasm32 only)
-types.wasm.d.ts            types for `import … from '…/types.wasm'`
+types.wasm.d.ts            types for `import … from '…/types.wasm'` —
+                           generated, see below
 ```
 
 ## What it exports
@@ -73,8 +74,16 @@ initializers, and an export table that maps each name to its global index.
 ## Building
 
 ```bash
-pnpm run build.wasm    # wasm-pack build + gen_globals
+nx run test-types:build.wasm    # wasm-pack build + gen_globals + gen.types
 ```
+
+```bash
+nx run test-types:gen.types     # types.wasm.d.ts, from the binary
+```
+
+Through Nx, not `pnpm run`: `gen.types` shells out to the `ns-rspack` CLI,
+which lives in that package's gitignored `dist/`, so the target depends on
+`@cross-code/ns-rspack:build` to have it there on a fresh checkout.
 
 ```bash
 pnpm run test.wasm     # cargo test — the encoder unit tests
@@ -83,9 +92,17 @@ pnpm run test.wasm     # cargo test — the encoder unit tests
 Requires the Rust toolchain, the `wasm32-unknown-unknown` target and
 [`wasm-pack`](https://rustwasm.github.io/wasm-pack/).
 
-`build.wasm` runs `wasm-pack build` and then `gen_globals` — in that order,
-because wasm-pack clears `pkg/` before it writes. Running
-`cargo run --bin gen_globals -- pkg` by itself is fine too.
+`build.wasm` runs `wasm-pack build`, then `gen_globals`, then `gen.types` — in
+that order, because wasm-pack clears `pkg/` before it writes and the other two
+read what it leaves behind. Either tail step is fine to run alone:
+`cargo run --bin gen_globals -- pkg`, or `pnpm run gen.types`.
+
+`gen.types` writes `types.wasm.d.ts` with `@cross-code/ns-rspack`'s `types`
+command, which reads the export table with the same code its wasm-loader uses
+to emit the module. That is what keeps the declaration honest about the two
+things wasm-pack gets wrong: it omits the exported globals, and it types
+`memory` and tables as the DOM's rather than the polyfill's. Don't hand-edit
+the output — regenerate it.
 
 ## Why `pkg/` is committed
 

@@ -3,9 +3,11 @@
 import { rspack } from '@rspack/core'
 import type { Configuration, Stats } from '@rspack/core'
 import { createJiti } from 'jiti'
-import { resolve } from 'node:path'
+import { readFile, writeFile } from 'node:fs/promises'
+import { basename, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import type { INativeScriptRspackEnv } from '../index.js'
+import { declareWasmModule } from '../loaders/wasm-declaration.js'
 
 const tag = '[@cross-code/ns-rspack]'
 
@@ -82,8 +84,79 @@ function report(env: INativeScriptRspackEnv, err: Error | null, stats?: Stats): 
     }
 }
 
+/**
+ * `ns-rspack types <file.wasm> [--out <file.d.ts>] [--functions-from <module>]`
+ *
+ * Writes the declaration for a `.wasm` imported through this package's
+ * wasm-loader. TypeScript never opens the binary, so the ES module the loader
+ * emits needs one to be importable at all; generating it from the same export
+ * table the loader reads is what keeps the two in step.
+ *
+ * `--functions-from` re-exports an existing declaration for the functions'
+ * signatures — wasm-pack's `<name>_bg.wasm.js`, whose `.d.ts` has them. The
+ * non-function exports are always declared here, because that is exactly what
+ * wasm-pack gets wrong: it omits exported globals and types memory and tables
+ * as the DOM's rather than the polyfill's.
+ *
+ * The default output path is TypeScript's own convention for an arbitrary
+ * extension — `math.wasm` becomes `math.d.wasm.ts`.
+ */
+async function writeTypes(argv: string[]): Promise<void> {
+    const { values, positionals } = parseArgs({
+        args: argv.slice(1),
+        options: {
+            out: { type: 'string' },
+            'functions-from': { type: 'string' },
+        },
+        allowPositionals: true,
+    })
+
+    const [input] = positionals
+
+    if (!input) {
+        console.error(
+            `${tag} usage: ns-rspack types <file.wasm> [--out <file.d.ts>] [--functions-from <module>]`,
+        )
+        process.exitCode = 1
+
+        return
+    }
+
+    const source = resolve(input)
+    const out = values.out
+        ? resolve(values.out)
+        : source.replace(/\.wasm$/, '.d.wasm.ts')
+
+    // The default path only derives a new name from a `.wasm` suffix; anything
+    // else (`.WASM`, `.wat`, no extension) leaves it equal to the input, and
+    // writing there would destroy the binary.
+    if (out === source) {
+        console.error(
+            `${tag} ${input}: refusing to overwrite the input — pass --out <file.d.ts>`,
+        )
+        process.exitCode = 1
+
+        return
+    }
+
+    const declaration = declareWasmModule(await readFile(source), {
+        name: basename(source),
+        functionsFrom: values['functions-from'],
+    })
+
+    await writeFile(out, declaration)
+    console.log(`${tag} wrote ${out}`)
+}
+
 async function main(): Promise<void> {
     const argv = process.argv.slice(2)
+
+    if (argv[0] === 'types') {
+        await writeTypes(argv)
+
+        return
+    }
+
     const { values } = parseArgs({
         args: argv.filter((arg) => !arg.startsWith('--env.')),
         options: {
