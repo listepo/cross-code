@@ -14,6 +14,9 @@ importers:
       '@cross-code/nx-ns-app':
         specifier: workspace:*
         version: link:packages/nx-ns-app
+      '@cross-code/nx-oxc':
+        specifier: workspace:*
+        version: link:packages/nx-oxc
       '@nx/devkit':
         specifier: ^23.1.0
         version: 23.1.0(nx@23.1.0(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.28)(supports-color@7.2.0)(typescript@6.0.3))(@swc/core@1.15.8(@swc/helpers@0.5.18)))
@@ -289,6 +292,12 @@ importers:
         version: 8.8.5
 
   packages/nx-ns-app:
+    dependencies:
+      '@nx/devkit':
+        specifier: '>=21.0.0'
+        version: 23.1.0(nx@23.1.0(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.28)(supports-color@8.1.1)(typescript@6.0.3))(@swc/core@1.15.8(@swc/helpers@0.5.18)))
+
+  packages/nx-oxc:
     dependencies:
       '@nx/devkit':
         specifier: '>=21.0.0'

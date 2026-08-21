@@ -546,6 +546,27 @@ emulator/simulator flakiness must be fixed, not bypassed. If a job is
 genuinely environment-broken, disable it with an `if:` condition and a
 comment instead, never a silent `continue-on-error`.
 
+### TypeScript linting (oxlint + oxfmt)
+
+TypeScript is linted with **oxlint** and formatted with **oxfmt**, wired in by
+`@cross-code/nx-oxc` — a local Nx *inference* plugin registered twice in
+`nx.json` (`.../oxlint` and `.../oxfmt`). It attaches a cached `lint` and
+`format` target to every named `package.json` in the workspace, so no project
+declares either one; the workspace root and wasm-pack `pkg/` output are
+skipped, and a project that defines its own `lint`/`format` in `project.json`
+wins (Nx merges explicit config over inferred targets). Both entry points are
+`src/*.ts` on purpose — an inference plugin loads *while* the project graph is
+built, before any `dist/` could exist.
+
+```bash
+pnpm exec nx run <pkg>:lint         # oxlint --config .oxlintrc.json --deny-warnings
+pnpm exec nx run-many -t lint       # whole workspace
+```
+
+Config is shared at the root (`.oxlintrc.json`); see
+`packages/nx-oxc/README.md`. Note the `ns-rspack` formatting gotcha in
+`MEMORY.md` before running any `format` target.
+
 ### Kotlin linting (Detekt + Ktlint)
 
 Each Android Gradle project (`platforms/android/<engine>-android/`) runs

@@ -12,6 +12,7 @@
   "devDependencies": {
     "@cross-code/nx-buck2": "workspace:*",
     "@cross-code/nx-ns-app": "workspace:*",
+    "@cross-code/nx-oxc": "workspace:*",
     "@nx/devkit": "^23.1.0",
     "@nx/js": "23.1.0",
     "@nx/plugin": "23.1.0",

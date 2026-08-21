@@ -1,0 +1,22 @@
+{
+  "name": "@cross-code/nx-oxc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nx inference plugin for the oxc toolchain — adds a cached oxlint `lint` target and an oxfmt `format` target to every workspace package.",
+  "type": "commonjs",
+  "exports": {
+    "./package.json": "./package.json",
+    "./oxlint": "./src/oxlint.ts",
+    "./oxfmt": "./src/oxfmt.ts"
+  },
+  "nx": {
+    "name": "nx-oxc"
+  },
+  "dependencies": {
+    "@nx/devkit": ">=21.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.lib.json",
+    "test": "vitest run"
+  }
+}

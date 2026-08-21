@@ -39,10 +39,10 @@
             }
         },
         {
-            "plugin": "./tools/nx-oxlint.js"
+            "plugin": "@cross-code/nx-oxc/oxlint"
         },
         {
-            "plugin": "./tools/nx-oxfmt.js"
+            "plugin": "@cross-code/nx-oxc/oxfmt"
         },
         {
             "plugin": "@nx/vite/plugin",
@@ -106,9 +106,6 @@
             "inputs": ["production", "^production"]
         },
         "lint": {
-            "cache": true
-        },
-        "format": {
             "cache": true
         }
     }
