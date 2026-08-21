@@ -29,6 +29,14 @@ expose those classes to JavaScript directly, so the whole plugin is TypeScript.
   convention the other plugins in this repo use.
 - `src/lib/native-api.d.ts` — ambient shapes for the Lynx SDK classes, so the
   build type-checks without `@nativescript/types-{ios,android}`.
+- `bundler.cjs` — the `@cross-code/ns-lynx/bundler` subpath. Takes the app's
+  bundler module, adds the `lynx/dist/main.lynx.bundle` → `~/lynx/` copy rule,
+  and throws when the rspeedy build has not run. Same shape and rationale as
+  `@cross-code/ns-rstest/bundler`: CJS because this package is
+  `"type": "module"` and the app loads it through `createRequire`, and the
+  bundler arrives as a parameter so this package needs no rspack dependency.
+  It resolves paths with `Utils.project.getProjectFilePath` — never
+  `__dirname`, which under pnpm points into the store rather than the app.
 
 ## Invariants
 
@@ -49,10 +57,17 @@ expose those classes to JavaScript directly, so the whole plugin is TypeScript.
   SDWebImage (iOS) plus host-side initialization the plugin cannot perform.
 - `@nativescript/core` is a peer at `^9.0.20`. It must match what the consuming
   apps install, or `View` subclassing fails to type-check across the boundary.
+- This package owns **every** Lynx-specific build input a host app needs: the
+  two dependency manifests and `bundler.cjs`. A consuming app should never
+  hand-write a Lynx copy rule, a Podfile pod, or a gradle dependency. There is
+  deliberately no plugin-level `nativescript.config.ts` — the {N} CLI reads a
+  *plugin's* config for `SPMPackages` only (`ios-project-service.js:657`), and
+  `include.gradle`/`Podfile` are found by convention path, so the file was a
+  no-op that implied a mechanism that does not exist.
 
-## Known blocker: iOS metadata generation
+## Solved: iOS metadata generation vs PrimJS
 
-`ns build ios` currently fails **after** Lynx and PrimJS compile successfully,
+`ns build ios` used to fail **after** Lynx and PrimJS compiled successfully,
 inside NativeScript's metadata generator:
 
 ```
@@ -61,28 +76,21 @@ PrimJS.framework/Headers/code_cache.h:45:9: error: unknown type name 'std'
 ```
 
 The generator parses every public header of every Clang module as
-Objective-C. PrimJS publishes C++ headers (`napi.h`, `code_cache.h`,
-`basic/log/logging.h`) through its framework umbrella, so the parse fails, and
-the SDK `_modules/*.h` "do not include this header directly" errors that follow
-are collateral from the same pass. It is not an Xcode 26 problem and not
-something this plugin's code causes.
+Objective-C. PrimJS publishes C++ headers through its framework umbrella, so
+the parse failed, and the SDK `_modules/*.h` "do not include this header
+directly" errors that followed were collateral from the same pass. It was
+never an Xcode 26 problem. Metadata *filtering* (`native-api-usage.json`)
+cannot help — it strips entities after parsing, not before.
 
-Metadata *filtering* (`native-api-usage.json`) cannot help: it strips entities
-after parsing, not before.
+**The fix is in `platforms/ios/Podfile`**: a `post_install` hook sets
+`DEFINES_MODULE = NO` for the PrimJS target and deletes its `MODULEMAP_FILE`,
+so the generator never enumerates it. Nothing needs the module — PrimJS has no
+Objective-C API, nothing does `@import PrimJS`, and Lynx reaches its headers
+through `HEADER_SEARCH_PATHS`. Do not remove that hook; the build fails with no
+useful diagnostic of its own if you do.
 
-Candidate fixes, none verified yet:
-
-1. Stop PrimJS defining a module (`DEFINES_MODULE = NO` in a `post_install`
-   hook) so the generator never enumerates it. Risk: Lynx may need the module
-   to compile against.
-2. Ship a thin ObjC wrapper framework that re-exports only the Lynx symbols
-   this plugin uses, and keep PrimJS out of the app's module graph — this
-   reintroduces a native layer.
-3. Upstream: have PrimJS mark its C++ headers private, or have the {N}
-   metadata generator skip modules it cannot parse instead of failing.
-
-Android is unaffected — the static binding generator reads the AAR's compiled
-classes, and every signature this plugin calls was verified against
+Android was never affected — the static binding generator reads the AAR's
+compiled classes, and every signature this plugin calls was verified against
 `org.lynxsdk.lynx:lynx:4.0.1` with `javap`.
 
 ## Verification

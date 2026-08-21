@@ -9,24 +9,40 @@ Two build graphs meet here, and they do not share a toolchain:
 
 - `app/` compiles with `@cross-code/ns-rspack` for the NativeScript runtime.
 - `lynx/` compiles with rspeedy for the Lynx runtime, emitting
-  `lynx/dist/main.lynx.bundle`.
+  `lynx/dist/main.lynx.bundle`. It is its own Nx project
+  (`ns-lynx-app-lynx`, defined by `lynx/project.json`) and its own pnpm
+  workspace member.
 
-`rspack.config.ts` copies that bundle to `lynx/main.lynx.bundle` inside the app
-folder, and `<LynxView src="~/lynx/main.lynx.bundle">` loads it. The copy is a
-build artifact, never committed.
+`@cross-code/ns-lynx/bundler` copies that bundle to `lynx/main.lynx.bundle`
+inside the app folder, and `<LynxView src="~/lynx/main.lynx.bundle">` loads it.
+The copy is a build artifact, never committed.
+
+**All Lynx wiring lives in the plugin or in `lynx/`.** Outside those two, the
+app should read like any other NativeScript app: one `configureNativeScriptLynx`
+line in `rspack.config.ts`, the plugin in `dependencies`, and the demo page's
+`xmlns:lynx`. If you find yourself adding a Lynx copy rule, pod, gradle
+dependency or build target here, it belongs in `packages/ns-lynx` instead.
 
 ## Invariants
 
 - `lynx/` is excluded from the host `tsconfig.json`. It targets a different
   runtime with different JSX settings (`jsxImportSource: '@lynx-js/react'`),
-  so a single TypeScript project cannot cover both. `typecheck` runs the host
-  app, `tsconfig.spec.json` (rstest entries + `app/tests/`), and `lynx/src`.
+  so a single TypeScript project cannot cover both. This app's `typecheck`
+  runs the host app and `tsconfig.spec.json` (rstest entries + `app/tests/`);
+  `lynx/src` is checked by `ns-lynx-app-lynx:typecheck`, its own project's
+  target. `nx run-many -t typecheck` covers both.
 - Rstest files (`app/_ns-rstest.ts`, `app/_ns-rstest.worker.ts`, `app/tests/`)
   belong only in `tsconfig.spec.json`. The production tsconfig must not include
   them — same split as `apps/ns-wasm-test`.
-- `build.ios` / `build.android` / `prepare` depend on `build.lynx`, and
-  `rspack.config.ts` throws when the bundle is missing. Keep both — the Nx
-  edge orders a normal build, the throw catches a direct `npx ns build`.
+- The rspeedy build is ordered by the **project graph**, not a hand-written
+  target: `lynx/` is a `workspace:*` devDependency of this app, so
+  `ns-lynx-app-lynx:build` is already covered by the existing `^build` /
+  `dependencies:build` edges. Do not reintroduce a `build.lynx` target — adding
+  the dependency is what makes `build.ios`, `build.android`, `prepare`,
+  `test.ios` and `test.android` all order it correctly at once.
+- That edge and the throw inside `@cross-code/ns-lynx/bundler` are a deliberate
+  pair: the graph edge orders a normal build, the throw catches a direct
+  `npx ns build` that skipped it.
 - Talk to Lynx only through the plugin's public API (`src`, `initData`,
   `globalProps`, `sendGlobalEvent`, `updateData`, `reload`). Reaching into
   `nativeViewProtected` from app code puts platform branches in the host.
@@ -59,7 +75,7 @@ Run through Nx from the repository root:
 
 ```bash
 pnpm exec nx run ns-lynx-app:typecheck
-pnpm exec nx run ns-lynx-app:build.lynx
+pnpm exec nx run ns-lynx-app-lynx:build
 pnpm exec nx run ns-lynx-app:test.ios
 pnpm exec nx run ns-lynx-app:run.ios
 pnpm exec nx run ns-lynx-app:run.android

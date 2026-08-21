@@ -120,8 +120,16 @@ layers. Only engine-specific detail lives in each package's AGENTS.md.
   is TypeScript plus a Podfile and an include.gradle. Read
   `packages/ns-lynx/AGENTS.md` before changing the view or the SDK versions —
   the two manifests pin the same engine and must move together.
+- The plugin owns **every** Lynx-specific build input, including the
+  `@cross-code/ns-lynx/bundler` helper that adds the rspeedy-bundle copy rule
+  to a host app's `rspack.config.ts` (same pattern as
+  `@cross-code/ns-rstest/bundler`). A consuming app writes one line, never a
+  copy rule, pod or gradle dependency of its own.
 - `apps/ns-lynx-app` is the worked example: a NativeScript host page around a
-  rspeedy/ReactLynx bundle built from its own `lynx/` sub-project.
+  rspeedy/ReactLynx bundle built from its own `lynx/` sub-project. That
+  sub-project is a separate Nx project (`ns-lynx-app-lynx`) and a
+  `workspace:*` devDependency of the app, so the project graph — not a
+  hand-written target — orders the rspeedy build before any app build.
 
 ### Rstest + NativeScript unit-test package
 

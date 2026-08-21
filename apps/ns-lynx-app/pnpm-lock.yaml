@@ -45,6 +45,9 @@ importers:
       '@rstest/core':
         specifier: 0.11.6
         version: 0.11.6
+      ns-lynx-app-lynx:
+        specifier: workspace:*
+        version: link:lynx
       typescript:
         specifier: ~6.0.0
         version: 6.0.3
@@ -64,6 +67,9 @@ importers:
 
   ../../packages/ns-rspack:
     dependencies:
+      '@cross-code/ns-wasm-core':
+        specifier: workspace:*
+        version: link:../ns-wasm-core
       '@rspack/core':
         specifier: ^2.1.9
         version: 2.1.9(@swc/helpers@0.5.23)
@@ -144,6 +150,8 @@ importers:
       vitest:
         specifier: ~4.1.10
         version: 4.1.10(@types/node@26.2.0)(vite@8.2.1(@types/node@26.2.0)(jiti@2.7.0)(sass@1.102.0)(terser@5.50.0))
+
+  ../../packages/ns-wasm-core: {}
 
   lynx:
     dependencies:

@@ -10,7 +10,7 @@ The app has two halves:
   bar above the Lynx surface, and the button below it.
 - `lynx/` — a [rspeedy](https://lynxjs.org/rspeedy) + ReactLynx project. Its
   build output (`lynx/dist/main.lynx.bundle`) is copied into the app bundle by
-  `rspack.config.ts` and loaded at runtime as `~/lynx/main.lynx.bundle`.
+  `@cross-code/ns-lynx/bundler` and loaded at runtime as `~/lynx/main.lynx.bundle`.
 
 Both directions of the host↔Lynx boundary are exercised:
 
@@ -31,7 +31,8 @@ app/tests/                   the device suite
 lynx/src/App.tsx             the ReactLynx UI
 lynx/lynx.config.ts          rspeedy config
 lynx/dist/main.lynx.bundle   build output (gitignored)
-rspack.config.ts             copies the bundle into the app folder, wires the test entry
+lynx/project.json            the rspeedy build as its own Nx project
+rspack.config.ts             calls the plugin's bundler helper, wires the test entry
 ```
 
 ## Run
@@ -43,13 +44,15 @@ pnpm exec nx run ns-lynx-app:run.ios
 pnpm exec nx run ns-lynx-app:run.android
 ```
 
-`build.lynx` runs first — the bundler config fails fast if the Lynx bundle is
+`ns-lynx-app-lynx:build` runs first (a project-graph edge, not a hand-written
+target) — and the plugin's bundler helper fails fast if the Lynx bundle is
 missing rather than shipping an app that cannot render.
 
 From this directory:
 
 ```bash
-pnpm build.lynx     # rebuild only the ReactLynx bundle
+# rebuild only the ReactLynx bundle:
+#   pnpm exec nx run ns-lynx-app-lynx:build
 pnpm run.ios
 pnpm run.android
 ```

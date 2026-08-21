@@ -7,6 +7,10 @@
 packages:
   - lynx
   - ../../packages/ns-rspack
+  # ns-rspack depends on it through the `workspace:` protocol (its wasm-loader
+  # emits an ESM wrapper over the WebAssembly polyfill), so it must be
+  # reachable from here even though the app never imports it.
+  - ../../packages/ns-wasm-core
   - ../../packages/ns-lynx
   - ../../packages/ns-rstest
 

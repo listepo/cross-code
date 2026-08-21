@@ -31,9 +31,54 @@ integration that would otherwise force a native shim.
 npm install @cross-code/ns-lynx
 ```
 
-iOS additionally needs `pod install`, which `ns build ios` runs for you. The
-plugin's Podfile demotes a few warnings-as-errors that break Lynx 4.0.x under
-Xcode 16+/26.x.
+Then add one line to the app's `rspack.config.ts`:
+
+```ts
+import { createRequire } from 'node:module';
+
+// The helper is CJS, and rspack.config.ts is an ES module.
+const require = createRequire(import.meta.url);
+const configureNativeScriptLynx = require('@cross-code/ns-lynx/bundler');
+
+export default (env: INativeScriptRspackEnv) => {
+  rspack.init(env);
+  configureNativeScriptLynx(rspack); // copies lynx/dist → ~/lynx/
+  return rspack.resolveConfig();
+};
+```
+
+That copies your rspeedy output into the app bundle and fails the build with a
+readable message if the Lynx bundle has not been built yet. Pass
+`{ dist: 'some/other/dir' }` if the rspeedy project is not at `<app>/lynx`.
+
+The native side needs nothing: the plugin's own `platforms/ios/Podfile` and
+`platforms/android/include.gradle` carry the Lynx SDK, and the {N} CLI merges
+them into the host app. iOS runs `pod install` as part of `ns build ios`; the
+plugin's Podfile also demotes a few warnings-as-errors that break Lynx 4.0.x
+under Xcode 16+/26.x and hides PrimJS from the metadata generator.
+
+## Wiring up a new app
+
+Everything Lynx-specific outside your own UI is the five steps below.
+
+1. `npm install @cross-code/ns-lynx` — a real dependency, not a dev one; the
+   {N} CLI only walks `dependencies` when it looks for plugins.
+2. `rspack.config.ts` — the `configureNativeScriptLynx(rspack)` line above.
+3. An [rspeedy](https://lynxjs.org/rspeedy) project at `<app>/lynx` whose
+   build emits `dist/main.lynx.bundle`. Keep its `engineVersion` **at or below**
+   the Lynx SDK version in the table above — it is a minimum, not a match.
+4. A build-graph edge so that rspeedy build runs before `ns build`. The guard in
+   step 2 catches a miss, it does not order the work for you.
+5. The view itself:
+
+```xml
+<Page xmlns:lynx="@cross-code/ns-lynx">
+  <lynx:LynxView src="~/lynx/main.lynx.bundle" />
+</Page>
+```
+
+`apps/ns-lynx-app` is a complete worked example, including the Nx edge for
+step 4.
 
 ## Usage
 
@@ -84,22 +129,6 @@ those with NativeScript's own meaning.
 - `updateData(data)` — push new data into the running page
 - `sendGlobalEvent(name, params)` — the page receives it via
   `useLynxGlobalEventListener(name, …)`
-
-## Producing a bundle
-
-Build the Lynx side with [rspeedy](https://lynxjs.org/rspeedy) and copy its
-output into the NativeScript app folder:
-
-```ts
-// rspack.config.ts
-rspack.Utils.addCopyRule({
-  from: 'main.lynx.bundle',
-  to: 'lynx/main.lynx.bundle',
-  context: join(appRoot, 'lynx', 'dist'),
-});
-```
-
-`apps/ns-lynx-app` is a complete worked example.
 
 ## Current scope
 
