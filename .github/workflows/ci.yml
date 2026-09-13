@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches:
+      - main
+  pull_request:
 
 permissions:
   actions: read
@@ -615,53 +616,3 @@ jobs:
             pnpm exec nx run-many -t build.android --configuration=release -p ns-wamr ns-wasm3 ns-wasm-chicory
             ls -l packages/ns-wamr/platforms/android/nativescript-wamr.aar packages/ns-wasm3/platforms/android/nativescript-wasm3.aar packages/ns-wasm-chicory/platforms/android/nativescript-chicory.aar
             pnpm exec nx run ns-wasm-test:test.android
-
-  revert-on-failure:
-    name: revert-on-failure
-    needs: [main, unit-tests, changes, wasm3-ios, wasm3-android, wamr-ios, wamr-android, wasm-test-ios, wasm-test-android]
-    if: >-
-      always()
-      && github.event_name == 'push'
-      && github.ref == 'refs/heads/main'
-      && contains(join(needs.*.result, ','), 'failure')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Revert commits from this push
-        env:
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            echo "No parent (new branch); skip revert"
-            exit 0
-          fi
-          subject=$(git log -1 --format=%s "$AFTER")
-          author=$(git log -1 --format=%an "$AFTER")
-          case "$subject" in
-            "ci: auto-revert"*) echo "Already an auto-revert; skip"; exit 0 ;;
-          esac
-          if [ "$author" = "github-actions[bot]" ]; then
-            echo "Last commit is from actions bot; skip"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          parent_count=$(git rev-list --parents -n 1 "$AFTER" | awk '{print NF}')
-          if [ "$parent_count" -gt 2 ]; then
-            git revert --no-edit -m 1 "$AFTER"
-          else
-            git revert --no-commit "$BEFORE".."$AFTER"
-            if git diff --cached --quiet; then
-              echo "Nothing to revert"
-              exit 0
-            fi
-            short=$(git rev-parse --short "$AFTER")
-            git commit -m "ci: auto-revert $short — main CI failed"
-          fi
-          git push origin HEAD:main
