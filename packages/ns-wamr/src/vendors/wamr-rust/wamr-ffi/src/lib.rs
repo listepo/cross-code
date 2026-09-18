@@ -5,6 +5,11 @@
 // Every unsafe operation inside an `unsafe fn` must still name itself, so the
 // SAFETY comments below sit on the actual dereference rather than the header.
 #![deny(unsafe_op_in_unsafe_fn)]
+// UniFFI's scaffolding (OUT_DIR/*.uniffi.rs, pulled in below) defines
+// `const UNIFFI_META_CONST_...: MetadataBuffer`, whose byte array trips
+// clippy::large_const_arrays under `-D warnings`. Allowed crate-wide: the
+// item is generated and cannot carry its own allowance.
+#![allow(clippy::large_const_arrays)]
 
 use std::ffi::{c_char, CStr, CString};
 use std::sync::{Arc, Mutex};
