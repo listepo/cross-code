@@ -1,0 +1,89 @@
+# Gated pipeline. ci, codeql, semgrep and snyk run in parallel as reusable workflows; `gate`
+# passes only when all four succeeded. Anything downstream (deploy, release, publish) must
+# `needs: gate`. Draft pull requests skip every job, the gate included, until marked ready.
+# Secrets are passed explicitly (no `secrets: inherit`): each child gets only what it uses.
+name: pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    uses: ./.github/workflows/ci.yml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    # ci.yml's jobs request these (e.g. revert-on-failure); a called workflow cannot exceed them.
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+
+  codeql:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    uses: ./.github/workflows/codeql.yml
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+
+  semgrep:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    uses: ./.github/workflows/semgrep.yml
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+
+  snyk:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    uses: ./.github/workflows/snyk.yml
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+
+  gate:
+    needs: [ci, codeql, semgrep, snyk]
+    # !cancelled(): run even when a need failed, was cancelled or skipped, so the gate reports it,
+    # but not when the whole run is cancelled (always() would hold the run and its concurrency
+    # group until a runner picks up the gate). Skipped on draft PRs like every other job, so a
+    # draft run never leaves a green `gate` check behind.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job to succeed
+        env:
+          R_CI: ${{ needs.ci.result }}
+          R_CODEQL: ${{ needs.codeql.result }}
+          R_SEMGREP: ${{ needs.semgrep.result }}
+          R_SNYK: ${{ needs.snyk.result }}
+        run: |
+          # Only `success` passes: failure, cancelled and skipped all fail the gate.
+          fail=0
+          for pair in "ci=$R_CI" "codeql=$R_CODEQL" "semgrep=$R_SEMGREP" "snyk=$R_SNYK"; do
+            name=${pair%%=*}
+            result=${pair#*=}
+            echo "$name: $result"
+            if [ "$result" != "success" ]; then
+              echo "::error title=gate::$name finished with '$result'"
+              fail=1
+            fi
+          done
+          exit "$fail"
