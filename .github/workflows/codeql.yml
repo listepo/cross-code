@@ -1,0 +1,37 @@
+# CodeQL code scanning for every language in the repo that supports `build-mode: none`;
+# results land in the Security tab. Repo default setup must stay off —
+# GitHub rejects advanced-workflow uploads while it is on.
+name: codeql
+
+on:
+  # Push to main, non-draft pull requests and the weekly schedule run this through
+  # pipeline.yml (`workflow_call`), in parallel with the other checks and behind its `gate` job.
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # `build-mode: none` for all: every language is extracted from source, so no build runs here.
+        # Not scanned: swift (no `build-mode: none` support), java-kotlin (Kotlin only, and
+        # none mode extracts Java only), ruby (only a CocoaPods Podfile, no Ruby sources), python
+        # (only vendored WAMR test scripts).
+        language: [actions, c-cpp, javascript-typescript, rust]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-and-quality
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
