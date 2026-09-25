@@ -61,9 +61,11 @@ jobs:
 
   gate:
     needs: [ci, codeql, semgrep, snyk]
-    # always(): run even when a need failed or was cancelled, so the gate reports it. Skipped on
-    # draft PRs (like every other job) so a draft run never leaves a green `gate` check behind.
-    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    # !cancelled(): run even when a need failed, was cancelled or skipped, so the gate reports it,
+    # but not when the whole run is cancelled (always() would hold the run and its concurrency
+    # group until a runner picks up the gate). Skipped on draft PRs like every other job, so a
+    # draft run never leaves a green `gate` check behind.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
       - name: Require every job to succeed
