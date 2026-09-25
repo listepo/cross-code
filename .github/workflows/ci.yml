@@ -4,6 +4,9 @@ on:
   # Push to main, non-draft pull requests and the weekly schedule run this through
   # pipeline.yml (`workflow_call`), in parallel with the other checks and behind its `gate` job.
   workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        required: false
   workflow_dispatch:
 
 permissions:

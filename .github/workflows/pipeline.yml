@@ -1,6 +1,7 @@
 # Gated pipeline. ci, codeql, semgrep and snyk run in parallel as reusable workflows; `gate`
 # passes only when all four succeeded. Anything downstream (deploy, release, publish) must
-# `needs: gate`. Draft pull requests skip every job (and the gate passes) until marked ready.
+# `needs: gate`. Draft pull requests skip every job, the gate included, until marked ready.
+# Secrets are passed explicitly (no `secrets: inherit`): each child gets only what it uses.
 name: pipeline
 
 on:
@@ -24,7 +25,8 @@ jobs:
   ci:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     uses: ./.github/workflows/ci.yml
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     # ci.yml's jobs request these (e.g. revert-on-failure); a called workflow cannot exceed them.
     permissions:
       actions: read
@@ -34,7 +36,6 @@ jobs:
   codeql:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     uses: ./.github/workflows/codeql.yml
-    secrets: inherit
     permissions:
       security-events: write
       contents: read
@@ -43,7 +44,6 @@ jobs:
   semgrep:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     uses: ./.github/workflows/semgrep.yml
-    secrets: inherit
     permissions:
       security-events: write
       contents: read
@@ -52,7 +52,8 @@ jobs:
   snyk:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     uses: ./.github/workflows/snyk.yml
-    secrets: inherit
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
     permissions:
       security-events: write
       contents: read
@@ -60,22 +61,19 @@ jobs:
 
   gate:
     needs: [ci, codeql, semgrep, snyk]
-    if: always()
+    # always(): run even when a need failed or was cancelled, so the gate reports it. Skipped on
+    # draft PRs (like every other job) so a draft run never leaves a green `gate` check behind.
+    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     runs-on: ubuntu-latest
     steps:
       - name: Require every job to succeed
         env:
-          DRAFT_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
           R_CI: ${{ needs.ci.result }}
           R_CODEQL: ${{ needs.codeql.result }}
           R_SEMGREP: ${{ needs.semgrep.result }}
           R_SNYK: ${{ needs.snyk.result }}
         run: |
-          if [ "$DRAFT_PR" = "true" ]; then
-            echo "::notice title=gate::Draft pull request: pipeline jobs skipped until ready for review."
-            exit 0
-          fi
-          # Skipped counts as a failure here: outside a draft PR every job must actually run.
+          # Only `success` passes: failure, cancelled and skipped all fail the gate.
           fail=0
           for pair in "ci=$R_CI" "codeql=$R_CODEQL" "semgrep=$R_SEMGREP" "snyk=$R_SNYK"; do
             name=${pair%%=*}

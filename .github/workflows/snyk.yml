@@ -13,6 +13,9 @@ name: snyk
 
 on:
   workflow_call:
+    secrets:
+      SNYK_TOKEN:
+        required: false
   workflow_dispatch:
 
 permissions:
