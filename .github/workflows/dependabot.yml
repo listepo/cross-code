@@ -1,0 +1,92 @@
+# Dependabot pull requests: run the repository's full CI on them, then merge
+# patch-level updates only, and only when that CI run is green.
+#
+# How the gate works:
+# - `ci` calls .github/workflows/ci.yml (its `workflow_call` trigger), so a
+#   Dependabot pull request runs exactly the jobs any other CI run does.
+# - `automerge` needs `ci`. A failed, cancelled or timed-out CI job fails `ci`,
+#   and a job whose needs did not all succeed is skipped, so nothing merges.
+# - Only `version-update:semver-patch` (version or security update) is merged:
+#   a plain merge commit, pinned to the head commit CI tested. Minor and major
+#   updates get the `needs-review` label and wait for a human.
+# - GitHub's auto-merge (`gh pr merge --auto`) is never used: with no branch
+#   protection on main it merges at once, without waiting for any check.
+name: Dependabot
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: dependabot-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    # Dependabot's own pull requests only, from a branch of this repository.
+    if: >-
+      github.actor == 'dependabot[bot]'
+      && github.event.pull_request.user.login == 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/ci.yml
+    # GitHub validates these against every job in ci.yml, including ones that
+    # never run for a pull request (such as a push-only revert job). ci.yml's
+    # workflow-level `permissions` still caps its build and test jobs.
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+
+  automerge:
+    name: Merge patch update
+    needs: [ci]
+    if: >-
+      success()
+      && github.actor == 'dependabot[bot]'
+      && github.event.pull_request.user.login == 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Refuse if another CI run on this commit did not pass
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch'
+        run: |
+          # ci.yml may also run on the pull request by itself; a red, cancelled
+          # or timed-out run there blocks the merge too. Runs still in progress
+          # are not counted.
+          bad=$(gh run list --workflow ci.yml --commit "$HEAD_SHA" \
+            --json status,conclusion \
+            --jq '[.[] | select(.status == "completed" and .conclusion != "success" and .conclusion != "skipped")] | length')
+          if [ "$bad" != "0" ]; then
+            echo "::error::$bad ci.yml run(s) on $HEAD_SHA did not pass; not merging."
+            exit 1
+          fi
+
+      - name: Merge patch update
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch'
+        run: gh pr merge "$PR_URL" --merge --match-head-commit "$HEAD_SHA"
+
+      - name: Label minor or major update for review
+        if: steps.meta.outputs.update-type != 'version-update:semver-patch'
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+        run: |
+          echo "Update type '$UPDATE_TYPE' is not a patch update; leaving it for manual review."
+          gh pr edit "$PR_URL" --add-label needs-review
