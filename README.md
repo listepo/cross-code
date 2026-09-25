@@ -1,5 +1,7 @@
 # cross-code
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=listepo_cross-code&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=listepo_cross-code) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=listepo_cross-code&metric=coverage)](https://sonarcloud.io/component_measures?id=listepo_cross-code&metric=coverage) [![Tests](https://img.shields.io/sonar/tests/listepo_cross-code?server=https%3A%2F%2Fsonarcloud.io&compact_message)](https://sonarcloud.io/component_measures?id=listepo_cross-code&metric=tests)
+
 An Nx monorepo for running WebAssembly on [NativeScript](https://nativescript.org) —
 WASM runtime plugins built on a shared TypeScript foundation (wire protocol,
 adapter interfaces, base Runtime/Module/Function classes):
