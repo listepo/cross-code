@@ -9,6 +9,10 @@
 # - Only `version-update:semver-patch` (version or security update) is merged:
 #   a plain merge commit, pinned to the head commit CI tested. Minor and major
 #   updates get the `needs-review` label and wait for a human.
+# - Notifications: @listepo becomes a participant (assignee plus a mention)
+#   only on pull requests that need him: a major update (his review is also
+#   requested) or a failed CI or merge job. Patch and minor pull requests do
+#   not assign or mention anyone.
 # - GitHub's auto-merge (`gh pr merge --auto`) is never used: with no branch
 #   protection on main it merges at once, without waiting for any check.
 name: Dependabot
@@ -90,3 +94,49 @@ jobs:
         run: |
           echo "Update type '$UPDATE_TYPE' is not a patch update; leaving it for manual review."
           gh pr edit "$PR_URL" --add-label needs-review
+
+      - name: Flag major update for @listepo
+        if: steps.meta.outputs.update-type == 'version-update:semver-major'
+        env:
+          DEPS: ${{ steps.meta.outputs.dependency-names }}
+          PREV: ${{ steps.meta.outputs.previous-version }}
+          NEW: ${{ steps.meta.outputs.new-version }}
+        run: |
+          gh pr edit "$PR_URL" --add-assignee listepo \
+            || echo "::warning::Could not assign listepo."
+          gh pr edit "$PR_URL" --add-reviewer listepo \
+            || echo "::warning::Could not request a review from listepo."
+          gh pr comment "$PR_URL" --body "@listepo Major update of \`$DEPS\` ($PREV -> $NEW); CI is green. It is never auto-merged: please review and merge (or close) it."
+
+  notify-failure:
+    name: Notify on failure
+    needs: [ci, automerge]
+    # failure() is true when `ci` or `automerge` failed; a run cancelled by a
+    # newer push is not a failure and stays silent.
+    if: >-
+      failure()
+      && github.actor == 'dependabot[bot]'
+      && github.event.pull_request.user.login == 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Assign and mention @listepo with the failing jobs
+        run: |
+          # The backticks inside the jq program are Markdown, not shell.
+          # shellcheck disable=SC2016
+          failed=$(gh run view "$GITHUB_RUN_ID" --json jobs \
+            --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled") | "- `" + .name + "` (" + .conclusion + ")"] | join("\n")')
+          [ -n "$failed" ] || failed="- (could not list the failing jobs; see the run)"
+          gh pr edit "$PR_URL" --add-assignee listepo \
+            || echo "::warning::Could not assign listepo."
+          printf '@listepo CI or the merge step failed on this Dependabot pull request, so it was not merged.\n\nFailing jobs:\n%s\n\nRun: %s\n' "$failed" "$RUN_URL" > comment.md
+          gh pr comment "$PR_URL" --body-file comment.md
