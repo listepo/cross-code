@@ -7,8 +7,9 @@
 # - `automerge` needs `ci`. A failed, cancelled or timed-out CI job fails `ci`,
 #   and a job whose needs did not all succeed is skipped, so nothing merges.
 # - Only `version-update:semver-patch` (version or security update) is merged:
-#   a plain merge commit, pinned to the head commit CI tested. Minor and major
-#   updates get the `needs-review` label and wait for a human.
+#   a squash merge (the repository allows only squash), pinned to the head
+#   commit CI tested. Minor and major updates get the `needs-review` label
+#   and wait for a human.
 # - Notifications: @listepo becomes a participant (assignee plus a mention)
 #   only on pull requests that need him: a major update (his review is also
 #   requested) or a failed CI or merge job. Patch and minor pull requests do
@@ -85,7 +86,7 @@ jobs:
 
       - name: Merge patch update
         if: steps.meta.outputs.update-type == 'version-update:semver-patch'
-        run: gh pr merge "$PR_URL" --merge --match-head-commit "$HEAD_SHA"
+        run: gh pr merge "$PR_URL" --squash --match-head-commit "$HEAD_SHA"
 
       - name: Label minor or major update for review
         if: steps.meta.outputs.update-type != 'version-update:semver-patch'
