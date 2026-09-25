@@ -1,0 +1,106 @@
+# Weekly dependency pull requests. .github/workflows/dependabot.yml runs the
+# full CI on each one and merges a patch update once that run is green; minor
+# and major updates are labelled `needs-review` and wait for a human.
+#
+# Patch and minor updates arrive as separate grouped pull requests per
+# ecosystem, so a patch-only one can merge on its own; a major update arrives
+# alone. Messages are conventional commits (`chore(deps): …`).
+version: 2
+updates:
+  # The pnpm workspace (packages/* and apps/rspack-test-app) plus the three
+  # apps that keep their own install and lockfile outside it.
+  - package-ecosystem: npm
+    directories:
+      - /
+      - /apps/ns-lynx-app
+      - /apps/ns-wasm-test
+      - /apps/ns-wry-app
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      npm-patch:
+        update-types: [patch]
+      npm-minor:
+        update-types: [minor]
+
+  # The Rust workspaces behind the native runtimes.
+  - package-ecosystem: cargo
+    directories:
+      - /packages/ns-wamr/src/vendors/wamr-rust
+      - /packages/ns-wasm3/src/vendors/wasm3-rust
+      - /packages/ns-wry/src/vendors/wry-rust
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      cargo-patch:
+        update-types: [patch]
+      cargo-minor:
+        update-types: [minor]
+
+  # The Android libraries (each directory has its own settings.gradle.kts).
+  - package-ecosystem: gradle
+    directories:
+      - /packages/ns-wamr/platforms/android/wamr-android
+      - /packages/ns-wamr/src/vendors/wamr-kotlin
+      - /packages/ns-wasm-chicory/platforms/android/chicory-android
+      - /packages/ns-wasm3/platforms/android/wasm3-android
+      - /packages/ns-wasm3/src/vendors/wasm3-kotlin
+      - /packages/ns-wry/platforms/android/nsc-wry-android
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      gradle-patch:
+        update-types: [patch]
+      gradle-minor:
+        update-types: [minor]
+
+  # The one Swift package with resolved remote dependencies.
+  - package-ecosystem: swift
+    directory: /packages/ns-wasm-kit-runtime/platforms/ios/NSWasmKit
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      swift-patch:
+        update-types: [patch]
+      swift-minor:
+        update-types: [minor]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions-patch:
+        update-types: [patch]
+      actions:
+        update-types: [minor, major]
