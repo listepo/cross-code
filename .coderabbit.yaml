@@ -1,3 +1,24 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit speaks only through review findings: no summary, walkthrough extras, poem, status
+# or fortune comments, no unprompted chat replies. Reviews, tools and their findings are
+# unchanged; actionable inline findings become issues (.github/workflows/coderabbit-issues.yml
+# where Actions run).
 reviews:
   auto_review:
     enabled: false
+  high_level_summary: false
+  review_status: false
+  in_progress_fortune: false
+  poem: false
+  collapse_walkthrough: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+chat:
+  auto_reply: false
+  art: false
