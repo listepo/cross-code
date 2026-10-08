@@ -1,0 +1,70 @@
+# Snyk Open Source dependency scan with the free Snyk CLI. Results land in the Security tab
+# (Code scanning, category `snyk`); findings never fail the job. Runs from pipeline.yml.
+#
+# Needs the repo secret SNYK_TOKEN. Without it every step is skipped with a notice and the job
+# succeeds, so the pipeline gate stays green until the token is added.
+#
+# Ecosystems in this repo: Cargo (Rust), pnpm/npm workspaces, Gradle Kotlin DSL (Android), Swift Package Manager (Package.resolved), CocoaPods (Podfile), pip (requirements.txt), Dockerfiles.
+# pnpm/npm, SwiftPM and Gradle are attempted; pip needs its packages installed and CocoaPods needs Podfile.lock, so those may show as unresolved. Dockerfiles are not scanned (`snyk container test` needs built images).
+# Rust/Cargo: Snyk documents that `snyk test` / `snyk monitor` do not support Cargo projects
+# (Rust is limited to `snyk sbom test` on a CycloneDX/SPDX SBOM, and API use needs a paid plan),
+# so `--all-projects` does not cover Cargo.lock here.
+name: snyk
+
+on:
+  workflow_call:
+    secrets:
+      SNYK_TOKEN:
+        required: false
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - name: Check for SNYK_TOKEN
+        id: token
+        run: |
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "::notice title=snyk skipped::SNYK_TOKEN secret is not set; Snyk scan skipped."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.token.outputs.present == 'true'
+      - uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # v1.0.0
+        if: steps.token.outputs.present == 'true'
+      # Exit 1 = vulnerabilities found (reported, not enforced); 2/3 = scan error or no
+      # supported manifest (warned, not enforced).
+      - name: Snyk test
+        if: steps.token.outputs.present == 'true'
+        run: |
+          code=0
+          snyk test --all-projects --sarif-file-output=snyk.sarif || code=$?
+          case "$code" in
+            0) ;;
+            1) echo "::notice title=snyk::Vulnerable dependencies found; see Security > Code scanning (category snyk)." ;;
+            *) echo "::warning title=snyk::snyk test exited $code (scan error or no supported project); not failing the job." ;;
+          esac
+      - name: Snyk monitor
+        if: steps.token.outputs.present == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          code=0
+          snyk monitor --all-projects || code=$?
+          if [ "$code" != 0 ]; then echo "::warning title=snyk::snyk monitor exited $code"; fi
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        if: steps.token.outputs.present == 'true' && hashFiles('snyk.sarif') != ''
+        with:
+          sarif_file: snyk.sarif
+          category: snyk
