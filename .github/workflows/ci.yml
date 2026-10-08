@@ -2,6 +2,9 @@ name: CI
 
 on:
   pull_request:
+  # Dependabot pull requests: dependabot.yml calls this workflow so they get the
+  # same jobs before its patch-only auto-merge.
+  workflow_call:
 
 permissions:
   actions: read
