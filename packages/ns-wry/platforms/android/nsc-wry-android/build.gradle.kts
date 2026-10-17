@@ -4,7 +4,7 @@ plugins {
     // AGP 9 has built-in Kotlin support, so :library needs no Kotlin plugin —
     // only the pure-JVM :hosttest module does.
     id("com.android.library") version "9.3.1" apply false
-    id("org.jetbrains.kotlin.jvm") version "2.4.10" apply false
+    id("org.jetbrains.kotlin.jvm") version "2.4.21" apply false
 
     // Kotlin linting for the hand-written wrapper + hosttest sources.
     id("io.gitlab.arturbosch.detekt") version "1.23.8" apply false
