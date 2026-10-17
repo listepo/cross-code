@@ -11,4 +11,4 @@ name = "wamr_jni"
 
 [dependencies]
 wamr-sys = { path = "../wamr-sys" }
-jni = { version = "0.21" }
+jni = { version = "0.22" }
