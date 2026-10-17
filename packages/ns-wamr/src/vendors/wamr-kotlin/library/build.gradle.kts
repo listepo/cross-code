@@ -36,5 +36,5 @@ kotlin {
 
 dependencies {
     // JNA is required by the UniFFI-generated bindings
-    api("net.java.dev.jna:jna:5.17.0@aar")
+    api("net.java.dev.jna:jna:5.19.1@aar")
 }
