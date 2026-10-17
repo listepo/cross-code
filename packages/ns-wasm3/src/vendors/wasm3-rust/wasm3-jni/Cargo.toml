@@ -11,4 +11,4 @@ name = "wasm3_jni"
 
 [dependencies]
 wasm3-sys = { path = "../wasm3-sys" }
-jni = { version = "0.21" }
+jni = { version = "0.22" }
