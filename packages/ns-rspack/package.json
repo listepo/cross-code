@@ -26,7 +26,7 @@
         "@rspack/core": "^2.1.9",
         "css": "^3.0.0",
         "jiti": "^2.4.2",
-        "postcss": "^8.5.25",
+        "postcss": "^8.5.29",
         "postcss-import": "^16.1.1",
         "postcss-loader": "^8.2.1",
         "rspack-chain": "^2.2.0",
