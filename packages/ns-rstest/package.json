@@ -72,7 +72,7 @@
   },
   "dependencies": {
     "babel-loader": "^9.2.1",
-    "babel-plugin-istanbul": "^7.0.1",
+    "babel-plugin-istanbul": "^8.0.0",
     "tslib": "^2.3.0",
     "ws": "^8.18.3"
   },
