@@ -29,18 +29,18 @@
     "@cross-code/ns-wasm-fixture": "workspace:@cross-code/ns-wasm-fixture@*",
     "@cross-code/ns-wasm-kit-runtime": "workspace:@cross-code/ns-wasm-kit-runtime@*",
     "@cross-code/ns-wasm3": "workspace:@cross-code/ns-wasm3@*",
-    "@nativescript/core": "~9.0.0",
+    "@nativescript/core": "~9.1.3",
     "@nativescript/theme": "^3.1.0",
     "@valor/nativescript-websockets": "2.0.3"
   },
   "devDependencies": {
-    "@nativescript/android": "9.0.5",
-    "@nativescript/ios": "9.0.3",
+    "@nativescript/android": "9.1.1",
+    "@nativescript/ios": "9.1.0",
     "@nativescript/rspack": "workspace:@cross-code/ns-rspack@*",
-    "@nativescript/types": "~9.0.0",
-    "@nativescript/types-android": "9.0.0",
-    "@nativescript/types-ios": "9.0.0",
-    "@rstest/core": "0.11.6",
+    "@nativescript/types": "~9.1.4",
+    "@nativescript/types-android": "9.1.1",
+    "@nativescript/types-ios": "9.1.3",
+    "@rstest/core": "0.12.3",
     "typescript": "~6.0.0"
   }
 }

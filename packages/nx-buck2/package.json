@@ -46,7 +46,7 @@
     }
   },
   "dependencies": {
-    "@nx/devkit": ">=21.0.0",
+    "@nx/devkit": ">=23.3.0",
     "zx": "^8.8.5"
   },
   "files": ["dist", "!**/*.tsbuildinfo", "generators.json", "executors.json"],
