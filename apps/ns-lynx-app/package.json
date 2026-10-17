@@ -35,6 +35,6 @@
     "@nativescript/types-android": "9.0.0",
     "@nativescript/types-ios": "9.0.0",
     "@rstest/core": "0.11.6",
-    "typescript": "~6.0.0"
+    "typescript": "~7.0.2"
   }
 }
