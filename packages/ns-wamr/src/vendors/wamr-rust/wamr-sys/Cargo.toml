@@ -9,5 +9,5 @@ description = "Raw Rust FFI bindings to WAMR (WebAssembly Micro Runtime) — gen
 regenerate = []
 
 [build-dependencies]
-bindgen = "0.72"
+bindgen = "0.73"
 cc = "1"
