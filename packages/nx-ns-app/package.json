@@ -10,7 +10,7 @@
     "name": "nx-ns-app"
   },
   "dependencies": {
-    "@nx/devkit": ">=21.0.0"
+    "@nx/devkit": ">=23.3.0"
   },
   "scripts": {
     "clean": "rm -rf executors generators index.js index.d.ts",
