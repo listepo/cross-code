@@ -19,7 +19,7 @@ dependencies {
     // On the test host, libwamr_jni.so/dylib is loaded from the cargo build dir.
 
     // JUnit 6 (Jupiter)
-    testImplementation(platform("org.junit:junit-bom:6.1.2"))
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation(kotlin("test"))
