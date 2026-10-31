@@ -17,6 +17,10 @@ concurrency:
 
 jobs:
   main:
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -39,6 +43,11 @@ jobs:
       # This enables task distribution via Nx Cloud.
       # Learn more at https://nx.dev/docs/reference/nx-cloud-cli#npx-nxcloud-startcirun
       - run: pnpm exec nx start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="e2e"
+      - name: Cancel the run on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
       # Prepend any command with "nx record --" to record its logs to Nx Cloud
       # - run: pnpm exec nx record -- pnpm exec nx format:check --base="remotes/origin/main"
@@ -56,6 +65,10 @@ jobs:
   # The test app's own suite is not here — it runs on a simulator/emulator, in
   # the wasm-test-ios and wasm-test-android jobs below.
   unit-tests:
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -171,11 +184,20 @@ jobs:
             echo "::error::globals.wasm is stale — run 'pnpm run build.wasm' in packages/ns-wasm-fixture and commit the result."
             exit 1
           }
+      - name: Cancel the run on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # The ns-wasm3 native suites below need a macOS runner / an Android
   # SDK, so they only run when the plugin or this workflow changed. Fails open:
   # any detection problem runs them anyway.
   changes:
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
     runs-on: ubuntu-latest
     outputs:
       wasm3: ${{ steps.filter.outputs.wasm3 }}
@@ -224,11 +246,20 @@ jobs:
           else
             echo "app=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Cancel the run on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # iOS: compiles the vendored wasm3 C sources through SwiftPM and runs the
   # XCTest suite, which exercises the interpreter natively on macOS.
   wasm3-ios:
-    needs: changes
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
+    needs: [changes, unit-tests]
     if: needs.changes.outputs.wasm3 == 'true'
     runs-on: macos-latest
     steps:
@@ -273,10 +304,19 @@ jobs:
           xcodebuild build \
             -scheme NSCWasm3 \
             -destination 'generic/platform=iOS'
+      - name: Cancel the run on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # Android: builds the wasm3-jni Rust crate via cargo and runs the Kotlin
   # wrapper's JUnit hosttest suite — no emulator needed.
   wasm3-android:
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
     needs: changes
     if: needs.changes.outputs.wasm3 == 'true'
     runs-on: ubuntu-latest
@@ -324,6 +364,11 @@ jobs:
         with:
           name: wasm3-android-test-report
           path: packages/ns-wasm3/platforms/android/wasm3-android/hosttest/build/reports/tests/test
+      - name: Cancel the run on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # The test app's Vitest suite, on a simulator and an emulator. This is the only
   # place the plugin's TypeScript adapters run against the real native layer —
@@ -332,7 +377,11 @@ jobs:
   # iOS: compiles the vendored WAMR C sources through SwiftPM and runs the
   # XCTest suite, which exercises the runtime natively on macOS.
   wamr-ios:
-    needs: changes
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
+    needs: [changes, unit-tests]
     if: needs.changes.outputs.wamr == 'true'
     runs-on: macos-latest
     steps:
@@ -397,10 +446,19 @@ jobs:
           xcodebuild build \
             -scheme NSCWamr \
             -destination 'generic/platform=iOS'
+      - name: Cancel the run on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # Android: builds the wamr-jni Rust crate via cargo and runs the Kotlin
   # wrapper's JUnit hosttest suite — no emulator.
   wamr-android:
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
     needs: changes
     if: needs.changes.outputs.wamr == 'true'
     runs-on: ubuntu-latest
@@ -465,13 +523,22 @@ jobs:
         with:
           name: wamr-android-test-report
           path: packages/ns-wamr/platforms/android/wamr-android/hosttest/build/reports/tests/test
+      - name: Cancel the run on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # The test app's Vitest suite, on a simulator and an emulator. This is the only
   # place the plugin's TypeScript adapters run against the real native layer —
   # the NSData/NSArray marshalling on iOS, the signed byte[] handling on Android
   # — so it covers what neither the Swift/Kotlin suites nor a Node runner can.
   wasm-test-ios:
-    needs: changes
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
+    needs: [changes, unit-tests]
     if: needs.changes.outputs.app == 'true'
     runs-on: macos-latest
     steps:
@@ -537,8 +604,17 @@ jobs:
         env:
           LANG: en_US.UTF-8
         run: pnpm exec nx run ns-wasm-test:test.ios
+      - name: Cancel the run on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   wasm-test-android:
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
     needs: changes
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
@@ -616,3 +692,8 @@ jobs:
             pnpm exec nx run-many -t build.android --configuration=release -p ns-wamr ns-wasm3 ns-wasm-chicory
             ls -l packages/ns-wamr/platforms/android/nativescript-wamr.aar packages/ns-wasm3/platforms/android/nativescript-wasm3.aar packages/ns-wasm-chicory/platforms/android/nativescript-chicory.aar
             pnpm exec nx run ns-wasm-test:test.android
+      - name: Cancel the run on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}

@@ -42,7 +42,7 @@ jobs:
     # never run for a pull request (such as a push-only revert job). ci.yml's
     # workflow-level `permissions` still caps its build and test jobs.
     permissions:
-      actions: read
+      actions: write # ci.yml jobs cancel the run on the first failure
       contents: read
       pull-requests: write
 
